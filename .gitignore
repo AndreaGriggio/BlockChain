@@ -1,0 +1,20 @@
+# Build output
+*.o
+*.out
+*.exe
+code/blockchain
+
+# CLion / CMake
+.idea/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+
+# Project assignment files, not part of our code
+2026-project-4.pdf
+2026-project-4.tar.gz
+2026-project-4/
+
+# OS/editor files
+.DS_Store
+*.log
