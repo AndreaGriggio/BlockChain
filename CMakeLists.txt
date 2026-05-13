@@ -5,4 +5,7 @@ set(CMAKE_C_STANDARD 11)
 
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS src/*.c)
 
-add_executable(Progetto ${SOURCES})
+add_executable(Progetto ${SOURCES}
+        code/src/main.c)
+
+
