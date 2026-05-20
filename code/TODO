@@ -1,10 +1,8 @@
 ### TODO List
-#### Cose da fare per il progetto
-1. Programmare gli incontri
-2. Definire ciò che bisogno sapere per gli incontri
-
-### Incontro del 13/05/2026
-| Incontro di allineamento
-- Obbiettivo dell'incontro :
-    Definire delle strategie per la progettazione
-    Guardare il pdf definire consegne, punti critici
+#### Cose da vedere per il prossimo incontro
+1. Comunicazione inter processo con Socket
+2. Comunicazione tra thread all'interno dello stesso processo
+3. Ripasso generale C (struct, allocazione di memoria, casting implicito o esplicito, puntatori,inclusione di file in cartelle non comuni,lettura da file con formato csv)
+4. Copia profonda di elementi in memoria
+5. Libreria delle liste come utilizzarle
+6. Leggere documentazione per la libreria queue.h
