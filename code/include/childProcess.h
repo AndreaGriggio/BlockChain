@@ -36,14 +36,30 @@ int childProcessInit(ChildProcess* child_ptr,pid_t pid,int id , Ruolo r);
 
 /**
  *
- * @param child Puntat
+ * @param child_ptr Puntatore al processo figlio
  */
 void childProcessDestroy(ChildProcess* child_ptr);
 
-const char* getCpToString(const ChildProcess* c);
-int getCpInt(const ChildProcess* c);
-pid_t getCpPid(const ChildProcess* c);
+/**
+ *CHI CHIAMA il ToString deve fare free quando finisce di utilizzare la stringa per la stampa
+ * @param child_ptr  Child processo ptr
+ * @return puntatore al buffer della stringa
+ */
+const char* getCpToString(const ChildProcess* child_ptr);
+
+/**
+ *
+ * @param child_ptr
+ * @return intero id del processo figlio
+ */
+int getCpId(const ChildProcess* child_ptr);
 
 
+/**
+ *
+ * @param child_ptr
+ * @return pid del processo figlio
+ */
+pid_t getCpPid(const ChildProcess* child_ptr);
 
 #endif //CHILDPROCESS_H

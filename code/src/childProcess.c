@@ -25,9 +25,9 @@ void childProcessDestroy(ChildProcess *child_ptr) {
     free(child_ptr);
 }
 
-int getCpToString(const ChildProcess *child_ptr, char *buffer, size_t buffer_size) {
-    if (child_ptr == NULL || buffer == NULL || buffer_size == 0) {
-        return 1;
+const char* getCpToString(const ChildProcess *child_ptr) {
+    if (child_ptr == NULL ) {
+        return NULL;
     }
     const char *role_str;
 
@@ -38,12 +38,30 @@ int getCpToString(const ChildProcess *child_ptr, char *buffer, size_t buffer_siz
         default:role_str = "No Role";break;
     }
 
+    int buffer_size = snprintf(NULL,
+                         0,
+                         "ChildProcess { pid: %d, id: %d, role: %s }",
+                         child_ptr->pid,
+                         child_ptr->id,
+                         role_str);
+    if (buffer_size < 0) return NULL;
+
+    char* buffer = malloc(sizeof(char)*(buffer_size+1));
+    if (buffer == NULL) return NULL;
     snprintf(buffer,
              buffer_size,
-             "ChildProcess { pid: %d, id: %d, role: %s }",
+             "ChildProcess{ pird : %d, id: %d, role: %s }",
              child_ptr->pid,
              child_ptr->id,
-             role_str);
-
-    return 0;
+             role_str
+             );
+    return buffer;
 }
+
+int getCpId(const ChildProcess* child_ptr) {
+    return child_ptr->id;
+}
+pid_t getCpPid(const ChildProcess* child_ptr) {
+    return child_ptr->pid;
+}
+

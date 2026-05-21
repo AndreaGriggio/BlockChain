@@ -22,6 +22,14 @@ typedef struct {
     char strings[MAX_TX_PER_BLOCK][MAX_TX_SIZE];
 } TxList;
 
+int blockInit(Block *b, const Block *prev, const TxList *txs);
+int blockGetmerkle(Block *b);
+int blockGethash(const Block *b, char out_hash[65]);
+int blockValidate(const Block *b, const Block *prev);
+int blockToCsv(const Block *b, char *buffer, size_t size);
+int blockFromCsv(Block *b, const char *line);
+
+
 int pack_transactions(Block *b, const TxList *list);
 int unpack_transactions(Block *b, const TxList *list);
 
