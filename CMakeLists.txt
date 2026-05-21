@@ -5,7 +5,7 @@ set(CMAKE_C_STANDARD 11)
 
 add_executable(Gonzato_Luongo_Griggio ${SOURCES}
         code/src/main.c
-        code/include/blocco.h
+        code/include/block.h
         code/include/miner.h
         code/include/childProcess.h
         code/src/childProcess.c)
