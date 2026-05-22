@@ -2,11 +2,6 @@
 #include <string.h>
 #include "block.h"
 
-#define HASH_HEX_SIZE 65        // 64 caratteri hex + '\0'
-#define MAX_BLOCK_TXS_BUF 4096  // dimensione massima buffer transazioni
-#define MAX_TX_PER_BLOCK 30     // Numero massimo di transazioni per blocco
-#define MAX_TX_SIZE 128         // Dimensione massima di una singola transazione
-
 
 //funzione per impacchettare le transazioni
 int pack_transactions(Block *b, const TxList *list) {
@@ -20,7 +15,7 @@ int pack_transactions(Block *b, const TxList *list) {
     for (int i = 1; i < list->count; i++) {
         //verifico spazio libero nel buffer
         size_t current_len = strlen(b->transactions);
-        size_t needed_space = strlen(list->strings[i] + 2);   // +2 per i ::
+        size_t needed_space = strlen(list->strings[i])+2;   // +2 per i ::
 
         if (current_len + needed_space >= MAX_BLOCK_TXS_BUF) {
             return -1;
@@ -33,7 +28,7 @@ int pack_transactions(Block *b, const TxList *list) {
 }
 
 //funzione per de-impacchettare le transazioni
-int unpack_transactions(Block *b, const TxList *list) {
+int unpack_transactions(TxList *list, const Block *b) {
     list->count = 0;
     memset(list->strings, 0, sizeof(list->strings));
 
@@ -48,13 +43,11 @@ int unpack_transactions(Block *b, const TxList *list) {
         if (strlen(token) > 0) { // Salta i token vuoti generati dal doppio dei punti ":"
             if (list->count >= MAX_TX_PER_BLOCK) return -1; // Limite raggiunto
 
-            strncpy(list->strings[(int)list->count], token, MAX_TX_SIZE - 1);
+            strncpy(list->strings[list->count], token, MAX_TX_SIZE - 1);
+            list->strings[list->count][MAX_TX_SIZE - 1] = '\0';
             list->count++;
         }
         token = strtok_r(NULL, ":", &saveptr);
     }
-}
-
-int main(void){
     return 0;
 }

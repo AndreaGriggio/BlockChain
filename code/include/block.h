@@ -18,7 +18,7 @@ typedef struct {
 }Block;
 
 typedef struct {
-    char count;
+    int count;
     char strings[MAX_TX_PER_BLOCK][MAX_TX_SIZE];
 } TxList;
 
@@ -31,7 +31,7 @@ int blockFromCsv(Block *b, const char *line);
 
 
 int pack_transactions(Block *b, const TxList *list);
-int unpack_transactions(Block *b, const TxList *list);
+int unpack_transactions(TxList *list, const Block *b);
 
 
 #endif //BLOCCO_H
