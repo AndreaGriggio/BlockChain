@@ -1,18 +1,20 @@
-#ifndef BLOCCO_H
-#define BLOCCO_H
+#ifndef BLOCK_H
+#define BLOCK_H
 #include <stdio.h>
 #include <sys/types.h>
 
-#define HASH_HEX_SIZE 65        //64 caratteri hex + '\0'
-#define MAX_BLOCK_TXS_BUF 4096
+#define HASH_HEX_SIZE 6        //64 caratteri hex + '\0'
+#define MERKLE_ROOT_HEX_SIZE 64
+#define MAX_BLOCK_TXS_BUF 4096  // dimensione massima buffer transazioni
 #define MAX_TX_PER_BLOCK 30    // Numero massimo di transazioni per blocco
 #define MAX_TX_SIZE 128         // Dimensione massima di una singola transazione
+#define UINT64_TO_CHAR_SIZE 16
 
 typedef struct {
     u_int64_t index;
     u_int64_t timestamp;
-    char prev_hash[HASH_HEX_SIZE];
-    char merkle_root[HASH_HEX_SIZE];
+    char prev_hash[HASH_HEX_SIZE+1];
+    char merkle_root[MERKLE_ROOT_HEX_SIZE+1];
     u_int64_t nonce;
     char transactions[MAX_BLOCK_TXS_BUF];
 }Block;
@@ -22,16 +24,29 @@ typedef struct {
     char strings[MAX_TX_PER_BLOCK][MAX_TX_SIZE];
 } TxList;
 
-int blockInit(Block *b, const Block *prev, const TxList *txs);
-int blockGetmerkle(Block *b);
-int blockGethash(const Block *b, char out_hash[65]);
-int blockValidate(const Block *b, const Block *prev);
-int blockToCsv(const Block *b, char *buffer, size_t size);
-int blockFromCsv(Block *b, const char *line);
+/**
+ * Alloca memoria per un blocco
+ * @return block_ptr
+ */
+Block* blockCreate();
+/**
+ *
+ * @param block_ptr puntatore al blocco
+ * @param prev blocco precedente
+ * @param txs lista di transazioni
+ * @return stato dell'operazione
+ */
+int blockInit(Block *block_ptr, const u_int64_t timestamp, const Block *prev, const TxList *txs);
+int blockGetmerkle(Block *block_ptr);
+int blockGetHash(const Block *block_ptr, char out_hash[65]);
+int blockValidate(const Block *block_ptr, const Block *prev);
+int blockToCsv(const Block *block_ptr, char *buffer, size_t size);
+int blockFromCsv(Block *block_ptr, const char *line);
+void blockDestroy(Block* block_ptr);
 
 
-int pack_transactions(Block *b, const TxList *list);
-int unpack_transactions(Block *b, const TxList *list);
+int pack_transactions(Block *block_ptr, const TxList *list);
+int unpack_transactions(Block *block_ptr, const TxList *list);
 
 
-#endif //BLOCCO_H
+#endif //BLOCK_H

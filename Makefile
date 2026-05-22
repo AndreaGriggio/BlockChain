@@ -129,6 +129,30 @@ Gonzato_Luongo_Griggio/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Gonzato_Luongo_Griggio.dir/build.make CMakeFiles/Gonzato_Luongo_Griggio.dir/build
 .PHONY : Gonzato_Luongo_Griggio/fast
 
+code/src/block.o: code/src/block.c.o
+.PHONY : code/src/block.o
+
+# target to build an object file
+code/src/block.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Gonzato_Luongo_Griggio.dir/build.make CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/block.c.o
+.PHONY : code/src/block.c.o
+
+code/src/block.i: code/src/block.c.i
+.PHONY : code/src/block.i
+
+# target to preprocess a source file
+code/src/block.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Gonzato_Luongo_Griggio.dir/build.make CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/block.c.i
+.PHONY : code/src/block.c.i
+
+code/src/block.s: code/src/block.c.s
+.PHONY : code/src/block.s
+
+# target to generate assembly for a file
+code/src/block.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Gonzato_Luongo_Griggio.dir/build.make CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/block.c.s
+.PHONY : code/src/block.c.s
+
 code/src/childProcess.o: code/src/childProcess.c.o
 .PHONY : code/src/childProcess.o
 
@@ -186,6 +210,9 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... Gonzato_Luongo_Griggio"
+	@echo "... code/src/block.o"
+	@echo "... code/src/block.i"
+	@echo "... code/src/block.s"
 	@echo "... code/src/childProcess.o"
 	@echo "... code/src/childProcess.i"
 	@echo "... code/src/childProcess.s"

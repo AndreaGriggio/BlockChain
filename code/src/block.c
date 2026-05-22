@@ -1,11 +1,49 @@
-#include <stdio.h>
-#include <string.h>
 #include "block.h"
+#include "utils.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-#define HASH_HEX_SIZE 65        // 64 caratteri hex + '\0'
-#define MAX_BLOCK_TXS_BUF 4096  // dimensione massima buffer transazioni
-#define MAX_TX_PER_BLOCK 30     // Numero massimo di transazioni per blocco
-#define MAX_TX_SIZE 128         // Dimensione massima di una singola transazione
+
+Block* blockCreate() {
+    return malloc(sizeof(Block));
+}
+int blockInit(Block *block_ptr,const u_int64_t timestamp, const Block *prev, const TxList *txs) {
+    //chiamate a tutte le altre funzioni per ottenere i campi necessari
+    return 0;
+}
+
+int blockGetHash(const Block *block_ptr, char out_hash[65]) {
+    if (block_ptr == NULL) return 1;
+
+    const size_t size = UINT64_TO_CHAR_SIZE*3 + MERKLE_ROOT_HEX_SIZE + HASH_HEX_SIZE;//dimensione della stringa di hex
+
+    char input_sha256 [size+1];
+
+    int res = BLOCK_TO_HEX_BE(block_ptr->index, //risultato è la lunghezza della stringa concatenata
+                    block_ptr->timestamp,
+                    block_ptr->prev_hash,
+                    block_ptr->merkle_root,
+                    block_ptr->nonce,
+                    input_sha256,
+                    size);
+
+    if (res<0 || res >= size+1 ){return 1;}
+
+    sha256_of_string(
+        (const unsigned char *)input_sha256
+        ,size
+        ,out_hash);
+
+    return 0;
+
+
+}
+
+void blockDestroy(Block* block_ptr) {
+    free(block_ptr);
+}
+
 
 
 //funzione per impacchettare le transazioni
@@ -53,8 +91,4 @@ int unpack_transactions(Block *b, const TxList *list) {
         }
         token = strtok_r(NULL, ":", &saveptr);
     }
-}
-
-int main(void){
-    return 0;
 }
