@@ -24,7 +24,7 @@ typedef struct {
 
 int blockInit(Block *b, const Block *prev, const TxList *txs);
 int blockGetmerkle(Block *b);
-int blockGethash(const Block *b, char out_hash[65]);
+int blockGethash(const Block *b, char out_hash[HASH_HEX_SIZE]);
 int blockValidate(const Block *b, const Block *prev);
 int blockToCsv(const Block *b, char *buffer, size_t size);
 int blockFromCsv(Block *b, const char *line);
