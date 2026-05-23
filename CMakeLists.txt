@@ -12,7 +12,8 @@ add_executable(Gonzato_Luongo_Griggio
         src/miner.c
         src/client.c
         src/crypto.c
-        src/block.c)
+        src/block.c
+        code/src/crypto.c)
 
 target_include_directories(Gonzato_Luongo_Griggio PRIVATE include)
 
