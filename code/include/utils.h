@@ -2,13 +2,16 @@
 // Created by andrea on 22/05/26.
 //
 
-#ifndef _PROGETTO_UTILS_H
-#define _PROGETTO_UTILS_H
+#ifndef PROG_UTILS_H
+#define PROG_UTILS_H
 
+#include <errno.h>
 #include <inttypes.h>
+#include <stdint.h>
 #include <stdio.h>
-#include <string.h>
+#include <stdlib.h>
 #include <openssl/sha.h>
+
 #define SHA256_DIGEST_LENGHT 32
 /**
  *Fa encoding dei campi del blocco
@@ -45,4 +48,25 @@ static void sha256_of_string(const unsigned char* input,const size_t input_size,
     }
     output[HASH_HEX_SIZE]='\0';
 }
-#endif //_PROGETTO_UTILS_H
+static int parse_uint64_hex(const char *str, uint64_t *out) {
+    if (str == NULL || out == NULL) {
+        return INVALID_PARAMS;
+    }
+
+    errno = 0;
+
+    char *endptr = NULL;
+    const unsigned long long value = strtoull(str, &endptr, 16);
+
+    if (errno == ERANGE) {
+        return INVALID_PARAMS;
+    }
+
+    if (endptr == str || *endptr != '\0') {
+        return INVALID_PARAMS;
+    }
+
+    *out = (uint64_t)value;
+    return 0;
+}
+#endif //PROG_UTILS_H

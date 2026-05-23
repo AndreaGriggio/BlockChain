@@ -10,7 +10,8 @@
 #define MAX_TX_PER_BLOCK 30    // Numero massimo di transazioni per blocco
 #define MAX_TX_SIZE 128         // Dimensione massima di una singola transazione
 #define UINT64_TO_CHAR_SIZE 16
-
+#define BLOCK_CSV_LINE_SIZE \
+    (MAX_BLOCK_TXS_BUF + HASH_HEX_SIZE * 2 + UINT64_TO_CHAR_SIZE*3+128)//128 per il meme tenerci larghi
 typedef struct {
     u_int64_t index;
     u_int64_t timestamp;
@@ -38,11 +39,45 @@ Block* blockCreate();
  * @return stato dell'operazione
  */
 int blockInit(Block *block_ptr,const u_int64_t index, const u_int64_t timestamp, const Block *prev, const u_int64_t nonce,const TxList *txs);
+
 int blockGetmerkle(const Block *block_ptr,char output_merkle[MERKLE_ROOT_HEX_SIZE]);
-int blockGetHash(const Block *block_ptr, char out_hash[HASH_HEX_SIZE+1]);
+/**
+ *La funzione prende in input 0 < n < 30 Hashcodes e ritorna il merkle root degli hashcode
+ * @param hashes Hashcodes delle transazioni in base 16 convertiti con sha256_of_string()
+ * @param count Numero d Hashcodes
+ * @param output_merkle Puntatore all'output merkle dove verrà inserito il risulatato finale
+ * @return 0 se tutto è andato a buon fine
+ */
 int calcMerkle(char hashes[][MERKLE_ROOT_HEX_SIZE+1],size_t count,char output_merkle[MERKLE_ROOT_HEX_SIZE+1]);
+
+/**
+ *
+ * @param block_ptr Blocco su cui calcolare hash
+ * @param out_hash  Buffer dove va inserito l'hashcode
+ * @return 0 se tutto è andato a buon fine
+ */
+int blockGetHash(const Block *block_ptr, char out_hash[HASH_HEX_SIZE+1]);
+/**
+ *
+ * @param block_ptr Blocco da validare
+ * @param prev Blocco valido che precede block_ptr
+ * @return 0 se tutto è andato a buon fine
+ */
 int blockValidate(const Block *block_ptr, const Block *prev);
-int blockToCsv(const Block *block_ptr, char *buffer, size_t size);
+/**
+ *
+ * @param block_ptr Blocco da convertire in stringa
+ * @param buffer Buffer dove mettere il risultato
+ * @param size Dimensione del buffer
+ * @return 0 se tutto è andato a buon fine
+ */
+int blockToCsv(const Block *block_ptr, char *buffer,const size_t size);
+/**
+ *
+ * @param block_ptr Blocco creato e inizializzato
+ * @param line Linea letta fa file CSV
+ * @return 0 se tutto è andato a buon fine
+ */
 int blockFromCsv(Block *block_ptr, const char *line);
 void blockDestroy(Block* block_ptr);
 

@@ -43,6 +43,7 @@ int blockInit(Block *block_ptr,const u_int64_t index, const u_int64_t timestamp,
     }// inzializziamo il discorso ce non sono state passate transazioni da inserire
     else pack_transactions(block_ptr,txs);// mettiamo dentro al blocco le transazioni
 
+    blockGetmerkle(block_ptr,block_ptr->merkle_root);
 
 
     return 0;
@@ -58,7 +59,7 @@ int blockGetmerkle(const Block* block_ptr,char output_merkle[MERKLE_ROOT_HEX_SIZ
 
 
     for (int i = 0; i < list.count ; i++) {
-        sha256_of_string(list.strings[i],
+        sha256_of_string((const unsigned char*) list.strings[i],
                          strlen(list.strings[i])
                          ,transactionHashes[i]);
     }
@@ -66,23 +67,9 @@ int blockGetmerkle(const Block* block_ptr,char output_merkle[MERKLE_ROOT_HEX_SIZ
     return calcMerkle(transactionHashes,
                       list.count,
                       output_merkle);
-
-
-    /**TODO
-     *Implementare controllo pari o dispari per aggiungere hash 1,2
-     *Implementare una funzione ricorsiva per il merkle
-     *oppure anche una funzione sequenziale che spacca list in più sottoblocchi
-     *prima di calcolare SHA256(transazione)
-       */
 }
 
-/**
- *La funzione prende in input 0 < n < 30 Hashcodes e ritorna il merkle root degli hashcode
- * @param hashes Hashcodes delle transazioni in base 16 convertiti con sha256_of_string()
- * @param count Numero d Hashcodes
- * @param output_merkle Puntatore all'output merkle dove verrà inserito il risulatato finale
- * @return
- */
+
 int calcMerkle(char hashes[][HASH_HEX_SIZE+1],const size_t count,char output_merkle[HASH_HEX_SIZE+1]){
 
     if (hashes == NULL || output_merkle == NULL || count == 0 || count > MAX_TX_PER_BLOCK) return INVALID_PARAMS;
@@ -145,7 +132,7 @@ int calcMerkle(char hashes[][HASH_HEX_SIZE+1],const size_t count,char output_mer
             next_level[j]
         );
     }
-    
+
     return calcMerkle(next_level, next_count, output_merkle);
 }
 
@@ -176,6 +163,88 @@ int blockGetHash(const Block *block_ptr, char out_hash[]) {
 
 
 }
+
+
+int blockValidate(const Block *block_ptr, const Block *prev) {
+    if (block_ptr == NULL || prev == NULL ) return INVALID_BLOCK;
+
+    char prev_hash[HASH_HEX_SIZE+1];
+    blockGetHash(prev,prev_hash);
+
+    if (block_ptr->index == prev->index+1 && strcmp(prev_hash, block_ptr->prev_hash) == 0) {return 0;}
+    return INVALID_BLOCK;
+}
+
+
+int blockToCsv(const Block *block_ptr, char *buffer,const size_t size) {
+    if (size == 0 || block_ptr== NULL) return INVALID_BLOCK;
+
+    snprintf(buffer,size,
+        "%lu,%lu,%s,%s,%lu,%s",
+        block_ptr->index,
+        block_ptr->timestamp,
+        block_ptr->prev_hash,
+        block_ptr->merkle_root,
+        block_ptr->nonce,
+        block_ptr->transactions
+        );
+    return 0;
+}
+
+
+int blockFromCsv(Block *block_ptr, const char *line) {
+    if (block_ptr == NULL || line == NULL) return INVALID_BLOCK;
+
+    char buffer[BLOCK_CSV_LINE_SIZE];
+
+    strncpy(buffer, line, sizeof(buffer) - 1);
+    buffer[sizeof(buffer) - 1] = '\0';
+
+    // Rimuovo eventuale newline finale
+    buffer[strcspn(buffer, "\n")] = '\0';
+
+    char *saveptr = NULL;
+
+    const char *index_str = strtok_r(buffer, ",", &saveptr);
+    const char *timestamp_str = strtok_r(NULL, ",", &saveptr);
+    const char *prev_hash_str = strtok_r(NULL, ",", &saveptr);
+    const char *merkle_root_str = strtok_r(NULL, ",", &saveptr);
+    const char *nonce_str = strtok_r(NULL, ",", &saveptr);
+    const char *transactions_str = strtok_r(NULL, "", &saveptr);
+
+    if (index_str == NULL ||
+        timestamp_str == NULL ||
+        prev_hash_str == NULL ||
+        merkle_root_str == NULL ||
+        nonce_str == NULL ||
+        transactions_str == NULL) {
+        return INVALID_BLOCK;
+        }
+
+    if (parse_uint64_hex(index_str, &block_ptr->index) != 0) {
+        return INVALID_BLOCK;
+    }
+
+    if (parse_uint64_hex(timestamp_str, &block_ptr->timestamp) != 0) {
+        return INVALID_BLOCK;
+    }
+
+    if (parse_uint64_hex(nonce_str, &block_ptr->nonce) != 0) {
+        return INVALID_BLOCK;
+    }
+
+    strncpy(block_ptr->prev_hash, prev_hash_str, HASH_HEX_SIZE);
+    block_ptr->prev_hash[HASH_HEX_SIZE] = '\0';
+
+    strncpy(block_ptr->merkle_root, merkle_root_str, HASH_HEX_SIZE);
+    block_ptr->merkle_root[HASH_HEX_SIZE] = '\0';
+
+    strncpy(block_ptr->transactions, transactions_str, MAX_BLOCK_TXS_BUF - 1);
+    block_ptr->transactions[MAX_BLOCK_TXS_BUF - 1] = '\0';
+
+    return 0;
+}
+
 
 void blockDestroy(Block* block_ptr) {
     free(block_ptr);
