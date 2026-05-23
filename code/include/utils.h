@@ -39,9 +39,10 @@ static void sha256_of_string(const unsigned char* input,const size_t input_size,
     unsigned char raw_hash[SHA256_DIGEST_LENGHT];
 
     SHA256(input,input_size,raw_hash);
+
     for (int i = 0; i < SHA256_DIGEST_LENGHT; i++) {
         sprintf(output+i*2,"%02x",raw_hash[i]);//conversione binario -> esadecimale
     }
-    output[64]='\0';
+    output[HASH_HEX_SIZE]='\0';
 }
 #endif //_PROGETTO_UTILS_H

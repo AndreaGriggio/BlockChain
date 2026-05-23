@@ -47,24 +47,110 @@ int blockInit(Block *block_ptr,const u_int64_t index, const u_int64_t timestamp,
 
     return 0;
 }
-int blockGetmerkle(const Block* block_ptr,char* output_merkle) {
+int blockGetmerkle(const Block* block_ptr,char output_merkle[MERKLE_ROOT_HEX_SIZE+1]) {
     if (block_ptr == NULL || block_ptr->transactions[0] == '\0' ) return 1;
 
     TxList list;
 
     if ( unpack_transactions(block_ptr,&list)!= 0 ) return 1;
 
-/**TODO
- *Implementare controllo pari o dispari per aggiungere hash 1,2
- *Implementare una funzione ricorsiva per il merkle
- *oppure anche una funzione sequenziale che spacca list in più sottoblocchi
- *prima di calcolare SHA256(transazione)
-   */
+    char transactionHashes[list.count][MERKLE_ROOT_HEX_SIZE+1];
 
-    return 0;
 
+    for (int i = 0; i < list.count ; i++) {
+        sha256_of_string(list.strings[i],
+                         strlen(list.strings[i])
+                         ,transactionHashes[i]);
+    }
+
+    return calcMerkle(transactionHashes,
+                      list.count,
+                      output_merkle);
+
+
+    /**TODO
+     *Implementare controllo pari o dispari per aggiungere hash 1,2
+     *Implementare una funzione ricorsiva per il merkle
+     *oppure anche una funzione sequenziale che spacca list in più sottoblocchi
+     *prima di calcolare SHA256(transazione)
+       */
 }
-int blockGetHash(const Block *block_ptr, char out_hash[65]) {
+
+/**
+ *La funzione prende in input 0 < n < 30 Hashcodes e ritorna il merkle root degli hashcode
+ * @param hashes Hashcodes delle transazioni in base 16 convertiti con sha256_of_string()
+ * @param count Numero d Hashcodes
+ * @param output_merkle Puntatore all'output merkle dove verrà inserito il risulatato finale
+ * @return
+ */
+int calcMerkle(char hashes[][HASH_HEX_SIZE+1],const size_t count,char output_merkle[HASH_HEX_SIZE+1]){
+
+    if (hashes == NULL || output_merkle == NULL || count == 0 || count > MAX_TX_PER_BLOCK) return INVALID_PARAMS;
+
+    //caso base ne rimane solo uno copio dentro all'output l'hash finale
+    if (count == 1 ) {
+        strncpy(output_merkle,
+                hashes[0],
+                HASH_HEX_SIZE);
+        output_merkle[HASH_HEX_SIZE] = '\0';
+        return 0;
+    }
+
+    //caso non base
+    //Dobbiamo copiare gli hashcodes
+    //se count pari il numero di oggetti da copiare è uguale
+    //se count dispari il numero di oggetti da copiare è count + 1
+    const size_t normalized_count = count + count % 2;
+
+    char normalized[normalized_count][HASH_HEX_SIZE+1];
+    //Ciclo per copiare gli Hashcode
+    for (size_t i = 0; i < count; i++) {
+        strncpy(normalized[i],
+                hashes[i],
+                HASH_HEX_SIZE);
+
+        normalized[i][HASH_HEX_SIZE] = '\0';
+    }
+    //Sezione per aggiungere all'array copiato di  di hashcodes
+    //L'hashcode di una stringa vuota
+    /**FIXME : questa sezione potrebbe essere spostata sopra quando si calcola la dimensione del
+    * FIXME : numero di elementi da copiare
+    */
+    if (count % 2 != 0) {
+        sha256_of_string(
+            (const unsigned char *)"",
+            0,
+            normalized[count]
+        );
+    }
+    //calcolo nuovo numero di elementi
+    const size_t next_count = normalized_count / 2;
+    char next_level[next_count][HASH_HEX_SIZE+1];
+
+    //ciclo per il calcolo delle coppie
+    // i serve per prendere due coppie alla volta
+    // j serve per contare le iterazioni e decidere dove salvare nel nuovo array degli hashes
+    for (size_t i = 0, j = 0; i < normalized_count; i += 2, j++) {
+        char pair[HASH_HEX_SIZE  * 2 + 1];
+        //le coppie vengono prese e concatenate in pair
+        snprintf(pair,
+                 sizeof(pair),
+                 "%s%s",
+                 normalized[i],
+                 normalized[i + 1]);
+
+        sha256_of_string(
+            (const unsigned char *)pair,
+            strlen(pair),
+            next_level[j]
+        );
+    }
+    
+    return calcMerkle(next_level, next_count, output_merkle);
+}
+
+
+int blockGetHash(const Block *block_ptr, char out_hash[]) {
     if (block_ptr == NULL) return INVALID_HASH;
 
     const size_t size = UINT64_TO_CHAR_SIZE*3 + MERKLE_ROOT_HEX_SIZE + HASH_HEX_SIZE;//dimensione della stringa di hex

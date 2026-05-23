@@ -11,6 +11,7 @@ typedef enum error {
     BLOCK_NOT_FOUND = 2,
     INVALID_BLOCK = 3,
     //errori che possiamo aggiungere noi se ci fa comodo
-    INVALID_HASH = 4
+    INVALID_HASH = 4,
+    INVALID_PARAMS = 5
 }error;
 #endif //GONZATO_LUONGO_GRIGGIO_ERROR_H
