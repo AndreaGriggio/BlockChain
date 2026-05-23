@@ -13,7 +13,8 @@ add_executable(Gonzato_Luongo_Griggio
         src/client.c
         src/crypto.c
         src/block.c
-        code/src/crypto.c)
+        code/src/crypto.c
+        code/include/error.h)
 
 target_include_directories(Gonzato_Luongo_Griggio PRIVATE include)
 

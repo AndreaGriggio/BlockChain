@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 
+//teniamo costanti pulite +1 vanno dopo altrimenti cambiamo nome della costante
 #define HASH_HEX_SIZE 64        //64 caratteri hex + '\0'
 #define MERKLE_ROOT_HEX_SIZE 64
 #define MAX_BLOCK_TXS_BUF 4098  // dimensione massima buffer transazioni
@@ -36,8 +37,8 @@ Block* blockCreate();
  * @param txs lista di transazioni
  * @return stato dell'operazione
  */
-int blockInit(Block *block_ptr, const u_int64_t timestamp, const Block *prev, const TxList *txs);
-int blockGetmerkle(Block *block_ptr);
+int blockInit(Block *block_ptr,const u_int64_t index, const u_int64_t timestamp, const Block *prev, const u_int64_t nonce,const TxList *txs);
+int blockGetmerkle(const Block *block_ptr,char* output_merkle);
 int blockGetHash(const Block *block_ptr, char out_hash[HASH_HEX_SIZE+1]);
 int blockValidate(const Block *block_ptr, const Block *prev);
 int blockToCsv(const Block *block_ptr, char *buffer, size_t size);
