@@ -20,7 +20,7 @@ int blockGetHash(const Block *block_ptr, char out_hash[65]) {
 
     char input_sha256 [size+1];
 
-    int res = BLOCK_TO_HEX_BE(block_ptr->index, //risultato è la lunghezza della stringa concatenata
+    const int res = BLOCK_TO_HEX_BE(block_ptr->index, //risultato è la lunghezza della stringa concatenata
                     block_ptr->timestamp,
                     block_ptr->prev_hash,
                     block_ptr->merkle_root,

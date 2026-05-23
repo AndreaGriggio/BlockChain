@@ -3,15 +3,19 @@ project(Gonzato_Luongo_Griggio C)
 
 set(CMAKE_C_STANDARD 11)
 
-#Ordinare File in ordine alfabetico nella lista degli eseguibili
-set(SOURCES
-        code/src/block.c
-        code/src/childProcess.c
-        code/src/main.c
-        code/include/utils.h
-)
+find_package(OpenSSL REQUIRED)
 
-add_executable(Gonzato_Luongo_Griggio ${SOURCES})
+add_executable(Gonzato_Luongo_Griggio
+        src/main.c
+        src/childProcess.c
+        src/node.c
+        src/miner.c
+        src/client.c
+        src/crypto.c
+        src/block.c)
 
-target_include_directories(Gonzato_Luongo_Griggio PRIVATE code/include)
+target_include_directories(Gonzato_Luongo_Griggio PRIVATE include)
+
+target_link_libraries(Gonzato_Luongo_Griggio PRIVATE OpenSSL::Crypto OpenSSL::SSL)
+
 

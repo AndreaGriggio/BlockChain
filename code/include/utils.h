@@ -11,7 +11,7 @@
 #include <openssl/sha.h>
 #define SHA256_DIGEST_LENGHT 32
 /**
- *
+ *Fa encoding dei campi del blocco
  * @param index indice del blocco
  * @param timestamp timestamp di creazione
  * @param prev_hash hash del blocco precedente
