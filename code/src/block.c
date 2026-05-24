@@ -246,8 +246,10 @@ int blockFromCsv(Block *block_ptr, const char *line) {
 }
 
 
-void blockDestroy(Block* block_ptr) {
+int blockDestroy(Block* block_ptr) {
+    if (block_ptr == NULL)return INVALID_PARAMS;
     free(block_ptr);
+    return 0;
 }
 
 

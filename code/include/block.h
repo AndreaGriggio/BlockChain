@@ -79,7 +79,7 @@ int blockToCsv(const Block *block_ptr, char *buffer,const size_t size);
  * @return 0 se tutto è andato a buon fine
  */
 int blockFromCsv(Block *block_ptr, const char *line);
-void blockDestroy(Block* block_ptr);
+int blockDestroy(Block* block_ptr);
 
 
 int pack_transactions(Block *block_ptr, const TxList *list);

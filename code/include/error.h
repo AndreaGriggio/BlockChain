@@ -5,13 +5,14 @@
 #ifndef GONZATO_LUONGO_GRIGGIO_ERROR_H
 #define GONZATO_LUONGO_GRIGGIO_ERROR_H
 typedef enum error {
+    //teniamo lo zero utile per conferamare che qualcosa è avvenuto con successo
     //errori definiti da consegna
-    CHAIN_MISMATCH = 0,
-    INVALID_TRANSACTION = 1,
-    BLOCK_NOT_FOUND = 2,
-    INVALID_BLOCK = 3,
+    CHAIN_MISMATCH = 1,
+    INVALID_TRANSACTION = 2,
+    BLOCK_NOT_FOUND = 3,
+    INVALID_BLOCK = 4,
     //errori che possiamo aggiungere noi se ci fa comodo
-    INVALID_HASH = 4,
-    INVALID_PARAMS = 5
+    INVALID_HASH = 5,
+    INVALID_PARAMS = 6
 }error;
 #endif //GONZATO_LUONGO_GRIGGIO_ERROR_H

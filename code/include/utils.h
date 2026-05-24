@@ -69,4 +69,7 @@ static int parse_uint64_hex(const char *str, uint64_t *out) {
     *out = (uint64_t)value;
     return 0;
 }
+
+#define NUM_MIN_MAX(min, max) ((rand() % ((max) - (min) + 1)) + (min))
+#define NUM_MAX(max) (rand()%(max+1))
 #endif //PROG_UTILS_H
