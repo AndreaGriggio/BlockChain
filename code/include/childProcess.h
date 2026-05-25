@@ -49,17 +49,21 @@ const char* getCpToString(const ChildProcess* child_ptr);
 
 /**
  *
- * @param child_ptr
+ * @param child_ptr Puntatore del processo figlio
+ * @param  id_ptr zona scrittura id
  * @return intero id del processo figlio
  */
-int getCpId(const ChildProcess* child_ptr);
+int getCpId(const ChildProcess* child_ptr,int* id_ptr);
 
 
 /**
  *
  * @param child_ptr
+ * @param pid_ptr pid su cui scrivere
  * @return pid del processo figlio
  */
-pid_t getCpPid(const ChildProcess* child_ptr);
+pid_t getCpPid(const ChildProcess* child_ptr,pid_t* pid_ptr);
+
+int copyCp(const ChildProcess* c1_ptr, ChildProcess* c2_ptr);
 
 #endif //CHILDPROCESS_H

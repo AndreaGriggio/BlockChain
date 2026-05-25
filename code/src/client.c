@@ -6,6 +6,10 @@
 #include "error.h"
 #include "utils.h"
 #include <stdlib.h>
+typedef struct Client{
+    int frequency;
+    char transaction[MAX_TR_LENGHT];
+}Client;
 
 Client* createClient(){
     return malloc(sizeof(Client));

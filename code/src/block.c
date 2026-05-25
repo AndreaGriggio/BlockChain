@@ -5,6 +5,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+
+typedef struct Block{
+    u_int64_t index;
+    u_int64_t timestamp;
+    char prev_hash[HASH_HEX_SIZE+1];
+    char merkle_root[MERKLE_ROOT_HEX_SIZE+1];
+    u_int64_t nonce;
+    char transactions[MAX_BLOCK_TXS_BUF+1];
+}Block;
 /**
  * Crea zona di memoria per il blocco
  * @return Ritorna puntatore a zona di memoria del nuovo blocco

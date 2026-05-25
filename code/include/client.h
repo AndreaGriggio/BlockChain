@@ -20,10 +20,7 @@
 
 #include <sys/types.h>
 
-typedef struct {
-    int frequency;
-    char transaction[MAX_TR_LENGHT];
-}Client;
+typedef struct Client Client;
 
 //metodi di costruzione, inizializzazione,distruzione
 Client* createClient();
@@ -32,9 +29,27 @@ int clientDestroy(Client* c_ptr);
 
 
 //metodi di struct
+/**
+ * Genera una transazione come specificato dalla consegna
+ * Formato : [Nome1] pays [Nome2] [n] coins
+ * @param c_ptr Puntatore del cliente all'interno del quale generare la nuova transazione
+ * @return 0 se tutto è andato a buon fine
+ */
 int clientGenerateTransaction(Client* c_ptr);
 
+/**
+ * Genera un nome come specificato dalla consegna
+ * 1. Nomi casuali
+ * 2. Lento
+ * 3. Fa quello che è richiesto
+ *
+ * - Formato : [A-Z a-z 0-9]
+ * @param size Dimensione del nome
+ * @param name array di chars dove verrà inserito il nome
+ * @return 0 se tutto è andato a buon fine
+ */
 int clientGenRandomName(const size_t size, char name[MAX_NAME_SIZE+1]);
+
 
 
 
