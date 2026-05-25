@@ -18,7 +18,10 @@ add_executable(Gonzato_Luongo_Griggio
         code/include/ClientManager.h
         code/include/message.h
         code/include/process.h
-        code/src/message.c)
+        code/src/message.c
+        code/src/utils.c
+        code/src/ClientProcess.c
+        code/include/messageHeader.h)
 
 target_include_directories(Gonzato_Luongo_Griggio PRIVATE include)
 

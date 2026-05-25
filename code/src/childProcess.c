@@ -3,79 +3,136 @@
 //
 
 #include "childProcess.h"
-#include "stdlib.h"
-#include <stdio.h>
-
 #include "error.h"
 
-typedef struct ChildProcess {
+#include <stdio.h>
+#include <stdlib.h>
+
+struct ChildProcess {
     pid_t pid;
-    Ruolo r;
+    Ruolo role;
     int id;
-}ChildProcess;
+};
 
-ChildProcess* childProcessCreate() {return malloc(sizeof(ChildProcess));}
+static const char *roleToString(Ruolo role) {
+    switch (role) {
+        case CLIENT:
+            return "Client";
 
-int childProcessInit(ChildProcess* child_ptr,pid_t pid,int id,Ruolo r) {
-    if (child_ptr == NULL) return 1;
+        case MINER:
+            return "Miner";
+
+        case NODE:
+            return "Node";
+
+        default:
+            return "Invalid";
+    }
+}
+
+ChildProcess *childProcessCreate(void) {
+    return malloc(sizeof(ChildProcess));
+}
+
+int childProcessInit(ChildProcess *child_ptr, pid_t pid, int id, Ruolo role) {
+    if (child_ptr == NULL) {
+        return INVALID_PARAMS;
+    }
+
+    if (pid < 0 || id < 0 || role == ROLE_INVALID) {
+        return INVALID_PARAMS;
+    }
+
     child_ptr->pid = pid;
-    child_ptr->r = r;
     child_ptr->id = id;
+    child_ptr->role = role;
+
     return 0;
 }
+
 void childProcessDestroy(ChildProcess *child_ptr) {
-    if (child_ptr == NULL) return;
+    if (child_ptr == NULL) {
+        return;
+    }
+
     free(child_ptr);
 }
 
-const char* getCpToString(const ChildProcess *child_ptr) {
-    if (child_ptr == NULL ) {
+char *getCpToString(const ChildProcess *child_ptr) {
+    if (child_ptr == NULL) {
         return NULL;
     }
-    const char *role_str;
 
-    switch (child_ptr->r) {
-        case CLIENT:role_str = "Client";break;
-        case MINER:role_str = "Miner";break;
-        case NODE:role_str = "Node";break;
-        default:role_str = "No Role";break;
+    const char *role_str = roleToString(child_ptr->role);
+
+    int buffer_size = snprintf(
+        NULL,
+        0,
+        "ChildProcess { pid: %d, id: %d, role: %s }",
+        child_ptr->pid,
+        child_ptr->id,
+        role_str
+    );
+
+    if (buffer_size < 0) {
+        return NULL;
     }
 
-    const int buffer_size = snprintf(NULL,
-                         0,
-                         "ChildProcess { pid: %d, id: %d, role: %s }",
-                         child_ptr->pid,
-                         child_ptr->id,
-                         role_str);
-    if (buffer_size < 0) return NULL;
+    char *buffer = malloc((size_t)buffer_size + 1);
+    if (buffer == NULL) {
+        return NULL;
+    }
 
-    char* buffer = malloc(sizeof(char)*(buffer_size+1));
-    if (buffer == NULL) return NULL;
-    snprintf(buffer,
-             buffer_size,
-             "ChildProcess{ pird : %d, id: %d, role: %s }",
-             child_ptr->pid,
-             child_ptr->id,
-             role_str
-             );
+    snprintf(
+        buffer,
+        (size_t)buffer_size + 1,
+        "ChildProcess { pid: %d, id: %d, role: %s }",
+        child_ptr->pid,
+        child_ptr->id,
+        role_str
+    );
+
     return buffer;
 }
 
-int getCpId(const ChildProcess* child_ptr,int* id_ptr) {
-    if (child_ptr == NULL || id_ptr == NULL ) return INVALID_PARAMS;
-    *id_ptr = child_ptr->pid;
-    return 0;
-}
-int getCpPid(const ChildProcess* child_ptr,pid_t* pid_ptr) {
-    if (child_ptr == NULL || pid_ptr == NULL ) return INVALID_PARAMS;
-    *pid_ptr = child_ptr->pid;
+int getCpId(const ChildProcess *child_ptr, int *id_ptr) {
+    if (child_ptr == NULL || id_ptr == NULL) {
+        return INVALID_PARAMS;
+    }
+
+    *id_ptr = child_ptr->id;
+
     return 0;
 }
 
-int copyCp(const ChildProcess* c1_ptr, ChildProcess* c2_ptr) {
-    if (c1_ptr == NULL || c2_ptr == NULL ) return INVALID_PARAMS;
-    c2_ptr->r = c1_ptr->r;
-    c2_ptr->pid = c1_ptr->pid;
-    c2_ptr->id = c1_ptr->id;
+int getCpPid(const ChildProcess *child_ptr, pid_t *pid_ptr) {
+    if (child_ptr == NULL || pid_ptr == NULL) {
+        return INVALID_PARAMS;
+    }
+
+    *pid_ptr = child_ptr->pid;
+
+    return 0;
+}
+
+int getCpRole(const ChildProcess *child_ptr, Ruolo *role_ptr) {
+    if (child_ptr == NULL || role_ptr == NULL) {
+        return INVALID_PARAMS;
+    }
+
+    *role_ptr = child_ptr->role;
+
+    return 0;
+}
+
+int copyCp(const ChildProcess *src_ptr, ChildProcess *dest_ptr) {
+    if (src_ptr == NULL || dest_ptr == NULL) {
+        return INVALID_PARAMS;
+    }
+
+    dest_ptr->pid = src_ptr->pid;
+    dest_ptr->id = src_ptr->id;
+    dest_ptr->role = src_ptr->role;
+
     return 0;
 }

@@ -2,14 +2,14 @@
 #define BLOCK_H
 #include <stdio.h>
 #include <sys/types.h>
-
+#include "utils.h"
 //teniamo costanti pulite +1 vanno dopo altrimenti cambiamo nome della costante
-#define HASH_HEX_SIZE 64        //64 caratteri hex
+    //64 caratteri hex
 #define MERKLE_ROOT_HEX_SIZE HASH_HEX_SIZE
 #define MAX_BLOCK_TXS_BUF 4098  // dimensione massima buffer transazioni
 #define MAX_TX_PER_BLOCK 30    // Numero massimo di transazioni per blocco
 #define MAX_TX_SIZE 128         // Dimensione massima di una singola transazione
-#define UINT64_TO_CHAR_SIZE 16
+
 #define BLOCK_CSV_LINE_SIZE \
     (MAX_BLOCK_TXS_BUF + HASH_HEX_SIZE * 2 + UINT64_TO_CHAR_SIZE*3+128)//128 per il meme tenerci larghi
 typedef struct Block Block;
@@ -74,6 +74,20 @@ int blockToCsv(const Block *block_ptr, char *buffer,const size_t size);
 int blockFromCsv(Block *block_ptr, const char *line);
 int blockDestroy(Block* block_ptr);
 
+/**
+ *
+ * @param block_ptr Blocco a cui aggiungere transazioni
+ * @param transaction transazione da aggiungere
+ * @return 0 se tutto è andato a buon fine
+ */
+int blockAddTransactions(Block *block_ptr,const char transaction[MAX_BLOCK_TXS_BUF+1]);
+
+/**
+ * Uccide le transazioni che un bloco contiene
+ * @param block_ptr Blocco al quale azzerare le transazioni
+ * @return 0 se tutto è andato a buon fine
+ */
+int blockKillTransactions(Block *block_ptr);
 
 int pack_transactions(Block *block_ptr, const TxList *list);
 int unpack_transactions(Block *block_ptr, const TxList *list);

@@ -7,4 +7,7 @@
 typedef struct ClientManger {
 
 }ClientManager;
+
+
+
 #endif //CLIENTMANAGER_H

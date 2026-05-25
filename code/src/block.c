@@ -1,10 +1,11 @@
 #include "block.h"
 #include "error.h"
-#include "utils.h"
+#include "inttypes.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
-
+#include "utils.h"
 
 typedef struct Block{
     u_int64_t index;
@@ -58,7 +59,7 @@ int blockInit(Block *block_ptr,const u_int64_t index, const u_int64_t timestamp,
     return 0;
 }
 int blockGetmerkle(const Block* block_ptr,char output_merkle[MERKLE_ROOT_HEX_SIZE+1]) {
-    if (block_ptr == NULL || block_ptr->transactions[0] == '\0' ) return 1;
+    if (block_ptr == NULL || block_ptr->transactions[0] == '\0' ) return INVALID_PARAMS;
 
     TxList list;
 
@@ -149,9 +150,9 @@ int calcMerkle(char hashes[][HASH_HEX_SIZE+1],const size_t count,char output_mer
 int blockGetHash(const Block *block_ptr, char out_hash[]) {
     if (block_ptr == NULL) return INVALID_HASH;
 
-    const size_t size = UINT64_TO_CHAR_SIZE*3 + MERKLE_ROOT_HEX_SIZE + HASH_HEX_SIZE;//dimensione della stringa di hex
+    const size_t size = UINT64_TO_CHAR_SIZE*3 + MERKLE_ROOT_HEX_SIZE + HASH_HEX_SIZE+1;//dimensione della stringa di hex
 
-    char input_sha256 [size+1];
+    char input_sha256 [size];
 
     const int res = BLOCK_TO_HEX_BE(block_ptr->index, //risultato è la lunghezza della stringa concatenata
                     block_ptr->timestamp,
@@ -186,17 +187,19 @@ int blockValidate(const Block *block_ptr, const Block *prev) {
 
 
 int blockToCsv(const Block *block_ptr, char *buffer,const size_t size) {
-    if (size == 0 || block_ptr== NULL) return INVALID_BLOCK;
+    if (size == 0 || block_ptr == NULL || buffer == NULL ) return INVALID_BLOCK;
 
-    snprintf(buffer,size,
-        "%lu,%lu,%s,%s,%lu,%s",
-        block_ptr->index,
-        block_ptr->timestamp,
-        block_ptr->prev_hash,
-        block_ptr->merkle_root,
-        block_ptr->nonce,
-        block_ptr->transactions
-        );
+    const int written = snprintf(buffer,size,
+                            "%016" PRIx64 "," "%016" PRIx64 "," "%s,%s," "%016" PRIx64 ",%s",
+                            block_ptr->index,
+                            block_ptr->timestamp,
+                            block_ptr->prev_hash,
+                            block_ptr->merkle_root,
+                            block_ptr->nonce,
+                            block_ptr->transactions
+                            );
+    if (written < 0 || written >= size) return BUFFER_TOO_SMALL;
+
     return 0;
 }
 
@@ -261,7 +264,34 @@ int blockDestroy(Block* block_ptr) {
     return 0;
 }
 
+int blockAddTransaction(Block *block_ptr, const char transaction[MAX_BLOCK_TXS_BUF+1]) {
+    if (block_ptr == NULL || transaction == NULL) return INVALID_PARAMS;
 
+    const char* separator = "::";
+
+    const size_t sepLen = strlen(separator);
+    const size_t currentSize = strlen(block_ptr->transactions);
+    const size_t neededSpace = strlen(transaction);
+
+
+
+    if ( neededSpace + sepLen + currentSize> MAX_BLOCK_TXS_BUF)return BUFFER_TOO_SMALL;
+    const int written = snprintf(
+                                 block_ptr->transactions+currentSize,
+                                 MAX_BLOCK_TXS_BUF-currentSize,
+                                 "%s%s",
+                                 separator,
+                                 transaction);
+    if (written < 0 || written >= MAX_BLOCK_TXS_BUF-currentSize) return BUFFER_TOO_SMALL;
+    return 0;
+}
+
+int blockKillTransactions(Block *block_ptr) {
+    if (block_ptr == NULL ) return INVALID_PARAMS;
+    block_ptr->transactions[0] = '\0';
+    block_ptr->merkle_root[0] = '\0';
+    return 0;
+}
 
 //funzione per impacchettare le transazioni
 int pack_transactions(Block *b, const TxList *list) {

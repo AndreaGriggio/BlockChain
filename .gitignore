@@ -18,3 +18,4 @@ CMakeCache.txt
 # OS/editor files
 .DS_Store
 *.log
+*.cmake

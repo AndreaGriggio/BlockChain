@@ -11,6 +11,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <openssl/sha.h>
+#define UINT64_TO_CHAR_SIZE 16
+#define HASH_HEX_SIZE 64
 
 #define SHA256_DIGEST_LENGHT 32
 /**
@@ -30,7 +32,6 @@ snprintf((out),(out_size),\
         ,(prev_hash)\
         ,(merkle_root)\
         ,(uint64_t)(nonce))
-
 /**
  * Utilizza l'algoritmo per trovare un Hash Code a 256 bit
  * Poi lo converte in testo utilizzando sprintf
@@ -38,37 +39,9 @@ snprintf((out),(out_size),\
  * @param input_size quanti byte leggere da input
  * @param output buffer dove scrivere l'hash finale come testo
  */
-static void sha256_of_string(const unsigned char* input,const size_t input_size, char* output) {
-    unsigned char raw_hash[SHA256_DIGEST_LENGHT];
+static void sha256_of_string(const unsigned char* input,const size_t input_size, char* output);
 
-    SHA256(input,input_size,raw_hash);
-
-    for (int i = 0; i < SHA256_DIGEST_LENGHT; i++) {
-        sprintf(output+i*2,"%02x",raw_hash[i]);//conversione binario -> esadecimale
-    }
-    output[HASH_HEX_SIZE]='\0';
-}
-static int parse_uint64_hex(const char *str, uint64_t *out) {
-    if (str == NULL || out == NULL) {
-        return INVALID_PARAMS;
-    }
-
-    errno = 0;
-
-    char *endptr = NULL;
-    const unsigned long long value = strtoull(str, &endptr, 16);
-
-    if (errno == ERANGE) {
-        return INVALID_PARAMS;
-    }
-
-    if (endptr == str || *endptr != '\0') {
-        return INVALID_PARAMS;
-    }
-
-    *out = (uint64_t)value;
-    return 0;
-}
+static int parse_uint64_hex(const char *str, uint64_t *out);
 
 #define NUM_MIN_MAX(min, max) ((rand() % ((max) - (min) + 1)) + (min))
 #define NUM_MAX(max) (rand()%(max+1))

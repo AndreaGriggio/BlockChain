@@ -2,68 +2,88 @@
 // Created by andrea on 21/05/26.
 //
 
-#ifndef CHILDPROCESS_H
-#define CHILDPROCESS_H
-#include <signal.h>
+#ifndef CHILD_PROCESS_H
+#define CHILD_PROCESS_H
 
-/**
- *indica il ruolo del processo :
- */
+#include <sys/types.h>
+
+/*
+    Rappresenta il ruolo logico di un processo figlio
+    all'interno del sistema blockchain.
+*/
 typedef enum Ruolo {
+    ROLE_INVALID = -1,
     CLIENT = 0,
     MINER = 1,
     NODE = 2
-}Ruolo;
-typedef struct ChildProcess ChildProcess;//Non ha una struttura è definita in childprocess.c
+} Ruolo;
 
-/**
- *Alloca spazio per la struttura di ChildProcess
- *
- */
-ChildProcess* childProcessCreate();
-/**
- *Inizializza la struttura ChildProcess
- *
- *La struttura serve per tenere traccia di tutti i processi è compagna di tutti i processi generati dal processo
- *@param child_ptr zona di memoria in cui mettere la struct
- *@param pid pid del processo in cui viene memorizzata la struttura
- *@param id id del processo assegnato al punto di creazione del processo
- *@param r ruolo del processo
- *
- */
-int childProcessInit(ChildProcess* child_ptr,pid_t pid,int id , Ruolo r);
+/*
+    Struct opaca: i campi reali sono definiti solo in childProcess.c.
+    In questo modo il resto del programma può usare ChildProcess
+    solo tramite le funzioni pubbliche.
+*/
+typedef struct ChildProcess ChildProcess;
 
+/*
+    Alloca dinamicamente una struttura ChildProcess.
 
-/**
- *
- * @param child_ptr Puntatore al processo figlio
- */
-void childProcessDestroy(ChildProcess* child_ptr);
+    Ritorna:
+    - puntatore valido se l'allocazione va a buon fine
+    - NULL in caso di errore
+*/
+ChildProcess *childProcessCreate(void);
 
-/**
- *CHI CHIAMA il ToString deve fare free quando finisce di utilizzare la stringa per la stampa
- * @param child_ptr  Child processo ptr
- * @return puntatore al buffer della stringa
- */
-const char* getCpToString(const ChildProcess* child_ptr);
+/*
+    Inizializza una struttura ChildProcess già allocata.
 
-/**
- *
- * @param child_ptr Puntatore del processo figlio
- * @param  id_ptr zona scrittura id
- * @return intero id del processo figlio
- */
-int getCpId(const ChildProcess* child_ptr,int* id_ptr);
+    Parametri:
+    - child_ptr: struttura da inizializzare
+    - pid: PID del processo figlio
+    - id: identificativo logico assegnato dal programma
+    - role: ruolo del processo
 
+    Ritorna:
+    - 0 se tutto va bene
+    - codice di errore altrimenti
+*/
+int childProcessInit(ChildProcess *child_ptr, pid_t pid, int id, Ruolo role);
 
-/**
- *
- * @param child_ptr
- * @param pid_ptr pid su cui scrivere
- * @return pid del processo figlio
- */
-pid_t getCpPid(const ChildProcess* child_ptr,pid_t* pid_ptr);
+/*
+    Libera una struttura ChildProcess allocata dinamicamente.
+*/
+void childProcessDestroy(ChildProcess *child_ptr);
 
-int copyCp(const ChildProcess* c1_ptr, ChildProcess* c2_ptr);
+/*
+    Crea una stringa descrittiva del processo.
 
-#endif //CHILDPROCESS_H
+    Attenzione:
+    chi chiama questa funzione deve fare free() della stringa ritornata.
+
+    Ritorna:
+    - stringa allocata dinamicamente se tutto va bene
+    - NULL in caso di errore
+*/
+char *getCpToString(const ChildProcess *child_ptr);
+
+/*
+    Getter dell'id logico del processo.
+*/
+int getCpId(const ChildProcess *child_ptr, int *id_ptr);
+
+/*
+    Getter del pid del processo.
+*/
+int getCpPid(const ChildProcess *child_ptr, pid_t *pid_ptr);
+
+/*
+    Getter del ruolo del processo.
+*/
+int getCpRole(const ChildProcess *child_ptr, Ruolo *role_ptr);
+
+/*
+    Copia i dati da un ChildProcess sorgente a un ChildProcess destinazione.
+*/
+int copyCp(const ChildProcess *src_ptr, ChildProcess *dest_ptr);
+
+#endif

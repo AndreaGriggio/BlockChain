@@ -1,27 +1,41 @@
-//
-// Created by andrea on 24/05/26.
-//
-
 #ifndef MESSAGE_H
 #define MESSAGE_H
-#include <protocolSocket.h>
+
+#include <stdint.h>
+#include <stddef.h>
+
+#include "protocolSocket.h"
 #include "block.h"
 #include "childProcess.h"
+
 typedef struct message {
     MessageType type;
-    size_t size;
-    ChildProcess* childProcess;
-    char payload[MAX_BLOCK_TXS_BUF+1];
-}Message;
 
-int messageGetType( const Message* message_ptr,MessageType* type_ptr);
-int messageGetSize(const Message* message_ptr,size_t* size_ptr);
-int messageGetCP(const Message* message_ptr,ChildProcess* cp_ptr);
-int messageGetPayload(const Message* message_ptr, const size_t payload_size,char payload[MAX_BLOCK_TXS_BUF+1]);
+    int32_t sender_pid;
+    uint32_t sender_id;
+    int32_t sender_role;
 
-int messageSetType(Message* message_ptr,const MessageType* type_ptr);
-int messageSetSize(Message* message_ptr, const size_t* size_ptr);
-int messageSetCP(Message* message_ptr,const ChildProcess* cp_ptr);
-int messageSetPayload(Message* message_ptr,const size_t* size,const Message* payload_ptr);
+    uint32_t payload_size;
+    char payload[MAX_BLOCK_TXS_BUF + 1];
+} Message;
 
-#endif //MESSAGE_H
+Message* messageCreate();
+int messageInit(Message *message_ptr);
+
+int messageGetType(const Message *message_ptr, MessageType type_ptr);
+int messageGetSize(const Message *message_ptr, uint32_t *payload_size_ptr);
+int messageGetSenderPid(const Message *message_ptr, int32_t *sender_pid_ptr);
+int messageGetSenderId(const Message *message_ptr, uint32_t *sender_id_ptr);
+int messageGetSenderRole(const Message *message_ptr, int32_t *sender_role_ptr);
+int messageGetPayload(
+    const Message *message_ptr,
+    char payload[MAX_BLOCK_TXS_BUF + 1],
+    size_t payload_capacity
+);
+
+int messageSetType(Message *message_ptr, MessageType type);
+int messageSetSize(Message *message_ptr, uint32_t payload_size);
+int messageSetSender(Message *message_ptr, const ChildProcess *cp_ptr);
+int messageSetPayload(Message *message_ptr, const char *payload_ptr, uint32_t payload_size);
+
+#endif

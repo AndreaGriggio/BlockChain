@@ -1,29 +1,178 @@
 //
 // Created by andrea on 24/05/26.
 //
+
 #include "message.h"
 #include "error.h"
 
-int messageGetType(const Message* message_ptr,MessageType* type_ptr) {
-    if ( message_ptr == NULL || type_ptr==NULL ) return INVALID_PARAMS;
+#include <string.h>
+
+/**
+ *
+ * @return Alloca spazio in memoria per Message
+ */
+Message* messageCreate() {
+    return malloc(sizeof(Message));
+}
+
+int messageInit(Message *message_ptr) {
+    if (message_ptr == NULL) {
+        return INVALID_PARAMS;
+    }
+
+    memset(message_ptr, 0, sizeof(Message));
+
+    return 0;
+}
+
+int messageGetType(const Message *message_ptr, MessageType type_ptr) {
+    if (message_ptr == NULL || type_ptr == NULL) {
+        return INVALID_PARAMS;
+    }
+
     *type_ptr = message_ptr->type;
+
     return 0;
 }
-int messageGetSize(const Message* message_ptr,size_t* size_ptr) {
-    if ( message_ptr == NULL || size_ptr==NULL ) return INVALID_PARAMS;
-    *size_ptr = message_ptr->size;
+
+int messageGetSize(const Message *message_ptr, uint32_t *payload_size_ptr) {
+    if (message_ptr == NULL || payload_size_ptr == NULL) {
+        return INVALID_PARAMS;
+    }
+
+    *payload_size_ptr = message_ptr->payload_size;
+
     return 0;
 }
-int messageGetCP(const Message* message_ptr,ChildProcess* cp_ptr) {
-    if (message_ptr == NULL || cp_ptr==NULL ) return INVALID_PARAMS;
-    return copyCp(message_ptr->childProcess, cp_ptr);
+
+int messageGetSenderPid(const Message *message_ptr, int32_t *sender_pid_ptr) {
+    if (message_ptr == NULL || sender_pid_ptr == NULL) {
+        return INVALID_PARAMS;
+    }
+
+    *sender_pid_ptr = message_ptr->sender_pid;
+
+    return 0;
 }
-int messageGetPayload(const Message* message_ptr,const size_t payload_size,char payload[MAX_BLOCK_TXS_BUF+1]) {
 
-    if ( message_ptr == NULL || payload==NULL || payload_size == 0 ) return INVALID_PARAMS;
+int messageGetSenderId(const Message *message_ptr, uint32_t *sender_id_ptr) {
+    if (message_ptr == NULL || sender_id_ptr == NULL) {
+        return INVALID_PARAMS;
+    }
 
-    const int written = snprintf(payload,payload_size,"%s",message_ptr->payload);
-    
-    if ( written < 0 ||written >= payload_size ) return BUFFER_TOO_SMALL;
+    *sender_id_ptr = message_ptr->sender_id;
+
+    return 0;
+}
+
+int messageGetSenderRole(const Message *message_ptr, int32_t *sender_role_ptr) {
+    if (message_ptr == NULL || sender_role_ptr == NULL) {
+        return INVALID_PARAMS;
+    }
+
+    *sender_role_ptr = message_ptr->sender_role;
+
+    return 0;
+}
+
+int messageGetPayload(
+    const Message *message_ptr,
+    char payload[MAX_BLOCK_TXS_BUF + 1],
+    size_t payload_capacity
+) {
+    if (message_ptr == NULL || payload == NULL) {
+        return INVALID_PARAMS;
+    }
+
+    if (payload_capacity == 0) {
+        return INVALID_PARAMS;
+    }
+
+    if (payload_capacity <= message_ptr->payload_size) {
+        return BUFFER_TOO_SMALL;
+    }
+
+    memcpy(payload, message_ptr->payload, message_ptr->payload_size);
+    payload[message_ptr->payload_size] = '\0';
+
+    return 0;
+}
+
+int messageSetType(Message *message_ptr, MessageType type) {
+    if (message_ptr == NULL) {
+        return INVALID_PARAMS;
+    }
+
+    message_ptr->type = type;
+
+    return 0;
+}
+
+int messageSetSize(Message *message_ptr, uint32_t payload_size) {
+    if (message_ptr == NULL) {
+        return INVALID_PARAMS;
+    }
+
+    if (payload_size > MAX_BLOCK_TXS_BUF) {
+        return BUFFER_TOO_SMALL;
+    }
+
+    message_ptr->payload_size = payload_size;
+
+    return 0;
+}
+
+int messageSetSender(Message *message_ptr, const ChildProcess *cp_ptr) {
+    if (message_ptr == NULL || cp_ptr == NULL) {
+        return INVALID_PARAMS;
+    }
+
+    pid_t pid;
+    int id;
+    Ruolo role;
+
+    if (getCpPid(cp_ptr, &pid) != 0) {
+        return INVALID_PARAMS;
+    }
+
+    if (getCpId(cp_ptr, &id) != 0) {
+        return INVALID_PARAMS;
+    }
+
+    if (getCpRole(cp_ptr, &role) != 0) {
+        return INVALID_PARAMS;
+    }
+
+    if (pid < 0 || id < 0 || role == ROLE_INVALID) {
+        return INVALID_PARAMS;
+    }
+
+    message_ptr->sender_pid = (int32_t)pid;
+    message_ptr->sender_id = (uint32_t)id;
+    message_ptr->sender_role = (int32_t)role;
+
+    return 0;
+}
+
+int messageSetPayload(Message *message_ptr, const char *payload_ptr, uint32_t payload_size) {
+    if (message_ptr == NULL) {
+        return INVALID_PARAMS;
+    }
+
+    if (payload_size > MAX_BLOCK_TXS_BUF) {
+        return BUFFER_TOO_SMALL;
+    }
+
+    if (payload_size > 0 && payload_ptr == NULL) {
+        return INVALID_PARAMS;
+    }
+
+    if (payload_size > 0) {
+        memcpy(message_ptr->payload, payload_ptr, payload_size);
+    }
+
+    message_ptr->payload[payload_size] = '\0';
+    message_ptr->payload_size = payload_size;
+
     return 0;
 }
