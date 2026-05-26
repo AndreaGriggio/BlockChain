@@ -28,7 +28,7 @@ static void handle_signal(int sig) {
 }
 
 int main(int argc, char* argv[]) {
-    if (argc < 2) {
+    if (argc < 3) {
         fprintf(stderr, "Utilizzo : %s <transaction_frequency<\n",argv[0]);
         return 1;
 
@@ -55,22 +55,21 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    Client* client;
-    ChildProcess* childProcess;
+    Client* client = createClient();
+    ChildProcess* childProcess = childProcessCreate();
 
 
-    createClient(client);
+
     if (client == NULL) {
         fprintf(stderr,"Client Allocation Error");
         return 1;
     }
 
     if ( clientInit(client,transaction_frequency) == INVALID_PARAMS) {
-        fprintf(strderr,"Client Init Error");
+        fprintf(stderr,"Client Init Error");
         return 1;
     }
 
-    childProcessCreate(childProcess);
     if (childProcess == NULL) {
         fprintf(stderr,"Process information Allocation Error");
         return 1;
@@ -81,28 +80,30 @@ int main(int argc, char* argv[]) {
     }
 
 
+    int fd = socket(AF_UNIX,SOCK_STREAM,0);
 
 
     while (running) {
-        sleep(1);
-        if ( clientGenerateTransaction(client) == 0) {
+        sleep(transaction_frequency);
+        if ( clientGenerateTransaction(client) != 0) {
             Message message;
             messageInit(&message);
 
             messageSetType(&message,MSG_NEW_TX);
             messageSetSender(&message,childProcess);
 
-            
+
             if (clientGetTransaction(client,MAX_TR_LENGHT,message.payload) == 0){fprintf(stderr, "Getting Transaction it's too difficult");}
 
-            int fd = socket(AF_UNIX,SOCK_STREAM,0);
 
             if (fd < 0) { fprintf(stderr,"Socket Creation Error"); }
 
             if ( connect(fd,(struct sockaddr *)&addr,sizeof(addr))< 0){fprintf(stderr, "Socket Connection Error");}
 
-            sendMessage(fd,message);
+            sendMessage(fd,&message);
         };
     }
+    close(fd);
+    exit(0);
 
 }

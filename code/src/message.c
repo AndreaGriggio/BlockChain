@@ -2,6 +2,7 @@
 // Created by andrea on 24/05/26.
 //
 
+#include <arpa/inet.h>
 #include "message.h"
 #include "error.h"
 
@@ -173,6 +174,69 @@ int messageSetPayload(Message *message_ptr, const char *payload_ptr, uint32_t pa
 
     message_ptr->payload[payload_size] = '\0';
     message_ptr->payload_size = payload_size;
+
+    return 0;
+}
+
+
+int sendMessage(int fd, const Message* message_ptr) {
+    if (message_ptr == NULL){return INVALID_PARAMS;}
+
+
+    MessageHeader header;
+
+    header.type = htonl((uint32_t)message_ptr->type);//convertito in host to network long 32bit essenzialmente byte
+    header.sender_pid = htonl((uint32_t)message_ptr->sender_pid);
+    header.sender_id = htonl(message_ptr->sender_id);
+    header.sender_role = htonl((uint32_t)message_ptr->sender_role);
+    header.payload_size = htonl(message_ptr->payload_size);
+
+    sendAll(fd, &header, sizeof(header));
+    sendAll(fd, message_ptr->payload, message_ptr->payload_size);
+
+    return 0;
+}
+int receiveMessage(int fd, Message* message_ptr) {
+    /*
+     *TODO : si potrebbe decidere in base al tipo di messaggio più formati di come interpretare i byte letti
+     *Ora il formato è molto semplice è una stringa mandando blocchi occorrerà o cambiare protocollo oppure imporre un formato
+     */
+    if (fd < 0 || message_ptr == NULL) {
+        return INVALID_PARAMS;
+    }
+
+    MessageHeader header;
+
+    int result = recvAll(fd, &header, sizeof(MessageHeader));
+    if (result != 0) {
+        return result;
+    }
+
+    message_ptr->type = (MessageType)ntohl(header.type); //viene convertito in network to host long 32 bit
+    message_ptr->sender_pid = (int32_t)ntohl(header.sender_pid);
+    message_ptr->sender_id = ntohl(header.sender_id);
+    message_ptr->sender_role = (int32_t)ntohl(header.sender_role);
+    message_ptr->payload_size = ntohl(header.payload_size);
+
+    if (message_ptr->payload_size > MAX_BLOCK_TXS_BUF) {
+        return BUFFER_TOO_SMALL;
+    }
+
+    memset(message_ptr->payload, 0, MAX_BLOCK_TXS_BUF + 1);
+
+    if (message_ptr->payload_size > 0) {
+        result = recvAll(
+            fd,
+            message_ptr->payload,
+            message_ptr->payload_size
+        );
+
+        if (result != 0) {
+            return result;
+        }
+    }
+
+    message_ptr->payload[message_ptr->payload_size] = '\0';
 
     return 0;
 }

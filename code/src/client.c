@@ -118,3 +118,4 @@ int clientGetTransaction(const Client* c_ptr ,const uint32_t output_size, char o
     output[c_ptr->trLen] = '\0';
     return 0;
 }
+
