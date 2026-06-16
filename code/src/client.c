@@ -54,8 +54,8 @@ int clientGenerateTransaction(Client* c_ptr) {
 
     return 0;
 }
-int clientGenerateTransactionInPlace(Client* c_ptr,const uint32_t output_size, char output[MAX_TR_LENGHT+1]) {
-    if (c_ptr == NULL || output_size == 0 || output == NULL){return INVALID_PARAMS;}
+int clientGenerateTransactionInPlace(const uint32_t output_size, char output[MAX_TR_LENGHT+1]) {
+    if ( output_size == 0 || output == NULL){return INVALID_PARAMS;}
 
     char sender[MAX_NAME_SIZE+1];
     char receiver[MAX_NAME_SIZE+1];

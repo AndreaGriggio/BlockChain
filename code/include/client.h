@@ -37,7 +37,7 @@ int clientDestroy(Client* c_ptr);
  * @return 0 se tutto è andato a buon fine
  */
 int clientGenerateTransaction(Client* c_ptr);
-int clientGenerateTransactionInPlace(const Client* c_ptr,const uint32_t output_size, char output[MAX_TR_LENGHT+1]);
+int clientGenerateTransactionInPlace(const uint32_t output_size, char output[MAX_TR_LENGHT+1]);
 
 /**
  * Genera un nome come specificato dalla consegna
@@ -53,6 +53,5 @@ int clientGenerateTransactionInPlace(const Client* c_ptr,const uint32_t output_s
 int clientGenRandomName(const size_t size, char name[MAX_NAME_SIZE+1]);
 int clientGetTrLen(const Client* c_ptr, uint32_t *len);
 int clientGetTransaction(const Client* c_ptr ,const uint32_t output_size, char output[MAX_TR_LENGHT+1]);
-
 
 #endif //_CLIENT_H
