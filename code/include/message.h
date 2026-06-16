@@ -7,7 +7,9 @@
 #include "protocolSocket.h"
 #include "block.h"
 #include "childProcess.h"
-
+/*
+ *Struct opaca : impedisce l'accesso ai campi da fuori
+ */
 typedef struct message {
     MessageType type;
 

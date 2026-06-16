@@ -19,4 +19,9 @@ Varie per management :
 
 Da fare :
 1. [] controllo-validazione regex su transaction
-2. []
+2. [] entry point del progetto
+3. [] bash per interagire con il progetto quando viene eseguito
+4. [] cambiare e implementare dei protocolli IPC coerenti con le operazioni che deve fare
+5. [] implementazione nodo
+6. [] implementazione miner
+7. [] logging di ogni processo
