@@ -90,7 +90,7 @@ int blockAddTransactions(Block *block_ptr,const char transaction[MAX_BLOCK_TXS_B
 int blockKillTransactions(Block *block_ptr);
 
 int pack_transactions(Block *block_ptr, const TxList *list);
-int unpack_transactions(Block *block_ptr, const TxList *list);
+int unpack_transactions(Block *block_ptr, TxList *list);
 
 
 #endif //BLOCK_H

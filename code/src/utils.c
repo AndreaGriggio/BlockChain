@@ -3,7 +3,7 @@
 //
 #include "utils.h"
 #include "error.h"
-static void sha256_of_string(const unsigned char* input,const size_t input_size, char* output){
+void sha256_of_string(const unsigned char* input,const size_t input_size, char* output){
     unsigned char raw_hash[SHA256_DIGEST_LENGHT];
 
     SHA256(input,input_size,raw_hash);
@@ -13,7 +13,7 @@ static void sha256_of_string(const unsigned char* input,const size_t input_size,
     }
     output[HASH_HEX_SIZE]='\0';
 }
-static int parse_uint64_hex(const char *str, uint64_t *out){
+int parse_uint64_hex(const char *str, uint64_t *out){
     if (str == NULL || out == NULL) {
         return INVALID_PARAMS;
     }

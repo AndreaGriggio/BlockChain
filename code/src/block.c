@@ -318,7 +318,7 @@ int pack_transactions(Block *b, const TxList *list) {
 }
 
 //funzione per de-impacchettare le transazioni
-int unpack_transactions(Block *b, const TxList *list) {
+int unpack_transactions(Block *b, TxList *list) {
     list->count = 0;
     memset(list->strings, 0, sizeof(list->strings));
 

@@ -25,7 +25,7 @@ int sendAll(int fd, const void* buffer, size_t size) {
     return 0;
 }
 
-int recvAll(int fd, const void* buffer, size_t size){
+int recvAll(int fd, void* buffer, size_t size){
     if (fd < 0 || buffer == NULL) return INVALID_PARAMS;
 
     const char *ptr = buffer;

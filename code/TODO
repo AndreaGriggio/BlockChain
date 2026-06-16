@@ -17,6 +17,6 @@ Utils :
 Varie per management :
 7. [x] child process struct
 
-5. [x] child process struct
-6. [x] client manager struct
-7.
+Da fare :
+1. [] controllo-validazione regex su transaction
+2. []

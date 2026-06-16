@@ -22,7 +22,7 @@ typedef struct message {
 Message* messageCreate();
 int messageInit(Message *message_ptr);
 
-int messageGetType(const Message *message_ptr, MessageType type_ptr);
+int messageGetType(const Message *message_ptr, MessageType* type_ptr);
 int messageGetSize(const Message *message_ptr, uint32_t *payload_size_ptr);
 int messageGetSenderPid(const Message *message_ptr, int32_t *sender_pid_ptr);
 int messageGetSenderId(const Message *message_ptr, uint32_t *sender_id_ptr);
@@ -62,5 +62,5 @@ int sendMessage(int fd, const Message* message_ptr);
  * @param message_ptr Messaggio su cui ricevere
  * @return 0 se tutto è andato a buon fine
  */
-int receiveMessge(int fd,Message* message_ptr);
+int receiveMessage(int fd,Message* message_ptr);
 #endif

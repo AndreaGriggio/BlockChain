@@ -32,5 +32,5 @@ int sendAll(int fd, const void *buffer, size_t size);
  * @param size Dimensione del buffer ricevitore dalla socket
  * @return 0 se tutto è andato a buon fine
  */
-int recvAll(int fd, const void* buffer, size_t size);
+int recvAll(int fd, void* buffer, size_t size);
 #endif

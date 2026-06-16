@@ -13,7 +13,6 @@ add_executable(Gonzato_Luongo_Griggio
         src/client.c
         src/crypto.c
         src/block.c
-        code/src/crypto.c
         code/include/error.h
         code/include/ClientManager.h
         code/include/message.h

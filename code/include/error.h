@@ -15,6 +15,7 @@ typedef enum error {
     INVALID_HASH = 5,
     INVALID_PARAMS = 6,
     BUFFER_TOO_SMALL = 7,
-    SOCKET_ERROR = 8
+    SOCKET_ERROR = 8,
+    SOCKET_CLOSED = 9
 }error;
 #endif //ERROR_H

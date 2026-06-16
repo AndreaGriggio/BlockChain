@@ -39,9 +39,9 @@ snprintf((out),(out_size),\
  * @param input_size quanti byte leggere da input
  * @param output buffer dove scrivere l'hash finale come testo
  */
-static void sha256_of_string(const unsigned char* input,const size_t input_size, char* output);
+void sha256_of_string(const unsigned char* input,const size_t input_size, char* output);
 
-static int parse_uint64_hex(const char *str, uint64_t *out);
+int parse_uint64_hex(const char *str, uint64_t *out);
 
 #define NUM_MIN_MAX(min, max) ((rand() % ((max) - (min) + 1)) + (min))
 #define NUM_MAX(max) (rand()%(max+1))

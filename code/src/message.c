@@ -26,7 +26,7 @@ int messageInit(Message *message_ptr) {
     return 0;
 }
 
-int messageGetType(const Message *message_ptr, MessageType type_ptr) {
+int messageGetType(const Message *message_ptr, MessageType* type_ptr) {
     if (message_ptr == NULL || type_ptr == NULL) {
         return INVALID_PARAMS;
     }

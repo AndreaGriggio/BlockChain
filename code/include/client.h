@@ -15,7 +15,7 @@
 #define TOTAL_SUBSETS 3
 
 #define STR_CAP_LETTERS "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-#define STR_LC_LETTERS "abcdefghijklmnopqrstuwxyz"
+#define STR_LC_LETTERS "abcdefghijklmnopqrstuvwxyz"
 #define STR_NUMBERS "0123456789"
 
 #include <stdint.h>
