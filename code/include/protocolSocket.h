@@ -7,8 +7,8 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#define SOCKET_PREFIX "./tmp/blockchain_node_"
-
+#define NODE_SOCKET "./tmp/blockchain_node_"
+#define CLIENT_MANAGER_SOCKET "./tmp/client_manager.sock"
 typedef enum {
     MSG_NEW_TX,         //dal client al miner
     MSG_BLOCK_MINED,    //dal miner al node
@@ -22,6 +22,7 @@ typedef enum {
  * @param size Dimensione del buffer da mandare nella socket
  * @return 0 se tutto è andato a buon fine
  */
+
 int sendAll(int fd, const void *buffer, size_t size);
 
 /**
