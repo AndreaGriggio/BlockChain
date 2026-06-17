@@ -9,6 +9,8 @@
 
 #define NODE_SOCKET "./tmp/blockchain_node_"
 #define CLIENT_MANAGER_SOCKET "./tmp/client_manager.sock"
+#define MINERS_SOCKET "./tmp/miners.sock"
+
 typedef enum {
     MSG_NEW_TX,         //dal client al miner
     MSG_BLOCK_MINED,    //dal miner al node
