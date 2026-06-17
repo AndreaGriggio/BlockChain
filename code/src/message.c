@@ -191,8 +191,13 @@ int sendMessage(int fd, const Message* message_ptr) {
     header.sender_role = htonl((uint32_t)message_ptr->sender_role);
     header.payload_size = htonl(message_ptr->payload_size);
 
-    sendAll(fd, &header, sizeof(header));
-    sendAll(fd, message_ptr->payload, message_ptr->payload_size);
+    int r = sendAll(fd, &header, sizeof(header));
+    if (r != 0) return r;  // errore se sendAll non riesce a inviare l'header
+
+    if (message_ptr->payload_size > 0) {
+        r = sendAll(fd, message_ptr->payload, message_ptr->payload_size);
+        if (r != 0) return r;
+    }
 
     return 0;
 }
