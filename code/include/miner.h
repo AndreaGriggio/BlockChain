@@ -44,12 +44,5 @@ int minerRemoveTransactions(Miner* miner,const char transactions[MAX_TX_PER_BLOC
 
 int startMining(Miner * miner);
 int stopMining(Miner * miner);
-int validateName(const char *name);
-
-
-
-
-
-
 
 #endif //PROGETTO_MINER_H

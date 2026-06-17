@@ -4,13 +4,17 @@
 
 #include "error.h"
 #include "miner.h"
+
+#include <string.h>
+
 #include "client.h"
+#include "utils.h"
 
 typedef struct Miner {
     
     u_int64_t last_block_index;
     char transactions[MAX_TX_PER_BLOCK][MAX_TX_SIZE+1];
-    int frequency;
+    int difficulty;
     Block* mined_block;
 }Miner;
 
@@ -20,7 +24,7 @@ Miner* minerCreate(){
         return NULL;
     }
     miner->last_block_index = 0;
-    miner->frequency = 0;
+    miner->difficulty = 0;
     miner->mined_block = NULL;
     return miner;
 }
@@ -37,7 +41,7 @@ int minerInit(Miner* miner,int miner_difficulty){
     if (miner == NULL) {
         return -1;
     }
-    miner->frequency = miner_difficulty;
+    miner->difficulty = miner_difficulty;
     return 0;
 }
 
