@@ -28,12 +28,13 @@ int minerGetTransactionsFromMessage(Miner* miner,Message* message_ptr);
 
 /*
 Convalida le transazioni */
-int minerValidateTransactions(Miner* miner,const char transactions[MAX_TX_PER_BLOCK][MAX_TX_SIZE+1],size_t  number_of_transactions);
+int minerValidateTransactions(Miner* miner,char transactions[MAX_TX_PER_BLOCK][MAX_TX_SIZE+1],size_t  number_of_transactions);
 int minerValidateTransaction(Miner* miner,const char transaction[MAX_TX_SIZE+1]);
 int minerRemoveTransactions(Miner* miner,const char transactions[MAX_TX_PER_BLOCK][MAX_TX_SIZE+1],size_t  number_of_transactions);
 
 int startMining(Miner * miner);
 int stopMining(Miner * miner);
+int validateName(const char *name);
 
 
 
