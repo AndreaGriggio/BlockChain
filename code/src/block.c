@@ -43,7 +43,7 @@ int blockInit(Block *block_ptr,const u_int64_t index, const u_int64_t timestamp,
     if (prev == NULL) block_ptr->prev_hash[0] = '\0'; // se il blocco è minato ma non aggiunto a blockchain
     else {
         const int res = blockGetHash(prev,block_ptr->prev_hash);
-        if ( res == INVALID_HASH) return INVALID_BLOCK;
+    if ( res == INVALID_HASH) return INVALID_BLOCK;
     }
 
     block_ptr -> nonce = nonce;
@@ -68,7 +68,7 @@ int blockGetmerkle(const Block* block_ptr,char output_merkle[MERKLE_ROOT_HEX_SIZ
     char transactionHashes[list.count][MERKLE_ROOT_HEX_SIZE+1];
 
 
-    for (int i = 0; i < list.count ; i++) {
+    for (size_t i = 0; i < list.count ; i++) {
         sha256_of_string((const unsigned char*) list.strings[i],
                          strlen(list.strings[i])
                          ,transactionHashes[i]);
@@ -147,7 +147,7 @@ int calcMerkle(char hashes[][HASH_HEX_SIZE+1],const size_t count,char output_mer
 }
 
 
-int blockGetHash(const Block *block_ptr, char out_hash[]) {
+int blockGetHash(const Block *block_ptr, char out_hash[HASH_HEX_SIZE + 1]) {
     if (block_ptr == NULL) return INVALID_HASH;
 
     const size_t size = UINT64_TO_CHAR_SIZE*3 + MERKLE_ROOT_HEX_SIZE + HASH_HEX_SIZE+1;//dimensione della stringa di hex
@@ -162,7 +162,7 @@ int blockGetHash(const Block *block_ptr, char out_hash[]) {
                     input_sha256,
                     size);
 
-    if (res<0 || res >= size+1 ){return INVALID_HASH;}
+    if (res<0 || (size_t)res >= size+1 ){return INVALID_HASH;}
 
     sha256_of_string(
         (const unsigned char *)input_sha256
@@ -198,7 +198,7 @@ int blockToCsv(const Block *block_ptr, char *buffer,const size_t size) {
                             block_ptr->nonce,
                             block_ptr->transactions
                             );
-    if (written < 0 || written >= size) return BUFFER_TOO_SMALL;
+    if (written < 0 || (size_t)written >= size) return BUFFER_TOO_SMALL;
 
     return 0;
 }
@@ -264,7 +264,7 @@ int blockDestroy(Block* block_ptr) {
     return 0;
 }
 
-int blockAddTransaction(Block *block_ptr, const char transaction[MAX_BLOCK_TXS_BUF+1]) {
+int blockAddTransaction(Block *block_ptr, const char transaction[MAX_TX_SIZE + 1]) {
     if (block_ptr == NULL || transaction == NULL) return INVALID_PARAMS;
 
     const char* separator = "::";
@@ -282,7 +282,7 @@ int blockAddTransaction(Block *block_ptr, const char transaction[MAX_BLOCK_TXS_B
                                  "%s%s",
                                  separator,
                                  transaction);
-    if (written < 0 || written >= MAX_BLOCK_TXS_BUF-currentSize) return BUFFER_TOO_SMALL;
+    if (written < 0 || (size_t)written >= MAX_BLOCK_TXS_BUF-currentSize) return BUFFER_TOO_SMALL;
     return 0;
 }
 
@@ -302,7 +302,7 @@ int pack_transactions(Block *b, const TxList *list) {
     //copia la prima transazione
     strncpy(b->transactions, list->strings[0], MAX_BLOCK_TXS_BUF - 1);
 
-    for (int i = 1; i < list->count; i++) {
+    for (size_t i = 1; i < list->count; i++) {
         //verifico spazio libero nel buffer
         size_t current_len = strlen(b->transactions);
         size_t needed_space = strlen(list->strings[i]) + 2;   // +2 per i ::

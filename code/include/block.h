@@ -1,5 +1,7 @@
 #ifndef BLOCK_H
 #define BLOCK_H
+#include <stddef.h> // per size_t
+#include <stdint.h> // per uint64_t
 #include <stdio.h>
 #include <sys/types.h>
 #include "utils.h"
@@ -15,7 +17,7 @@
 typedef struct Block Block;
 
 typedef struct {
-    char count;
+    size_t count;
     char strings[MAX_TX_PER_BLOCK][MAX_TX_SIZE];
 } TxList;
 
@@ -31,9 +33,15 @@ Block* blockCreate();
  * @param txs lista di transazioni
  * @return stato dell'operazione
  */
-int blockInit(Block *block_ptr,const u_int64_t index, const u_int64_t timestamp, const Block *prev, const u_int64_t nonce,const TxList *txs);
+int blockInit(
+    Block *block_ptr
+    ,uint64_t index,
+    uint64_t timestamp,
+    const Block *prev,
+    uint64_t nonce,
+    const TxList *txs);
 
-int blockGetmerkle(const Block *block_ptr,char output_merkle[MERKLE_ROOT_HEX_SIZE]);
+int blockGetmerkle(const Block *block_ptr,char output_merkle[MERKLE_ROOT_HEX_SIZE + 1]);
 /**
  *La funzione prende in input 0 < n < 30 Hashcodes e ritorna il merkle root degli hashcode
  * @param hashes Hashcodes delle transazioni in base 16 convertiti con sha256_of_string()
@@ -49,7 +57,7 @@ int calcMerkle(char hashes[][MERKLE_ROOT_HEX_SIZE+1],size_t count,char output_me
  * @param out_hash  Buffer dove va inserito l'hashcode
  * @return 0 se tutto è andato a buon fine
  */
-int blockGetHash(const Block *block_ptr, char out_hash[HASH_HEX_SIZE+1]);
+int blockGetHash(const Block *block_ptr, char out_hash[HASH_HEX_SIZE + 1]);
 /**
  *
  * @param block_ptr Blocco da validare
@@ -80,7 +88,7 @@ int blockDestroy(Block* block_ptr);
  * @param transaction transazione da aggiungere
  * @return 0 se tutto è andato a buon fine
  */
-int blockAddTransaction(Block *block_ptr,const char transaction[MAX_BLOCK_TXS_BUF+1]);
+int blockAddTransaction(Block *block_ptr,const char transaction[MAX_TX_SIZE + 1]);
 
 /**
  * Uccide le transazioni che un bloco contiene
