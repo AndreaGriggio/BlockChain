@@ -4,23 +4,11 @@
 #ifndef _CLIENT_H
 #define _CLIENT_H
 
-#define MAX_TR_LENGHT 50
-#define MAX_NAME_SIZE 10
-#define MIN_NAME_SIZE 1
 
-#define MAX_COINS 99
-#define MIN_COINS 1
-#define N_LETTERS 26
-#define N_NUMBERS 10
-#define TOTAL_SUBSETS 3
-
-#define STR_CAP_LETTERS "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-#define STR_LC_LETTERS "abcdefghijklmnopqrstuvwxyz"
-#define STR_NUMBERS "0123456789"
 
 #include <stdint.h>
 #include <sys/types.h>
-
+#include "constants.h"
 typedef struct Client Client;
 
 //metodi di costruzione, inizializzazione,distruzione

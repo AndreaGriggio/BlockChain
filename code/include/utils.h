@@ -8,13 +8,9 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include "constants.h"
 #include <openssl/sha.h>
-#define UINT64_TO_CHAR_SIZE 16
-#define HASH_HEX_SIZE 64
 
-#define SHA256_DIGEST_LENGHT 32
 /**
  *Fa encoding dei campi del blocco
  * @param index indice del blocco
@@ -39,10 +35,11 @@ snprintf((out),(out_size),\
  * @param input_size quanti byte leggere da input
  * @param output buffer dove scrivere l'hash finale come testo
  */
-void sha256_of_string(const unsigned char* input,const size_t input_size, char* output);
+void sha256_of_string(const unsigned char* input, size_t input_size, char* output);
 
 int parse_uint64_hex(const char *str, uint64_t *out);
-
+int validateTransaction(const char transaction[MAX_TX_SIZE+1]);
+int validateName(const char *name);
 #define NUM_MIN_MAX(min, max) ((rand() % ((max) - (min) + 1)) + (min))
 #define NUM_MAX(max) (rand()%(max+1))
 #endif //PROG_UTILS_H

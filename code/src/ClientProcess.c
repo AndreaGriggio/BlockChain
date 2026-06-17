@@ -3,7 +3,7 @@
 //
 #include "client.h"
 #include "childProcess.h"
-#include "error.h"
+
 #include "message.h"
 #include "protocolSocket.h"
 #include <signal.h>
@@ -105,7 +105,6 @@ int main(int argc, char* argv[]) {
 
 
     struct sockaddr_un addr;
-    memset(&addr,0,sizeof(addr));
     addr.sun_family = AF_UNIX;
     strncpy(addr.sun_path,
         MINERS_SOCKET,

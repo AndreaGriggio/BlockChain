@@ -16,7 +16,7 @@ typedef enum error {
     INVALID_PARAMS = 6,
     BUFFER_TOO_SMALL = 7,
     SOCKET_ERROR = 8,
-    SOCKET_CLOSED = 9
+    SOCKET_CLOSED = 9,
     //errori aggiunti in node
     INVALID_MERKLE = 10,      // merkle root non coincide con quello ricalcolato
     BLOCK_TOO_FAR = 11,       // blocco con index troppo avanti, mancano intermedi

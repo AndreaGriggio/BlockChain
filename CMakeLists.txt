@@ -21,7 +21,8 @@ add_executable(Gonzato_Luongo_Griggio
         code/src/utils.c
         code/src/ClientProcess.c
         code/include/messageHeader.h
-        code/src/protocolSocket.c)
+        code/src/protocolSocket.c
+        code/include/constants.h)
 
 target_include_directories(Gonzato_Luongo_Griggio PRIVATE include)
 

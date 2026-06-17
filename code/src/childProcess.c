@@ -14,7 +14,7 @@ struct ChildProcess {
     int id;
 };
 
-static const char *roleToString(Ruolo role) {
+static const char *roleToString(const Ruolo role) {
     switch (role) {
         case CLIENT:
             return "Client";

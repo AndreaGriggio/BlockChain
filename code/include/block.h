@@ -2,16 +2,7 @@
 #define BLOCK_H
 #include <stddef.h> // per size_t
 #include <stdint.h> // per uint64_t
-#include <stdio.h>
-#include <sys/types.h>
-#include "utils.h"
-//teniamo costanti pulite +1 vanno dopo altrimenti cambiamo nome della costante
-    //64 caratteri hex
-#define MERKLE_ROOT_HEX_SIZE HASH_HEX_SIZE
-#define MAX_BLOCK_TXS_BUF 4098  // dimensione massima buffer transazioni
-#define MAX_TX_PER_BLOCK 30    // Numero massimo di transazioni per blocco
-#define MAX_TX_SIZE 128         // Dimensione massima di una singola transazione
-
+#include "constants.h"
 #define BLOCK_CSV_LINE_SIZE \
     (MAX_BLOCK_TXS_BUF + HASH_HEX_SIZE * 2 + UINT64_TO_CHAR_SIZE*3+128)//128 per il meme tenerci larghi
 typedef struct Block Block;
@@ -29,7 +20,10 @@ Block* blockCreate();
 /**
  *
  * @param block_ptr puntatore al blocco
+ * @param index indice del blocco
+ * @param timestamp timestamp del blocco
  * @param prev blocco precedente
+ * @param nonce nonce del blocco 
  * @param txs lista di transazioni
  * @return stato dell'operazione
  */
@@ -72,7 +66,7 @@ int blockValidate(const Block *block_ptr, const Block *prev);
  * @param size Dimensione del buffer
  * @return 0 se tutto è andato a buon fine
  */
-int blockToCsv(const Block *block_ptr, char *buffer,const size_t size);
+int blockToCsv(const Block *block_ptr, char *buffer, size_t size);
 /**
  *
  * @param block_ptr Blocco creato e inizializzato
