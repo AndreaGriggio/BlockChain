@@ -20,26 +20,20 @@
 #include <errno.h>
 #include <pthread.h>
 
-/* segnale di stop — messo a 0 da SIGTERM/SIGINT */
 static volatile sig_atomic_t running = 1;
 
-/* ultimo blocco accettato nella chain locale */
 static Block   *last_block   = NULL;
 static uint64_t chain_length = 0;
 
-/* mutex per proteggere last_block e chain_length tra i thread */
 static pthread_mutex_t chain_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-/* informazioni sul processo */
 static int    node_id    = -1;
 static int    num_nodes  = 0;
 static char **node_fifos = NULL;
 static char   my_fifo[256];
 
-/* file di log */
 static FILE *log_file = NULL;
 
-/* costanti */
 #define CSV_SEM_NAME  "/blockchain_csv"
 #define CSV_FILE_NAME "./blockchain.csv"
 
@@ -53,24 +47,19 @@ static void handle_signal(int sig) {
     }
 }
 
-//funzione di logging con timestamp e info processo
 static void log_msg(const char *fmt, ...) {
     if (log_file == NULL) return;
 
-    /* prendo il timestamp corrente */
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
 
-    /* converto in formato leggibile */
     struct tm *tm_info = localtime(&ts.tv_sec);
     char time_buf[32];
     strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", tm_info);
 
-    /* scrivo prefisso */
     fprintf(log_file, "[%s.%03ld] [NODE-%d|PID-%d] ",
             time_buf, ts.tv_nsec / 1000000, node_id, (int)getpid());
 
-    /* scrivo il messaggio */
     va_list args;
     va_start(args, fmt);
     vfprintf(log_file, fmt, args);
@@ -82,17 +71,14 @@ static void log_msg(const char *fmt, ...) {
 
 
 static int append_block_to_csv(const Block *block_ptr) {
-    /* apro il semaforo — deve essere già stato creato dal main */
     sem_t *sem = sem_open(CSV_SEM_NAME, 0);
     if (sem == SEM_FAILED) {
         log_msg("ERROR: sem_open fallito: %s", strerror(errno));
         return SEM_ERROR;
     }
 
-    /* aspetto che il CSV sia libero */
     sem_wait(sem);
 
-    /* apro il CSV in append */
     FILE *f = fopen(CSV_FILE_NAME, "a");
     if (f == NULL) {
         log_msg("ERROR: apertura CSV fallita: %s", strerror(errno));
@@ -101,7 +87,6 @@ static int append_block_to_csv(const Block *block_ptr) {
         return CSV_ERROR;
     }
 
-    /* converto il blocco in stringa CSV */
     char line[BLOCK_CSV_LINE_SIZE];
     if (blockToCsv(block_ptr, line, sizeof(line)) != 0) {
         log_msg("ERROR: blockToCsv fallito");
@@ -111,11 +96,9 @@ static int append_block_to_csv(const Block *block_ptr) {
         return CSV_ERROR;
     }
 
-    /* scrivo la riga */
     fprintf(f, "%s\n", line);
     fclose(f);
 
-    /* rilascio il semaforo */
     sem_post(sem);
     sem_close(sem);
     return 0;
@@ -131,16 +114,13 @@ static int load_initial_state(const char *csv_path) {
     char line[BLOCK_CSV_LINE_SIZE];
     Block *prev = NULL;
 
-    /* salta header se presente */
     long first_pos = ftell(f);
     if (fgets(line, sizeof(line), f) != NULL) {
         if (strncmp(line, "index,", 6) != 0) {
-            /* non è un header, torno indietro */
             fseek(f, first_pos, SEEK_SET);
         }
     }
 
-    /* leggo riga per riga */
     while (fgets(line, sizeof(line), f) != NULL) {
         line[strcspn(line, "\n")] = '\0';
         if (strlen(line) == 0) continue;
@@ -168,7 +148,6 @@ static int load_initial_state(const char *csv_path) {
 
     fclose(f);
 
-    /* salvo l'ultimo blocco come last_block */
     pthread_mutex_lock(&chain_mutex);
     if (last_block) blockDestroy(last_block);
     last_block = prev;
@@ -183,13 +162,11 @@ static int validate_merkle(const Block *block_ptr) {
     char computed[MERKLE_ROOT_HEX_SIZE + 1];
     char stored[MERKLE_ROOT_HEX_SIZE + 1];
 
-    /* ricalcolo dalle transazioni */
     if (blockGetmerkle(block_ptr, computed) != 0) {
         log_msg("ERROR: blockGetmerkle fallito");
         return -1;
     }
 
-    /* leggo quello dichiarato nel blocco */
     if (blockGetMerkleRoot(block_ptr, stored) != 0) {
         log_msg("ERROR: blockGetMerkleRoot fallito");
         return -1;
@@ -273,13 +250,11 @@ static int process_block(Block *new_block, int from_miner) {
     char hash[HASH_HEX_SIZE + 1];
     blockGetHash(new_block, hash);
 
-    /* caso genesis: chain vuota */
     if (last_block == NULL && chain_length == 0) {
         log_msg("Blocco genesis ricevuto: hash=%.16s...", hash);
 
-    /* caso normale */
     } else if (last_block != NULL) {
-        
+
             uint64_t new_index;
             uint64_t last_index;
             blockGetIndex(new_block, &new_index);
@@ -293,14 +268,12 @@ static int process_block(Block *new_block, int from_miner) {
                 return BLOCK_TOO_FAR;
             }
 
-        /* valido index e prev_hash */
         if (blockValidate(new_block, last_block) != 0) {
             log_msg("ERROR: CHAIN_MISMATCH, blocco scartato");
             pthread_mutex_unlock(&chain_mutex);
             return CHAIN_MISMATCH;
         }
 
-        /* valido merkle root */
         if (validate_merkle(new_block) != 0) {
             log_msg("ERROR: Merkle root non valido, blocco scartato");
             pthread_mutex_unlock(&chain_mutex);
@@ -313,7 +286,6 @@ static int process_block(Block *new_block, int from_miner) {
         return -1;
     }
 
-    /* blocco valido — aggiorno la chain */
     Block *old = last_block;
     last_block = new_block;
     chain_length++;
@@ -322,7 +294,6 @@ static int process_block(Block *new_block, int from_miner) {
 
     if (old) blockDestroy(old);
 
-    /* scrivo sul CSV */
     if (append_block_to_csv(new_block) != 0) {
         log_msg("ERROR: scrittura CSV fallita");
         return -1;
@@ -342,7 +313,6 @@ static void *listener_thread(void *arg) {
     log_msg("Listener socket avviato");
 
     while (running) {
-        /* aspetto una connessione in arrivo */
         int client_fd = accept(server_fd, NULL, NULL);
         if (client_fd < 0) {
             if (errno == EINTR) continue;
@@ -351,7 +321,6 @@ static void *listener_thread(void *arg) {
             continue;
         }
 
-        /* leggo il messaggio */
         Message msg;
         messageInit(&msg);
 
@@ -364,21 +333,18 @@ static void *listener_thread(void *arg) {
 
         close(client_fd);
 
-        /* guardo il tipo di messaggio */
         MessageType type;
         messageGetType(&msg, &type);
 
         if (type == MSG_BLOCK_MINED) {
             log_msg("Ricevuto MSG_BLOCK_MINED da miner");
 
-            /* estraggo il CSV dal payload */
             char csv_line[BLOCK_CSV_LINE_SIZE];
             if (messageGetPayload(&msg, csv_line, sizeof(csv_line)) != 0) {
                 log_msg("ERROR: messageGetPayload fallita");
                 continue;
             }
 
-            /* deserializzo il blocco */
             Block *new_block = blockCreate();
             if (new_block == NULL) {
                 log_msg("ERROR: blockCreate fallita");
@@ -416,7 +382,6 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    /* leggo argomenti */
     node_id         = atoi(argv[1]);
     num_nodes       = atoi(argv[2]);
     int server_fd   = atoi(argv[3]);
@@ -427,11 +392,9 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    /* path FIFO di tutti i node */
     node_fifos = &argv[5];
     snprintf(my_fifo, sizeof(my_fifo), "%s", node_fifos[node_id]);
 
-    /* apro file di log */
     char log_path[64];
     snprintf(log_path, sizeof(log_path), "node-%d.log", (int)getpid());
     log_file = fopen(log_path, "w");
@@ -442,7 +405,6 @@ int main(int argc, char *argv[]) {
 
     log_msg("Node avviato: id=%d num_nodes=%d", node_id, num_nodes);
 
-    /* installo handler segnali */
     struct sigaction sa;
     sa.sa_handler = handle_signal;
     sigemptyset(&sa.sa_mask);
@@ -450,7 +412,6 @@ int main(int argc, char *argv[]) {
     sigaction(SIGTERM, &sa, NULL);
     sigaction(SIGINT,  &sa, NULL);
 
-    /* carico stato iniziale se fornito */
     if (strlen(initial_csv) > 0) {
         if (load_initial_state(initial_csv) != 0) {
             log_msg("ERROR: caricamento stato iniziale fallito");
@@ -459,7 +420,6 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    /* avvio thread listener socket */
     pthread_t socket_tid;
     ListenerArgs largs = { server_fd };
     if (pthread_create(&socket_tid, NULL, listener_thread, &largs) != 0) {
@@ -470,10 +430,8 @@ int main(int argc, char *argv[]) {
 
     log_msg("Thread listener avviato, in attesa di blocchi...");
 
-    /* aspetto che il thread finisca */
     pthread_join(socket_tid, NULL);
 
-    /* cleanup */
     pthread_mutex_lock(&chain_mutex);
     if (last_block) blockDestroy(last_block);
     pthread_mutex_unlock(&chain_mutex);
