@@ -5,8 +5,6 @@
 #include "error.h"
 #include <errno.h>
 
-#define MINERS_SOCKET "./tmp/miners.sock"
-
 int sendAll(int fd, const void* buffer, size_t size) {
     if (fd < 0 || buffer == NULL) return INVALID_PARAMS;
 
@@ -31,7 +29,7 @@ int sendAll(int fd, const void* buffer, size_t size) {
 int recvAll(int fd, void* buffer, size_t size){
     if (fd < 0 || buffer == NULL) return INVALID_PARAMS;
 
-    const char *ptr = buffer;
+    char *ptr = buffer;
     size_t received = 0;
 
     while (received < size) {

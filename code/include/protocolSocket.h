@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
+#define MINERS_SOCKET "./tmp/miners.sock"
 #define NODE_SOCKET "./tmp/blockchain_node_"
 #define CLIENT_MANAGER_SOCKET "./tmp/client_manager.sock"
 typedef enum {
