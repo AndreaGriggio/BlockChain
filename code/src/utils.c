@@ -18,7 +18,7 @@ void sha256_of_string(const unsigned char* input,const size_t input_size, char* 
     SHA256(input,input_size,raw_hash);
 
     for (int i = 0; i < SHA256_DIGEST_LENGHT; i++) {
-        sprintf(output+i*2,"%02x",raw_hash[i]);//conversione binario -> esadecimale
+        snprintf(output+i*2,3,"%02x",raw_hash[i]);//conversione binario -> esadecimale
     }
     output[HASH_HEX_SIZE]='\0';
 }
