@@ -318,26 +318,37 @@ int pack_transactions(Block *b, const TxList *list) {
 }
 
 //funzione per de-impacchettare le transazioni
-int unpack_transactions(Block *b, TxList *list) {
+int unpack_transactions(const Block *b, TxList *list) {
     list->count = 0;
     memset(list->strings, 0, sizeof(list->strings));
 
-    if (strlen(b->transactions) == 0) return 0;//ATTENZIONE strlen scorre un array quindi se transactions è lungo 4099
-    //ci può mettere un poco
+    if (b == NULL || strlen(b->transactions) == 0) return 0;
 
     char token_buf[MAX_BLOCK_TXS_BUF];
-    strncpy(token_buf, b->transactions, MAX_BLOCK_TXS_BUF);
+    strncpy(token_buf, b->transactions, MAX_BLOCK_TXS_BUF - 1);
+    token_buf[MAX_BLOCK_TXS_BUF - 1] = '\0';
 
-    char *saveptr;
-    char *token = strtok_r(token_buf, ":", &saveptr);
-    while (token != NULL) {
-        if (strlen(token) > 0) { // Salta i token vuoti generati dal doppio dei punti ":"
-            if (list->count >= MAX_TX_PER_BLOCK) return -1; // Limite raggiunto
+    char *ptr = token_buf;
+    char *found;
 
-            strncpy(list->strings[(int)list->count], token, MAX_TX_SIZE - 1);
+    while ((found = strstr(ptr, "::")) != NULL) {
+        size_t len = (size_t)(found - ptr);
+        if (len > 0) {
+            if (list->count >= MAX_TX_PER_BLOCK) return -1;
+            strncpy(list->strings[(int)list->count], ptr, len);
+            list->strings[(int)list->count][len] = '\0';
             list->count++;
         }
-        token = strtok_r(NULL, ":", &saveptr);
+        ptr = found + 2;
     }
+
+    // ultima transazione dopo l'ultimo ::
+    if (strlen(ptr) > 0) {
+        if (list->count >= MAX_TX_PER_BLOCK) return -1;
+        strncpy(list->strings[(int)list->count], ptr, MAX_TX_SIZE - 1);
+        list->strings[(int)list->count][MAX_TX_SIZE - 1] = '\0';
+        list->count++;
+    }
+
     return 0;
 }

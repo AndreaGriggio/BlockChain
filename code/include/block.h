@@ -80,7 +80,7 @@ int blockDestroy(Block* block_ptr);
  * @param transaction transazione da aggiungere
  * @return 0 se tutto è andato a buon fine
  */
-int blockAddTransactions(Block *block_ptr,const char transaction[MAX_BLOCK_TXS_BUF+1]);
+int blockAddTransaction(Block *block_ptr,const char transaction[MAX_BLOCK_TXS_BUF+1]);
 
 /**
  * Uccide le transazioni che un bloco contiene
@@ -90,7 +90,7 @@ int blockAddTransactions(Block *block_ptr,const char transaction[MAX_BLOCK_TXS_B
 int blockKillTransactions(Block *block_ptr);
 
 int pack_transactions(Block *block_ptr, const TxList *list);
-int unpack_transactions(Block *block_ptr, TxList *list);
+int unpack_transactions(const Block *block_ptr, TxList *list);
 
 
 #endif //BLOCK_H
