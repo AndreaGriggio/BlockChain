@@ -42,7 +42,7 @@ int messageSetPayload(Message *message_ptr, const char *payload_ptr, uint32_t pa
 typedef struct MessageHeader {
     uint32_t type;
 
-    pid_t sender_pid;
+    int32_t sender_pid;
     uint32_t sender_id;
     uint32_t sender_role;
 
