@@ -166,7 +166,7 @@ int blockGetHash(const Block *block_ptr, char out_hash[]) {
 
     sha256_of_string(
         (const unsigned char *)input_sha256
-        ,size
+        ,strlen(input_sha256)
         ,out_hash);
 
     return 0;
@@ -305,7 +305,7 @@ int pack_transactions(Block *b, const TxList *list) {
     for (int i = 1; i < list->count; i++) {
         //verifico spazio libero nel buffer
         size_t current_len = strlen(b->transactions);
-        size_t needed_space = strlen(list->strings[i] + 2);   // +2 per i ::
+        size_t needed_space = strlen(list->strings[i]) + 2;   // +2 per i ::
 
         if (current_len + needed_space >= MAX_BLOCK_TXS_BUF) {
             return -1;
