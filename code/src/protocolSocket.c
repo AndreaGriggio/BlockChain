@@ -4,6 +4,9 @@
 #include "protocolSocket.h"
 #include "error.h"
 #include <errno.h>
+
+#define MINERS_SOCKET "./tmp/miners.sock"
+
 int sendAll(int fd, const void* buffer, size_t size) {
     if (fd < 0 || buffer == NULL) return INVALID_PARAMS;
 

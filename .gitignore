@@ -2,13 +2,21 @@
 *.o
 *.out
 *.exe
+*.dSYM/
+*.dSYM
+main
 code/blockchain
+code/src/output/
 
 # CLion / CMake
 .idea/
+.cmake/
 cmake-build-*/
 CMakeFiles/
 CMakeCache.txt
+Makefile
+cmake_install.cmake
+compile_commands.json
 
 # Project assignment files, not part of our code
 2026-project-4.pdf
@@ -17,5 +25,9 @@ CMakeCache.txt
 
 # OS/editor files
 .DS_Store
+._*
+.AppleDouble
+.LSOverride
+Icon?
 *.log
 *.cmake

@@ -108,12 +108,14 @@ int main(int argc, char* argv[]) {
     memset(&addr,0,sizeof(addr));
     addr.sun_family = AF_UNIX;
     strncpy(addr.sun_path,
-        CLIENT_MANAGER_SOCKET,
+        MINERS_SOCKET,
           sizeof(addr.sun_path)-1);
 
     while (running) {
 
         sleep(transaction_frequency);
+
+        if (!running) break;
 
         if ( clientGenerateTransaction(client) == 0) {
 
