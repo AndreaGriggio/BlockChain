@@ -71,7 +71,13 @@ int main(int argc, char ** argv) {
         free(childProcess);
         return 1;
     };
-
+    while (running ) {
+        /*quello che deve fare il miner è :
+        *1. Ascoltare periodicamente sulla socket se è stato segnalato con un segnale comune quando vengono caricate informazioni
+        *2. Minare come un dannato e provare a risolvere il blocco -> thread separato su cui questo while ha completo controllo
+        */
+        int fd =
+    }
 
 
 
