@@ -89,6 +89,9 @@ int blockAddTransaction(Block *block_ptr,const char transaction[MAX_BLOCK_TXS_BU
  */
 int blockKillTransactions(Block *block_ptr);
 
+int blockGetMerkleRoot(const Block *block_ptr, char output[MERKLE_ROOT_HEX_SIZE + 1]);
+int blockGetIndex(const Block *block_ptr, uint64_t *index);
+
 int pack_transactions(Block *block_ptr, const TxList *list);
 int unpack_transactions(const Block *block_ptr, TxList *list);
 

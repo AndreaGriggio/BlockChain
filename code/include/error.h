@@ -17,5 +17,11 @@ typedef enum error {
     BUFFER_TOO_SMALL = 7,
     SOCKET_ERROR = 8,
     SOCKET_CLOSED = 9
+    //errori aggiunti in node
+    INVALID_MERKLE = 10,      // merkle root non coincide con quello ricalcolato
+    BLOCK_TOO_FAR = 11,       // blocco con index troppo avanti, mancano intermedi
+    CSV_ERROR = 12,           // errore lettura/scrittura file CSV
+    SEM_ERROR = 13,           // errore apertura/uso semaforo
+    GENESIS_ERROR = 14        // errore sul blocco genesis
 }error;
 #endif //ERROR_H

@@ -79,6 +79,19 @@ int blockGetmerkle(const Block* block_ptr,char output_merkle[MERKLE_ROOT_HEX_SIZ
                       output_merkle);
 }
 
+int blockGetMerkleRoot(const Block *block_ptr, char output[MERKLE_ROOT_HEX_SIZE + 1]) {
+    if (block_ptr == NULL || output == NULL) return INVALID_PARAMS;
+    strncpy(output, block_ptr->merkle_root, MERKLE_ROOT_HEX_SIZE);
+    output[MERKLE_ROOT_HEX_SIZE] = '\0';
+    return 0;
+}
+
+int blockGetIndex(const Block *block_ptr, uint64_t *index) {
+    if (block_ptr == NULL || index == NULL) return INVALID_PARAMS;
+    *index = block_ptr->index;
+    return 0;
+}
+
 
 int calcMerkle(char hashes[][HASH_HEX_SIZE+1],const size_t count,char output_merkle[HASH_HEX_SIZE+1]){
 
