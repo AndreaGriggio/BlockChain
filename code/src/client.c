@@ -1,8 +1,6 @@
 #include <stdio.h>
 #include "client.h"
-
 #include <ctype.h>
-
 #include "error.h"
 #include "utils.h"
 #include <stdlib.h>

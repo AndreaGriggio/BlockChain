@@ -3,7 +3,7 @@
 //
 #include "client.h"
 #include "childProcess.h"
-#include "time.h"
+#include <time.h>
 #include "message.h"
 #include "protocolSocket.h"
 #include <signal.h>
@@ -54,7 +54,7 @@ int main(int argc, char* argv[]) {
         fprintf(stderr, "id non valido \n");
         return 1;
     }
-
+    srand ((unsigned int)(time(NULL) ^ getpid()));
 
     //installazione dell'handler del segnale all'interno del processo
     struct sigaction sa ;

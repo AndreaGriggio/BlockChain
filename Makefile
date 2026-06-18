@@ -16,7 +16,9 @@ COMMON_OBJS := \
 
 .PHONY: build clean run dirs
 
-build: dirs code/blockchain $(BIN)/miner $(BIN)/client $(BIN)/node
+build: dirs code/blockchain  $(BIN)/client $(BIN)/node $(BIN)/ClientsLauncher
+
+# $(BIN)/miner escluso per il momento sia da build che da 
 
 dirs:
 	mkdir -p $(OBJ) $(BIN)
@@ -33,13 +35,16 @@ $(BIN)/client: $(OBJ)/ClientProcess.o $(OBJ)/client.o $(COMMON_OBJS)
 $(BIN)/node: $(OBJ)/node.o $(COMMON_OBJS)
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^ $(LDLIBS)
 
+$(BIN)/ClientsLauncher: $(OBJ)/ClientsLauncher.o
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^ 
+
 $(OBJ)/%.o: $(SRC)/%.c
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
 clean:
 	rm -f $(OBJ)/*.o
 	rm -f code/blockchain
-	rm -f $(BIN)/miner $(BIN)/client $(BIN)/node
+	rm -f $(BIN)/miner $(BIN)/client $(BIN)/node $(BIN)/ClientsLauncher
 	rm -f *.log
 	rm -f ./tmp/*.sock
 
