@@ -46,7 +46,6 @@ int minerInit(Miner* miner,int miner_difficulty){
     miner->difficulty = miner_difficulty;
     miner->transactions_count = 0;
     miner->last_block_index = 0;
-    miner->difficulty = 0;
     miner->mined_block = NULL;
     return 0;
 }

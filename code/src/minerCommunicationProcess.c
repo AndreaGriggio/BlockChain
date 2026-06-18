@@ -1,11 +1,20 @@
+
+//
+// Created by andrea on 17/06/26.
+//
+#include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
+
 #include "childProcess.h"
 #include "miner.h"
+#include "minerStatus.h"
 
+static MinerStatus status;
+static pthread_mutex_t status_mutex = PTHREAD_MUTEX_INITIALIZER;
 static volatile sig_atomic_t running;
 
 /**
@@ -19,6 +28,21 @@ static void handle_signal(int sig) {
         running = 0;
     }
 }
+
+void updateState(const MinerState new_state) {
+    pthread_mutex_lock(&status_mutex);
+    status.state = new_state;
+    pthread_mutex_unlock(&status_mutex);
+}
+
+MinerState readState() {
+    pthread_mutex_lock(&status_mutex);
+    const MinerState s = status.state;
+    pthread_mutex_unlock(&status_mutex);
+    return s;
+}
+
+
 int main(int argc, char ** argv) {
 
     if (argc < 2) {
@@ -60,6 +84,12 @@ int main(int argc, char ** argv) {
         return 1;
     }
 
+    mSSetCP(&status,childProcess); //inizializzo lo status
+    mSSetState(&status,MINER_IDLE);
+    mSSetAttempts(&status, 0);
+    mSSetTransactionCount(&status, 0);
+
+    //creo la struttura dati per accogliere il blocco
     Miner* miner = minerCreate();
     if (miner == NULL) {
         fprintf(stderr,"Error allocation miner");
@@ -71,6 +101,8 @@ int main(int argc, char ** argv) {
         free(childProcess);
         return 1;
     };
+
+
     while (running ) {
         /*quello che deve fare il miner è :
         *1. Ascoltare periodicamente sulla socket se è stato segnalato con un segnale comune quando vengono caricate informazioni
@@ -84,9 +116,6 @@ int main(int argc, char ** argv) {
     return 0;
 }
 
-//
-// Created by andrea on 17/06/26.
-//
 int miner_communication_main(int argc,char * argv[]) {
     return main(argc,argv);
 }

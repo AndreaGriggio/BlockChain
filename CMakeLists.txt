@@ -23,7 +23,10 @@ add_executable(Gonzato_Luongo_Griggio
         code/include/messageHeader.h
         code/src/protocolSocket.c
         code/include/constants.h
-        code/src/MinerCommunicationProcess.c)
+        code/src/minerCommunicationProcess.c
+        code/include/minerStatus.h
+        code/src/minerStatus.c
+        code/src/minerMiningThread.c)
 
 target_include_directories(Gonzato_Luongo_Griggio PRIVATE include)
 
