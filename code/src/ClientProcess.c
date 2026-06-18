@@ -129,6 +129,10 @@ int main(int argc, char* argv[]) {
                 fprintf(stderr, "Getting Transaction it's too difficult");
                 continue;
             }
+
+            printf("[client %d] %s\n",id,transaction);
+            fflush(stdout);
+
             messageSetPayload(&message,transaction,strlen(transaction));
 
             int fd = socket(AF_UNIX,SOCK_STREAM,0);

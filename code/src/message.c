@@ -89,7 +89,7 @@ int messageGetPayload(
         return INVALID_PARAMS;
     }
 
-    if (payload_capacity < message_ptr->payload_size) {
+    if (payload_capacity <= message_ptr->payload_size) {
         return BUFFER_TOO_SMALL;
     }
 
