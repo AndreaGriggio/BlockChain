@@ -40,4 +40,8 @@
 #define CLIENT_MANAGER_SOCKET "./tmp/client_manager.sock"
 #define MINERS_SOCKET "./tmp/miners.sock"
 
+
+//miner constants
+#define MAX_SLEEPING_TIME 5
+#define MIN_SLEEPING_TIME 1
 #endif //PROGETTO_CONSTANTS_H

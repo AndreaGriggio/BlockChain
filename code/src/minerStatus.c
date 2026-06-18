@@ -7,6 +7,10 @@
 
 #include "error.h"
 
+MinerStatus* minerCreateStatus() {
+    MinerStatus* status = malloc(sizeof(MinerStatus));
+    return status;
+}
 
 int mSGetCPStatus(const MinerStatus* minerStatus,MinerStatus* minerCPStatus) {
     if (minerCPStatus == NULL || minerStatus == NULL) return INVALID_PARAMS;

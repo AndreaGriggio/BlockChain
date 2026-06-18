@@ -1,13 +1,14 @@
-
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <unistd.h>
 #include "error.h"
 #include "miner.h"
 
-#include <string.h>
+#include <pthread.h>
 
 #include "client.h"
+#include "minerStatus.h"
 #include "utils.h"
 
 typedef struct Miner {
@@ -15,7 +16,7 @@ typedef struct Miner {
     u_int64_t last_block_index;
     char transactions[MAX_TX_PER_BLOCK][MAX_TX_SIZE+1];
     size_t transactions_count;
-    int difficulty;
+    uint difficulty;
     Block* mined_block;
 }Miner;
 
@@ -39,7 +40,7 @@ int minerDestroy(Miner* miner) {
     return 0;
 }
 
-int minerInit(Miner* miner,int miner_difficulty){
+int minerInit(Miner* miner,uint miner_difficulty){
     if (miner == NULL) {
         return -1;
     }
@@ -122,3 +123,76 @@ int minerGetTransactionsFromMessage(Miner* miner, const Message *message_ptr){
 
     return 0;
 }
+static int minerMiningAttempt(const uint difficulty) {
+    uint num = NUM_MIN_MAX(0,difficulty-1);
+    return num == 0 ? 1 : 0;
+}
+static void updateState(MinerStatus* status,
+                        MinerState new_state,
+                        pthread_mutex_t* status_mutex) {
+    pthread_mutex_lock(status_mutex);
+    status->state = new_state;
+    pthread_mutex_unlock(status_mutex);
+}
+
+static void minerIncrementAttempts(MinerStatus* status,
+                        size_t increment,
+                        pthread_mutex_t* status_mutex) {
+    pthread_mutex_lock(status_mutex);
+    status->nonce_attempts += increment;
+    pthread_mutex_unlock(status_mutex);
+}
+static void minerCreateBlock(Miner* miner, Block** new, pthread_mutex_t* miner_mutex) {
+    //blocco il la scrittura sul miner
+    pthread_mutex_lock(miner_mutex);
+
+    *new = blockCreate();
+
+    //Collego il blocco ma non lo riempio non ho le informazioni
+    miner->mined_block = *new;
+    //libero la scrittura
+    pthread_mutex_unlock(miner_mutex);
+}
+static void minerSetFoundBlock(MinerStatus* status,pthread_mutex_t* status_mutex) {
+    //blocco lo status
+    pthread_mutex_lock(status_mutex);
+    //Cambio lo stato del miner ho trovato un blocco!
+    //nonce -> reset
+    status->state = MINER_BLOCK_FOUND;
+    status->nonce_attempts = 0;
+    //libero la scrittura
+    pthread_mutex_unlock(status_mutex);
+}
+
+int minerMiningLoop(Miner* miner,
+                    MinerStatus* status,
+                    pthread_mutex_t* miner_mutex,
+                    pthread_mutex_t* status_mutex) {
+    //Controllo sul miner
+    if (miner == NULL ) return INVALID_PARAMS;
+
+    //puntatore al nuovo blocco
+    Block* new = NULL;
+    int sleeping_time = NUM_MIN_MAX(MIN_SLEEPING_TIME,MAX_SLEEPING_TIME);
+
+    while (new == NULL) {
+
+        if ( 1 == minerMiningAttempt(miner->difficulty)) {
+
+            minerCreateBlock(miner,&new,miner_mutex);
+
+            minerSetFoundBlock(status,status_mutex);
+        }else {
+
+            minerIncrementAttempts(status,1,status_mutex);
+
+        }
+        sleep(sleeping_time);//riposino...
+    }
+
+
+    return 0;
+}
+
+
+

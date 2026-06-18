@@ -21,6 +21,18 @@ typedef struct minerStatus {
 }MinerStatus;
 
 /**
+ *
+ * @return Puntatore alla memoria allocata per la struct status
+ */
+MinerStatus* minerCreateStatus();
+
+/**
+ *
+ * @param minerStatus MinerStatus da deallocare
+ */
+void minerDestroyStatus(MinerStatus* minerStatus);
+
+/**
  *Fa una copia dell'intera struttura MinerStatus
  *@param minerStatus puntator al miner in cui verrano copiate le informazioni
  * @param minerCPStatus Puntatore al miner status dove verrano inseire informazioni

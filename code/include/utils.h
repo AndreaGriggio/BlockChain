@@ -62,6 +62,12 @@ int validateTransaction(const char transaction[MAX_TX_SIZE+1]);
  * @return 0 se tutto va bene
  */
 int validateName(const char *name);
+
+/**
+ * Intervallo di valori [min,max] \in \mathbb{N}
+ * @param min Numero minimo da generare
+ * @param max Numero max da generare
+ */
 #define NUM_MIN_MAX(min, max) ((rand() % ((max) - (min) + 1)) + (min))
 #define NUM_MAX(max) (rand()%(max+1))
 #endif //PROG_UTILS_H
