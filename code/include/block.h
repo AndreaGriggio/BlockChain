@@ -52,27 +52,6 @@ int calcMerkle(char hashes[][MERKLE_ROOT_HEX_SIZE+1],size_t count,char output_me
  * @return 0 se tutto è andato a buon fine
  */
 int blockGetHash(const Block *block_ptr, char out_hash[HASH_HEX_SIZE + 1]);
-
-/**
-*Controlla se un hash soddisfa la difficoltà richiesta, 
-*nel senso che inizia con difficolty hex '0' 
-*@param hash hash da controllare (stringa hex null-terminated)
-*@param difficulty: difficoltà richiesta (numero di zeri iniziali)
-*@return 1 se l'hash soddisfa la difficoltà, 0 altrimenti
-**/
-int hashMeetsDifficulty(const char hash[HASH_HEX_SIZE + 1],int difficulty);
-
-/**
- * Esegue il proof-of-work: incrementa il nonce del blocco finché
- * il suo hash non soddisfa la difficoltà richiesta.
- * @param block_ptr blocco da minare (già inizializzato con blockInit)
- * @param difficulty numero di zeri hex richiesti in testa all'hash
- * @param out_hash buffer dove verrà scritto l'hash finale trovato
- * @return 0 se il blocco è stato minato con successo
- */
-
-int blockMine(Block *block_ptr, int difficulty, char out_hash[HASH_HEX_SIZE + 1]);
-
 /**
  *
  * @param block_ptr Blocco da validare
