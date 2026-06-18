@@ -37,8 +37,30 @@ snprintf((out),(out_size),\
  */
 void sha256_of_string(const unsigned char* input, size_t input_size, char* output);
 
+/**
+ *si occupa di convertire una stringa hesadecimale in un intero a 64 bit
+ * @param str stringa esadecimale
+ * @param out numero convertito
+ * @return 0 se tutto va bene
+ */
 int parse_uint64_hex(const char *str, uint64_t *out);
+
+/**
+ * Si occupa di validare una transazione si aspetta in campi :
+ * Nome1 : 10 caratteri max + 1 per terminatore
+ * "pays" : letteralmente la stringa pays
+ * Nome2 : 10 caratteri max + 1 per terminatore
+ * "coins" : letteralmente la stringa coins
+ * @param transaction transazione da validare
+ * @return 0 se tutto va bene
+ */
 int validateTransaction(const char transaction[MAX_TX_SIZE+1]);
+
+/**
+ * Utilizza regex per controllare il formato del nome secondo specifica di progetto
+ * @param name nome da validare
+ * @return 0 se tutto va bene
+ */
 int validateName(const char *name);
 #define NUM_MIN_MAX(min, max) ((rand() % ((max) - (min) + 1)) + (min))
 #define NUM_MAX(max) (rand()%(max+1))

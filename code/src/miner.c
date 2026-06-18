@@ -4,13 +4,18 @@
 
 #include "error.h"
 #include "miner.h"
+
+#include <string.h>
+
 #include "client.h"
+#include "utils.h"
 
 typedef struct Miner {
     
     u_int64_t last_block_index;
     char transactions[MAX_TX_PER_BLOCK][MAX_TX_SIZE+1];
-    int frequency;
+    size_t transactions_count;
+    int difficulty;
     Block* mined_block;
 }Miner;
 
@@ -19,17 +24,18 @@ Miner* minerCreate(){
     if (miner == NULL) {
         return NULL;
     }
-    miner->last_block_index = 0;
-    miner->frequency = 0;
-    miner->mined_block = NULL;
+
     return miner;
 }
 
-int minerDestroy(Miner* miner){
-    if (miner == NULL) {
-        return -1;
+int minerDestroy(Miner* miner) {
+    if (miner == NULL)return 1;
+
+    if (miner->mined_block != NULL) {
+        free(miner->mined_block);
+        free(miner);
     }
-    free(miner);
+
     return 0;
 }
 
@@ -37,7 +43,11 @@ int minerInit(Miner* miner,int miner_difficulty){
     if (miner == NULL) {
         return -1;
     }
-    miner->frequency = miner_difficulty;
+    miner->difficulty = miner_difficulty;
+    miner->transactions_count = 0;
+    miner->last_block_index = 0;
+    miner->difficulty = 0;
+    miner->mined_block = NULL;
     return 0;
 }
 
@@ -62,11 +72,12 @@ int minerValidateTransactions(Miner* miner_ptr,
             write_idx++;
         }
     }
-
+    miner_ptr->transactions_count = write_idx+1;
     return write_idx;   // numero di transazioni valide rimaste nell'array
 }
 int minerValidateTransaction(const Miner *miner_ptr, const size_t *transaction_idx) {
     if (miner_ptr == NULL || transaction_idx == NULL) return INVALID_PARAMS;
+    if ( miner_ptr->transactions_count < *transaction_idx) {}
     if (strlen(miner_ptr->transactions[*transaction_idx]) > MAX_TX_SIZE)    return INVALID_PARAMS;
 
     return validateTransaction(miner_ptr->transactions[*transaction_idx]);
@@ -108,6 +119,7 @@ int minerGetTransactionsFromMessage(Miner* miner, const Message *message_ptr){
         if (end == NULL) break;              // era l'ultima transazione
         cursor = end + delim_len;            // salta il "::" e continua
     }
+    miner->transactions_count = count;
 
     return 0;
 }

@@ -8,20 +8,30 @@
 #include "message.h"
 typedef struct Miner Miner;
 
-/*
-Alloca spazio per un miner e inizializza i campi
-*/
+/**
+ * Alloca la struttura di miner
+ * @return puntatore al malloc
+ */
 Miner* minerCreate();
-/*
-Dealloca spazio per un miner allocato con malloc
+/**
+* Dealloca spazio per un miner allocato con malloc
+* @return 0 se tutto è andato bene
 */
 int minerDestroy(Miner* miner);
-/*
-Inizializza un miner con una diffocolta per trovare il blocco
-
+/**
+*Inizializza un miner con una diffocolta per trovare il blocco
+*@param miner miner da inizializzare
+*@param miner_difficulty difficolta con cui trovare il prossimo blocco
+*@return 0 se tutto è andato bene
 */
 int minerInit(Miner* miner,int miner_difficulty);
 
+/**
+ *Prende le transazioni contenute all'interno di un messaggio
+ * @param miner puntatore di miner all'interno del quale inserire le transazioni del messaggio
+ * @param message_ptr puntatore del messaggio da cui prelevare la transazioni
+ * @return 0 se tutto è andato bene
+ */
 int minerGetTransactionsFromMessage(Miner* miner, const Message *message_ptr);
 
 /**
@@ -34,22 +44,34 @@ int minerGetTransactionsFromMessage(Miner* miner, const Message *message_ptr);
 int minerValidateTransactions( Miner* miner_ptr, size_t number_of_transactions);
 
 /**
- *
+ *Valida transazione a indice transaction_idx
  * @param miner_ptr : puntatore al miner
- * @param transaction_idx
- * @return
+ * @param transaction_idx valida la transazione all'indice
+ * @return 0 se tutto è andato bene
  */
 int minerValidateTransaction(const Miner* miner_ptr, const size_t *transaction_idx);
+
+/**
+ *Rimuove le transazioni dal miner e le inserisce all'interno di transaction
+ * @param miner puntatore al miner da cui rimuovere le transazioni
+ * @param transactions buffer delle transazioni
+ * @param number_of_transactions numero delle transazioni
+ * @return 0 se tutto è andato bene
+ */
 int minerRemoveTransactions(Miner* miner,const char transactions[MAX_TX_PER_BLOCK][MAX_TX_SIZE+1],size_t  number_of_transactions);
 
+/**
+ *Inizia il processo di mining
+ * @param miner miner che inizia il processo di calcolo del blocco
+ * @return 0 se tutto è andato bene
+ */
 int startMining(Miner * miner);
+
+/**
+ *Ferma il processo di mining
+ * @param miner miner a cui fermare il processo
+ * @return 0 se tutto è andato bene
+ */
 int stopMining(Miner * miner);
-int validateName(const char *name);
-
-
-
-
-
-
 
 #endif //PROGETTO_MINER_H
