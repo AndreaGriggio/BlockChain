@@ -3,7 +3,7 @@
 //
 #include "client.h"
 #include "childProcess.h"
-
+#include "time.h"
 #include "message.h"
 #include "protocolSocket.h"
 #include <signal.h>

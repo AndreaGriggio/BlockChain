@@ -5,6 +5,7 @@
 #ifndef  PROTOCOL_SOCKET_
 #define  PROTOCOL_SOCKET_
 #include <sys/socket.h>
+#include <stddef.h>
 
 
 typedef enum {

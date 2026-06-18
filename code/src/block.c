@@ -161,7 +161,7 @@ int calcMerkle(char hashes[][HASH_HEX_SIZE+1],const size_t count,char output_mer
 
 
 int blockGetHash(const Block *block_ptr, char out_hash[HASH_HEX_SIZE + 1]) {
-    if (block_ptr == NULL) return INVALID_HASH;
+    if (block_ptr == NULL || out_hash == NULL) return INVALID_HASH;
 
     const size_t size = UINT64_TO_CHAR_SIZE*3 + MERKLE_ROOT_HEX_SIZE + HASH_HEX_SIZE+1;//dimensione della stringa di hex
 
@@ -187,7 +187,34 @@ int blockGetHash(const Block *block_ptr, char out_hash[HASH_HEX_SIZE + 1]) {
 
 }
 
+int hashMeetsDifficulty(const char hash[HASH_HEX_SIZE + 1],int difficulty) {
+    if (hash == NULL || difficulty < 0 || (size_t)difficulty > HASH_HEX_SIZE) return 0;
 
+    for (int i = 0; i < difficulty; i++) {
+        if ((hash)[i] != '0') {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+int blockMine(
+    Block *block_ptr,int difficulty,
+    char out_hash[HASH_HEX_SIZE + 1]) {
+    if (block_ptr == NULL || out_hash == NULL) 
+    return INVALID_BLOCK;
+        for (uint64_t nonce = 0; nonce < UINT64_MAX; nonce++) {
+        block_ptr->nonce = nonce;
+        if (blockGetHash(block_ptr, out_hash) != 0) {
+            return INVALID_BLOCK;
+        }
+        if (hashMeetsDifficulty(out_hash, difficulty)) {
+            return 0; // Blocco minato con successo
+        }
+    }
+    
+    return INVALID_BLOCK; // Non è stato possibile minare il blocco
+    }
 int blockValidate(const Block *block_ptr, const Block *prev) {
     if (block_ptr == NULL || prev == NULL ) return INVALID_BLOCK;
 
