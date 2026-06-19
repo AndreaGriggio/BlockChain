@@ -41,7 +41,7 @@
 #define MINERS_SOCKET "./tmp/miners.sock"
 
 //fifo constants
-#define MINER_NODE_FIFO  ".tmp/miner_node_"
+#define MINER_NODE_FIFO  "./tmp/miner_node_"
 #define NODE_MINER_FIFO  "./tmp/node_miner_"
 
 
@@ -49,11 +49,14 @@
 #define MAX_SLEEPING_TIME 5
 #define MIN_SLEEPING_TIME 1
 
+//node constants
+#define CSV_SEM_NAME  "/blockchain_csv"
+#define CSV_FILE_NAME "./blockchain.csv"
+
+
+
 //argoments constants
 #define MAX_NODE_COUNT 100
 #endif //PROGETTO_CONSTANTS_H
 
 
-//node constants
-#define CSV_SEM_NAME  "/blockchain_csv"
-#define CSV_FILE_NAME "./blockchain.csv"

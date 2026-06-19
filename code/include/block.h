@@ -28,8 +28,8 @@ Block* blockCreate();
  * @return stato dell'operazione
  */
 int blockInit(
-    Block *block_ptr
-    ,uint64_t index,
+    Block *block_ptr,
+    uint64_t index,
     uint64_t timestamp,
     const Block *prev,
     uint64_t nonce,

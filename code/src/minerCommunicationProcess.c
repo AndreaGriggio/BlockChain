@@ -2,6 +2,11 @@
 //
 // Created by andrea on 17/06/26.
 //
+
+
+//system constants
+#define _GNU_SOURCE
+#include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <signal.h>
@@ -12,7 +17,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
-
+#include <limits.h>
 
 #include "childProcess.h"
 #include "miner.h"
@@ -26,7 +31,7 @@ static volatile sig_atomic_t running = 1;
 static int *to_node   = NULL;
 static int *from_node = NULL;
 
-int createNodeFifos(int num_nodes) {
+static int createNodeFifos(const int num_nodes) {
     to_node   = (int*) malloc(sizeof(int) * num_nodes);
     from_node = (int*) malloc(sizeof(int) * num_nodes);
 
@@ -34,23 +39,56 @@ int createNodeFifos(int num_nodes) {
         fprintf(stderr,"MINER : Allocare fifo comunicazione Miner->Nodi è troppo complicato");
         return -1;
     }
-    for (int i = 0; i < num_nodes; i++) {
-        char path_to[64], path_from [64];
-        snprintf(path_to, sizeof(path_to),"%s%d",MINER_NODE_FIFO,i);
-        snprintf(path_from, sizeof(path_from),"%s%d",NODE_MINER_FIFO,i);
 
-        mkfifo(path_from,0666);
+    ChildProcess* cp = childProcessCreate();
+
+    if (cp == NULL){return -1;}
+
+    mSGetCPChildProcess(status,cp);
+
+    int id;
+    getCpId(cp,&id);
+
+    if (id < 0){return -1;}
+
+    for (int i = 0; i < num_nodes; i++) {
+        char path_to[64];
+
+        snprintf(path_to  , sizeof(path_to)   ,"%s%d%d"  ,MINER_NODE_FIFO ,id ,i);
+
         mkfifo(path_to,0666);
 
-        to_node[i]   = open(path_to, O_WRONLY | O_NONBLOCK);
-        from_node[i] = open(path_to, O_RDONLY);
+        do {
+            to_node[i]   = open(path_to, O_WRONLY | O_NONBLOCK);
+            if (to_node[i] < 0 && errno != ENXIO) {
+                fprintf(stderr,"open path_to");
+                return -1;
+            }
+            if (to_node[i] < 0) usleep(10000);
+        }while (to_node[i] < 0 );
 
-        if (to_node[i] < 0 || from_node[i] < 0) {
+        if (to_node[i] < 0 ) {
             fprintf(stderr,"MINER : errore creazione node fifo comunicazione");
             return -1;
         }
-        if (fcntl(to_node[i], F_SETPIPE_SZ,PIPE_BUF)<0 ||
-            fcntl(from_node[i], F_SETPIPE_SZ,PIPE_BUF)<0 ||)
+        if (fcntl(to_node[i], F_SETPIPE_SZ,  PIPE_BUF) < 0 )  return -1;
+
+    }
+    for (int i = 0; i < num_nodes; i++) {
+        char  path_from [64];
+
+        snprintf(path_from, sizeof(path_from) ,"%s%d%d"  ,NODE_MINER_FIFO ,i  ,id);
+        do {
+            from_node[i] = open(path_from, O_RDONLY);
+            if (from_node[i] < 0 && errno != ENXIO && errno != ENOENT) {
+                perror("open path_to");
+                return -1; // errore fatale, non retry
+            }
+            if (from_node[i] < 0) usleep(10000);
+        }while (from_node[i] < 0);
+
+        if (fcntl(from_node[i], F_SETPIPE_SZ,PIPE_BUF) < 0) return -1;
+
     }
 
 
