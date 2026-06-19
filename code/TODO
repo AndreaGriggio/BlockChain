@@ -3,22 +3,26 @@ Fatti:
 2. [x] block: hash, merkle, csv (con 2 bug noti, vedi sotto)
 3. [x] utils: sha256, conversioni hex (validateTransaction da rifinire)
 4. [x] childProcess struct
-5. [x] Makefile (build/clean/run) — miner escluso, manca cleanup semaforo in clean
+5. [x] Makefile (build/clean/run) — miner e MinerLauncher ora incluse nel build (2 typo corretti: "$(BIN)miner"→"$(BIN)/miner", "minerCommunicationPRocess"→"...Process"); manca ancora cleanup semaforo POSIX in clean
 6. [x] ClientsLauncher
-7. [x] bootstrap: parsing argomenti, genesis/CSV, semaforo POSIX
-8. [x] miner: mining loop (sleep+random) — presente ma con bug (vedi sotto)
+7. [x] MinerLauncher — fork/exec di N miner, stesso pattern di ClientsLauncher, testato end-to-end (shutdown pulito via SIGTERM, zero zombie)
+8. [x] bootstrap: parsing argomenti, genesis/CSV, semaforo POSIX
+9. [x] miner: mining loop (sleep+random) — presente ma con bug (vedi sotto)
 
-Bug noti da correggere (block.c/utils.c — nostri):
-9. [x] calcMerkle: caso count==1 non applica il padding sha256("") richiesto dalla consegna
-10. [x] blockInit: prev_hash del genesis vuoto rompe il parsing CSV (blockFromCsv → INVALID_BLOCK)
-11. [x] validateTransaction: accetta "0 coins" e testo extra dopo "coins" (sscanf troppo permissivo)
+Bug noti CORRETTI (block.c/utils.c — nostri):
+10. [x] calcMerkle: caso count==1 non applica il padding sha256("") richiesto dalla consegna
+11. [x] blockInit: prev_hash del genesis vuoto rompe il parsing CSV (blockFromCsv → INVALID_BLOCK)
+12. [x] validateTransaction: accetta "0 coins" e testo extra dopo "coins" (sscanf troppo permissivo)
 
-In corso (Andrea):
-12. [ ] node.c: completare riscrittura FIFO (non compila, main()/listener mancanti)
-13. [ ] minerCommunicationProcess.c: collegare createNodeFifos a main(), aggiungere srand(), sleep interrompibile, fix busy loop, fix pause (MINER_IDLE ignorato durante mining)
+In corso (Lorenzo — node.c):
+13. [ ] node.c: completare riscrittura FIFO — non linka ancora (main() mancante, nSGetCPChildProcess non definita)
+
+In corso (Andrea — miner):
+14. [ ] minerCommunicationProcess.c: collegare createNodeFifos a main(), aggiungere srand(), sleep interrompibile, fix busy loop, fix pause (MINER_IDLE ignorato durante mining). pauseMining/restartMining già scritte ma non ancora chiamate da nessuno (warning "defined but not used")
 
 Da fare (nostri, non iniziati):
-14. [ ] main.c: creazione FIFO, fork/exec di node/miner/client
-15. [ ] main.c: REPL interattiva (submit, request, save, pause, resume, stop)
-16. [ ] blockchain.sh (--verify, --hash, --merkle)
-17. [ ] .gitignore: binari ancora tracciati
+15. [ ] main.c: creazione FIFO, fork/exec di node/miner/client
+16. [ ] main.c: REPL interattiva (submit, request, save, pause, resume, stop)
+17. [ ] blockchain.sh (--verify, --hash, --merkle)
+18. [ ] .gitignore: binari ancora tracciati
+19. [ ] NodeLauncher (analogo a MinerLauncher per i node) — rimandato, non iniziato

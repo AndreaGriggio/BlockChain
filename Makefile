@@ -16,7 +16,7 @@ COMMON_OBJS := \
 
 .PHONY: build clean run dirs
 
-build: dirs code/blockchain  $(BIN)/client $(BIN)/node $(BIN)/ClientsLauncher
+build: dirs code/blockchain $(BIN)/miner $(BIN)/MinerLauncher $(BIN)/client $(BIN)/node $(BIN)/ClientsLauncher
 
 # $(BIN)/miner escluso per il momento sia da build che da 
 
@@ -26,7 +26,7 @@ dirs:
 code/blockchain: $(OBJ)/main.o $(COMMON_OBJS)
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^ $(LDLIBS)
 
-$(BIN)/miner: $(OBJ)/miner.o $(COMMON_OBJS)
+$(BIN)/miner: $(OBJ)/miner.o $(OBJ)/minerCommunicationProcess.o $(OBJ)/minerStatus.o $(COMMON_OBJS)
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^ $(LDLIBS)
 
 $(BIN)/client: $(OBJ)/ClientProcess.o $(OBJ)/client.o $(COMMON_OBJS)
@@ -38,13 +38,16 @@ $(BIN)/node: $(OBJ)/node.o $(COMMON_OBJS)
 $(BIN)/ClientsLauncher: $(OBJ)/ClientsLauncher.o
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^ 
 
+$(BIN)/MinerLauncher: $(OBJ)/MinerLauncher.o
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^
+
 $(OBJ)/%.o: $(SRC)/%.c
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
 clean:
 	rm -f $(OBJ)/*.o
 	rm -f code/blockchain
-	rm -f $(BIN)/miner $(BIN)/client $(BIN)/node $(BIN)/ClientsLauncher
+	rm -f $(BIN)/miner $(BIN)/client $(BIN)/node $(BIN)/ClientsLauncher $(BIN)/MinerLauncher
 	rm -f *.log
 	rm -f ./tmp/*.sock
 
