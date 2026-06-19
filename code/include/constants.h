@@ -45,3 +45,8 @@
 #define MAX_SLEEPING_TIME 5
 #define MIN_SLEEPING_TIME 1
 #endif //PROGETTO_CONSTANTS_H
+
+
+//node constants
+#define CSV_SEM_NAME  "/blockchain_csv"
+#define CSV_FILE_NAME "./blockchain.csv"

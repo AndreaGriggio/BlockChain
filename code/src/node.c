@@ -4,6 +4,7 @@
 #include "childProcess.h"
 #include "error.h"
 #include "protocolSocket.h"
+#include "constants.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -40,8 +41,6 @@ static int *write_fds = NULL;   /* write_fds[i] = pipe questo node → miner_i  
 
 static FILE *log_file = NULL;
 
-#define CSV_SEM_NAME  "/blockchain_csv"
-#define CSV_FILE_NAME "./blockchain.csv"
 
 typedef struct {
     int *read_fds;
