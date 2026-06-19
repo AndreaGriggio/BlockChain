@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include "node.h"
 #include "block.h"
 #include "message.h"
@@ -20,6 +22,8 @@
 #include <time.h>
 #include <errno.h>
 #include <pthread.h>
+#include <limits.h>
+
 
 static volatile sig_atomic_t running = 1;
 
@@ -38,6 +42,8 @@ static int    num_miners = 0;
 /* Array degli fd di lettura (da ogni miner) e scrittura (verso ogni miner) */
 static int *to_miner   = NULL;
 static int *from_miner = NULL;
+
+static NodeStatus* status = NULL;
 
 static FILE *log_file = NULL;
 
@@ -214,10 +220,10 @@ static int createNodeFifos(const int num_miners) {
     }
  
     ChildProcess *cp = childProcessCreate();
+    
+    nSGetCPChildProcess(status,cp);
 
     if (cp == NULL) {return -1;}
- 
-    mSGetCPChildProcess(status, cp);
  
     int id;
     if (getCpId(cp, &id) != 0 || id < 0) {
@@ -227,7 +233,7 @@ static int createNodeFifos(const int num_miners) {
  
     for (int i = 0; i < num_miners; i++) {
         char path_to[64];
-        snprintf(path_to, sizeof(path_to), "%s%d%d", MINER_NODE_FIFO, id, i);
+        snprintf(path_to, sizeof(path_to), "%s%d%d", NODE_MINER_FIFO, id, i);
  
         if (mkfifo(path_to, 0666) < 0 && errno != EEXIST) {
             fprintf(stderr, "MINER %d: mkfifo %s fallita: %s\n",
@@ -256,7 +262,7 @@ static int createNodeFifos(const int num_miners) {
  
     for (int i = 0; i < num_miners; i++) {
         char path_from[64];
-        snprintf(path_from, sizeof(path_from), "%s%d%d", NODE_MINER_FIFO, i, id);
+        snprintf(path_from, sizeof(path_from), "%s%d%d", MINER_NODE_FIFO, i, id);
  
         do {
             from_miner[i] = open(path_from, O_RDONLY);

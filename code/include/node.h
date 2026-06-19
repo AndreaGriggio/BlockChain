@@ -5,7 +5,7 @@
 #ifndef NODE_H
 #define NODE_H
 
-int node_main(int argc, char *argv[]);
+#include "nodeStatus.h"
 
 #endif // NODE_H
 
