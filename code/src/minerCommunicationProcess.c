@@ -14,9 +14,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/stat.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
 #include <limits.h>
 
 #include "childProcess.h"
@@ -31,6 +28,11 @@ static volatile sig_atomic_t running = 1;
 static int *to_node   = NULL;
 static int *from_node = NULL;
 
+static int miner_id = -1;
+/*TODO: SI potrebbero spostare in un file separato passando:
+*   1. Il numero di nodes, lo status per accedere all'id in alternativa direttamente l'id
+*   2. i puntatore per i file descriptor
+*/
 static int createNodeFifos(const int num_nodes) {
     to_node   = (int*) malloc(sizeof(int) * num_nodes);
     from_node = (int*) malloc(sizeof(int) * num_nodes);
@@ -46,15 +48,15 @@ static int createNodeFifos(const int num_nodes) {
 
     mSGetCPChildProcess(status,cp);
 
-    int id;
-    getCpId(cp,&id);
 
-    if (id < 0){return -1;}
+    getCpId(cp,&miner_id);
+
+    if (miner_id < 0){return -1;}
 
     for (int i = 0; i < num_nodes; i++) {
         char path_to[64];
 
-        snprintf(path_to  , sizeof(path_to)   ,"%s%d%d"  ,MINER_NODE_FIFO ,id ,i);
+        snprintf(path_to  , sizeof(path_to)   ,"%s%d%d"  ,MINER_NODE_FIFO ,miner_id ,i);
 
         mkfifo(path_to,0666);
 
@@ -77,7 +79,7 @@ static int createNodeFifos(const int num_nodes) {
     for (int i = 0; i < num_nodes; i++) {
         char  path_from [64];
 
-        snprintf(path_from, sizeof(path_from) ,"%s%d%d"  ,NODE_MINER_FIFO ,i  ,id);
+        snprintf(path_from, sizeof(path_from) ,"%s%d%d"  ,NODE_MINER_FIFO ,i  ,miner_id);
         do {
             from_node[i] = open(path_from, O_RDONLY);
             if (from_node[i] < 0 && errno != ENXIO && errno != ENOENT) {
@@ -90,9 +92,30 @@ static int createNodeFifos(const int num_nodes) {
         if (fcntl(from_node[i], F_SETPIPE_SZ,PIPE_BUF) < 0) return -1;
 
     }
-
+    return 0;
 
 }
+
+static void closeAndDestroyFifos(const int num_nodes) {
+    for (int i = 0; i < num_nodes;i ++) {
+        if (to_node != NULL) {
+            if (to_node[i] > 0) close(to_node[i]);
+
+            if (miner_id >= 0) {
+                char path_to[64];
+                snprintf(path_to, sizeof(path_to), "%s%d%d", MINER_NODE_FIFO, miner_id, i);
+                unlink(path_to);
+            }
+        }
+        if (from_node != NULL) {
+            if (from_node[i] > 0) close(from_node[i]);
+        }
+    }
+    free(to_node);   to_node   = NULL;
+    free(from_node); from_node = NULL;
+}
+
+
 typedef struct MiningThreadArgs {
     Miner*           miner;
     MinerStatus*     status;
@@ -134,10 +157,10 @@ static void startMining(pthread_t* mining_thread,void* args) {
 
 /**
  *Ferma il processo di mining
- * @param miner miner a cui fermare il processo
+ * @param mining_thread thread da aspettare per fermare il mining
  * @return 0 se tutto è andato bene
  */
-static int stopMining(pthread_t* mining_thread) {
+static int stopMining(const pthread_t* mining_thread) {
     msSignal(status,MINER_STOPPED);
     pthread_join(*mining_thread, NULL);
     return 0;
@@ -165,7 +188,7 @@ int main(int argc, char ** argv) {
 
     const int difficulty = atoi(argv[1]);
     const int id = atoi(argv[2]);
-    const int fd_count = atoi(argv[3]);
+    const int num_nodes = atoi(argv[3]);
 
     if (difficulty <= 0 ) {
         fprintf(stderr,"Difficulty non valida ex. difficulty > 0");
@@ -175,10 +198,11 @@ int main(int argc, char ** argv) {
         fprintf(stderr,"ID non valida ex. id > 0");
         return 1;
     }
-    if ( fd_count < 0 ) {
+    if ( num_nodes < 0 ) {
         fprintf(stderr,"fd_count non valido ex. nodi_count > 0");
     }
 
+    createNodeFifos(num_nodes);
 
 
     struct sigaction sa ;
@@ -229,6 +253,7 @@ int main(int argc, char ** argv) {
 
     startMining(&mining_thread,&args);
 
+
     while (running) {
         /*quello che deve fare il miner è :
         *1. Ascoltare periodicamente sulla socket se è stato segnalato con un segnale comune quando vengono caricate informazioni
@@ -240,6 +265,7 @@ int main(int argc, char ** argv) {
 
 
     stopMining(&mining_thread);
+    closeAndDestroyFifos(num_nodes);
     return 0;
 }
 

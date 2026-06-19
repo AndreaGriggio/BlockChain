@@ -52,6 +52,8 @@ int calcMerkle(char hashes[][MERKLE_ROOT_HEX_SIZE+1],size_t count,char output_me
  * @return 0 se tutto è andato a buon fine
  */
 int blockGetHash(const Block *block_ptr, char out_hash[HASH_HEX_SIZE + 1]);
+
+int blockGetTransaction(const Block * block_ptr, char out[MAX_BLOCK_TXS_BUF+1]);
 /**
  *
  * @param block_ptr Blocco da validare

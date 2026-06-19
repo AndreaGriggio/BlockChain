@@ -238,7 +238,13 @@ int blockGetHash(const Block *block_ptr, char out_hash[HASH_HEX_SIZE + 1]) {
 
 
 }
+int blockGetTransaction(const Block * block_ptr, char out[MAX_BLOCK_TXS_BUF+1]) {
+    if (block_ptr == NULL || out == NULL)return INVALID_PARAMS;
 
+    memcpy(out,block_ptr->transactions,sizeof(block_ptr->transactions));
+
+    return 0;
+}
 int blockValidate(const Block *block_ptr, const Block *prev) {
     if (block_ptr == NULL || prev == NULL ) return INVALID_BLOCK;
 
