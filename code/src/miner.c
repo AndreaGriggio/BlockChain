@@ -71,12 +71,12 @@ int minerValidateTransactions(Miner* miner_ptr,
             write_idx++;
         }
     }
-    miner_ptr->transactions_count = write_idx+1;
+    miner_ptr->transactions_count = write_idx;
     return write_idx;   // numero di transazioni valide rimaste nell'array
 }
 int minerValidateTransaction(const Miner *miner_ptr, const size_t *transaction_idx) {
     if (miner_ptr == NULL || transaction_idx == NULL) return INVALID_PARAMS;
-    if ( miner_ptr->transactions_count < *transaction_idx) {}
+    if ( miner_ptr->transactions_count < *transaction_idx) {return INVALID_PARAMS;}
     if (strlen(miner_ptr->transactions[*transaction_idx]) > MAX_TX_SIZE)    return INVALID_PARAMS;
 
     return validateTransaction(miner_ptr->transactions[*transaction_idx]);
@@ -155,6 +155,7 @@ int minerMiningLoop(Miner* miner, MinerStatus* status) {
         int trovato = 0;
         int sleeping_time = NUM_MIN_MAX(MIN_SLEEPING_TIME, MAX_SLEEPING_TIME);
         Block * new = NULL;
+
 
         while (!trovato) {
             sleep(sleeping_time);

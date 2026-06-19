@@ -18,7 +18,7 @@ typedef enum MinerState {
     MINER_RESTART     = 4,//fa ripartire il ciclo di mining
 }MinerState;
 
-typedef struct minerStatus MinerStatus;
+typedef struct MinerStatus MinerStatus;
 
 /**
  *
