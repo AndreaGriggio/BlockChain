@@ -16,16 +16,13 @@
 static MinerStatus* status = NULL;
 static Miner* miner = NULL;
 
-static pthread_mutex_t miner_mutex = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t status_mutex = PTHREAD_MUTEX_INITIALIZER;
 static volatile sig_atomic_t running = 1;
 
 
 typedef struct MiningThreadArgs {
     Miner*           miner;
     MinerStatus*     status;
-    pthread_mutex_t* miner_mutex;
-    pthread_mutex_t* status_mutex;
+
 } MiningThreadArgs;
 /**
  *
@@ -40,34 +37,16 @@ static void handle_signal(int sig) {
 }
 
 
-//Getter e setter per lo stato del MinerStatus
-void updateState(const MinerState new_state) {
-    pthread_mutex_lock(&status_mutex);
-    status->state = new_state;
-    pthread_mutex_unlock(&status_mutex);
-}
-
-
-MinerState readState() {
-    pthread_mutex_lock(&status_mutex);
-    const MinerState s = status->state;
-    pthread_mutex_unlock(&status_mutex);
-    return s;
-}
-
-
 //Chiamate di funzioni che servono per arrestare o fare partire il thread di mining
 /**
  *Inizia il processo di mining
- * @param miner miner che inizia il processo di calcolo del blocco
+ * @param arg miner che inizia il processo di calcolo del blocco
  * @return 0 se tutto è andato bene
  */
 static void* minerMining_Thread_Entry_point(void* arg) {
     MiningThreadArgs* args = (MiningThreadArgs*)arg;
     minerMiningLoop(args->miner,
-                    args->status,
-                    args->miner_mutex,
-                    args->status_mutex);
+                    args->status);
     return NULL;
 }
 
@@ -84,16 +63,28 @@ static void startMining(pthread_t* mining_thread,void* args) {
  * @param miner miner a cui fermare il processo
  * @return 0 se tutto è andato bene
  */
-int stopMining(pthread_t* mining_thread) {
+static int stopMining(pthread_t* mining_thread) {
+    msSignal(status,MINER_STOPPED);
     pthread_join(*mining_thread, NULL);
+    return 0;
 }
 
-int pauseMining(Miner* miner);
+static int pauseMining(void) {
+
+    msSignal(status,MINER_IDLE);
+    return 0;
+}
+static int restartMining(void) {
+
+    msSignal(status,MINER_RESTART);
+    return 0;
+
+}
 
 
 int main(int argc, char ** argv) {
 
-    if (argc < 2) {
+    if (argc < 3) {
         fprintf(stderr, "Utilizzo : %s <difficulty> <id>  \n",argv[0]);
         return 1;
     }
@@ -114,10 +105,8 @@ int main(int argc, char ** argv) {
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
 
-    if (sigaction(SIGINT,&sa,NULL)== -1) {
-        perror("sigaction SIGINT");
-        return 1;
-    }
+    if (sigaction(SIGINT,  &sa, NULL) == -1) { perror("sigaction SIGINT"); return 1; }
+    if (sigaction(SIGTERM, &sa, NULL) == -1) { perror("sigaction SIGTERM");        return 1; }
 
     ChildProcess* childProcess = childProcessCreate();
 
@@ -132,10 +121,9 @@ int main(int argc, char ** argv) {
         return 1;
     }
     status = minerCreateStatus();
-    mSSetCP(status,childProcess); //inizializzo lo status
-    mSSetState(status,MINER_IDLE);
-    mSSetAttempts(status, 0);
-    mSSetTransactionCount(status, 0);
+
+    minerInitStatus(status,childProcess,MINER_IDLE,0,0);
+
 
     //creo la struttura dati per accogliere il blocco
     miner = minerCreate();
@@ -143,7 +131,8 @@ int main(int argc, char ** argv) {
         fprintf(stderr,"Error allocation miner");
         return 1;
     }
-    if (minerInit(miner, difficulty)== 0) {
+
+    if (minerInit(miner, difficulty) != 0) {
         fprintf(stderr,"Miner Init error");
         free(miner);
         free(childProcess);
@@ -155,19 +144,17 @@ int main(int argc, char ** argv) {
     MiningThreadArgs args = {
         .miner        = miner,
         .status       = status,
-        .miner_mutex  = &miner_mutex,
-        .status_mutex = &status_mutex
     };
 
     startMining(&mining_thread,&args);
 
-    while (running ) {
+    while (running) {
         /*quello che deve fare il miner è :
         *1. Ascoltare periodicamente sulla socket se è stato segnalato con un segnale comune quando vengono caricate informazioni
         *2. Minare come un dannato e provare a risolvere il blocco -> thread separato su cui questo while ha completo controllo
         */
 
-        int fd =
+
     }
 
 

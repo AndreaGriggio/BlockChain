@@ -52,7 +52,7 @@ static void handle_signal(int sig) {
         snprintf(id_str, sizeof(id_str), "%d", id);
 
         execl("./code/bin/client", "./code/bin/client", freq_str, id_str, NULL);
-
+        
         /* se arriviamo qui, execl ha fallito: niente  di code è stato caricato */
         perror("execl");
         _exit(1);

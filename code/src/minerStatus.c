@@ -3,70 +3,194 @@
 //
 
 #include <stdlib.h>
-#include "minerStatus.h"
+#include <pthread.h>
 
+#include "minerStatus.h"
+#include "childProcess.h"
 #include "error.h"
 
-MinerStatus* minerCreateStatus() {
-    MinerStatus* status = malloc(sizeof(MinerStatus));
-    return status;
-}
+struct minerStatus {
+    ChildProcess    *cp;               /* ownership della struct: alloca/dealloca questa     */
+    MinerState       state;            /* stato corrente del miner                           */
+    size_t           nonce_attempts;   /* quante volte abbiamo provato un nonce              */
+    uint64_t         transaction_count;/* transazioni accumulate dall'ultima pulizia         */
 
-int mSGetCPStatus(const MinerStatus* minerStatus,MinerStatus* minerCPStatus) {
-    if (minerCPStatus == NULL || minerStatus == NULL) return INVALID_PARAMS;
-    if (minerStatus->cp == NULL) return INVALID_PARAMS;
-
-    mSGetCPChildProcess( minerStatus,minerCPStatus->cp);
-    minerCPStatus->state             = minerStatus->state;
-    minerCPStatus->nonce_attempts    = minerStatus->nonce_attempts;
-    minerCPStatus->transaction_count = minerStatus->transaction_count;
-
-    return 0;
-}
-int mSGetCPChildProcess(const MinerStatus* minerStatus, ChildProcess * cpcopy) {
-    if (minerStatus == NULL || cpcopy == NULL) return INVALID_PARAMS;
-    if (minerStatus->cp == NULL) return INVALID_PARAMS;
-    copyCp(minerStatus->cp,cpcopy);
-    return 0;
-}
-
-int mSGetState(const MinerStatus* minerStatus, MinerState* minerstate) {
-    if (minerStatus == NULL || minerstate == NULL) return INVALID_PARAMS;
-    *minerstate = minerStatus->state;
-    return 0;
-}
-
-int mSGetAttempts(const MinerStatus* minerStatus,size_t* nonceAttempts) {
-    if (minerStatus == NULL || nonceAttempts == NULL) return INVALID_PARAMS;
-    *nonceAttempts = minerStatus->nonce_attempts;
-    return 0;
-}
+    pthread_mutex_t  mutex;            /* protegge tutti i campi sopra                      */
+    pthread_cond_t   cond;             /* il thread di mining ci dorme quando è IDLE         */
+}minerStatus;
 
 
-int minerGetTransactionCount(const MinerStatus* minerstatus,uint64_t* transaction_count) {
-    if (minerstatus == NULL || transaction_count == NULL) return INVALID_PARAMS;
-    *transaction_count = minerstatus->transaction_count;
+
+MinerStatus *minerCreateStatus(void) {
+    MinerStatus *s = malloc(sizeof(MinerStatus));
+    if (s == NULL) return NULL;
+
+    s->cp = childProcessCreate();
+    if (s->cp == NULL) {
+        free(s);
+        return NULL;
+    }
+
+    if (pthread_mutex_init(&s->mutex, NULL) != 0) {
+        childProcessDestroy(s->cp);
+        free(s);
+        return NULL;
+    }
+
+    if (pthread_cond_init(&s->cond, NULL) != 0) {
+        pthread_mutex_destroy(&s->mutex);
+        childProcessDestroy(s->cp);
+        free(s);
+        return NULL;
+    }
+
+    s->state             = MINER_IDLE;
+    s->nonce_attempts    = 0;
+    s->transaction_count = 0;
+
+    return s;
+}
+
+void minerDestroyStatus(MinerStatus *s) {
+    if (s == NULL) return;
+
+    /* Distruggi sempre condvar prima del mutex (ordine inverso rispetto alla creazione). */
+    pthread_cond_destroy(&s->cond);
+    pthread_mutex_destroy(&s->mutex);
+
+    childProcessDestroy(s->cp);
+
+    free(s);
+}
+
+int minerInitStatus(MinerStatus       *s,
+                    const ChildProcess *cp,
+                    MinerState          state,
+                    size_t              nonce_attempts,
+                    uint64_t            transaction_count) {
+    if (s == NULL || cp == NULL) return INVALID_PARAMS;
+    if (s->cp == NULL) return INVALID_PARAMS;
+
+    if (copyCp(cp, s->cp) != 0) return INVALID_PARAMS;
+
+    pthread_mutex_lock(&s->mutex);
+    s->state             = state;
+    s->nonce_attempts    = nonce_attempts;
+    s->transaction_count = transaction_count;
+    pthread_mutex_unlock(&s->mutex);
+
     return 0;
 }
 
-int mSSetCP(const MinerStatus* minerStatus, const ChildProcess* cp) {
-    if (minerStatus == NULL || cp == NULL) return INVALID_PARAMS;
-    if (minerStatus->cp == NULL) return INVALID_PARAMS;
-    copyCp(cp,minerStatus->cp);
+
+
+int msWaitForWork(MinerStatus *s) {
+    if (s == NULL) return INVALID_PARAMS;
+
+    pthread_mutex_lock(&s->mutex);
+
+
+    while (s->state == MINER_IDLE) {
+        pthread_cond_wait(&s->cond, &s->mutex);
+    }
+
+    pthread_mutex_unlock(&s->mutex);
     return 0;
 }
-int mSSetStatus(MinerStatus* minerStatus,const MinerState minerstate) {
-    if (minerStatus == NULL) return INVALID_PARAMS;
-    minerStatus->state = minerstate;
+
+int msSignal(MinerStatus *s, MinerState new_state) {
+    if (s == NULL) return INVALID_PARAMS;
+
+    pthread_mutex_lock(&s->mutex);
+    s->state = new_state;
+    pthread_cond_signal(&s->cond);
+    pthread_mutex_unlock(&s->mutex);
+
     return 0;
 }
-int mSSetAttempts(MinerStatus* minerStatus,const size_t nonceAttempts) {
-    if (minerStatus == NULL) return INVALID_PARAMS;
-    minerStatus->nonce_attempts = nonceAttempts;
+
+
+int mSGetState(MinerStatus *s, MinerState *out) {
+    if (s == NULL || out == NULL) return INVALID_PARAMS;
+
+    pthread_mutex_lock(&s->mutex);
+    *out = s->state;
+    pthread_mutex_unlock(&s->mutex);
+
     return 0;
 }
-int mSSetTransactionCount(MinerStatus* minerStatus,const uint64_t transaction_count) {
-    if (minerStatus == NULL) return INVALID_PARAMS;
-    minerStatus->transaction_count = transaction_count;
+
+int mSGetAttempts(MinerStatus *s, size_t *out) {
+    if (s == NULL || out == NULL) return INVALID_PARAMS;
+
+    pthread_mutex_lock(&s->mutex);
+    *out = s->nonce_attempts;
+    pthread_mutex_unlock(&s->mutex);
+
     return 0;
+}
+
+int mSGetTransactionCount(MinerStatus *s, uint64_t *out) {
+    if (s == NULL || out == NULL) return INVALID_PARAMS;
+
+    pthread_mutex_lock(&s->mutex);
+    *out = s->transaction_count;
+    pthread_mutex_unlock(&s->mutex);
+
+    return 0;
+}
+
+int mSGetCPChildProcess(MinerStatus *s, ChildProcess *out) {
+    if (s == NULL || out == NULL) return INVALID_PARAMS;
+    if (s->cp == NULL)            return INVALID_PARAMS;
+
+    pthread_mutex_lock(&s->mutex);
+    int ret = copyCp(s->cp, out);
+    pthread_mutex_unlock(&s->mutex);
+
+    return ret;
+}
+
+
+
+int mSSetState(MinerStatus *s, MinerState state) {
+    if (s == NULL) return INVALID_PARAMS;
+
+    pthread_mutex_lock(&s->mutex);
+    s->state = state;
+    pthread_mutex_unlock(&s->mutex);
+
+    return 0;
+}
+
+int mSSetAttempts(MinerStatus *s, size_t attempts) {
+    if (s == NULL) return INVALID_PARAMS;
+
+    pthread_mutex_lock(&s->mutex);
+    s->nonce_attempts = attempts;
+    pthread_mutex_unlock(&s->mutex);
+
+    return 0;
+}
+
+int mSSetTransactionCount(MinerStatus *s, uint64_t count) {
+    if (s == NULL) return INVALID_PARAMS;
+
+    pthread_mutex_lock(&s->mutex);
+    s->transaction_count = count;
+    pthread_mutex_unlock(&s->mutex);
+
+    return 0;
+}
+
+int mSSetCP(MinerStatus *s, const ChildProcess *cp) {
+    if (s == NULL || cp == NULL) return INVALID_PARAMS;
+
+    if (s->cp == NULL) return INVALID_PARAMS;
+
+    pthread_mutex_lock(&s->mutex);
+    int ret = copyCp(cp, s->cp);
+    pthread_mutex_unlock(&s->mutex);
+
+    return ret;
 }

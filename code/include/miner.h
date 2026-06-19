@@ -68,5 +68,5 @@ int minerRemoveTransactions(Miner* miner,const char transactions[MAX_TX_PER_BLOC
  * @param miner_mutex mutex sulla scrittura di miner e status
  * @return 0 se tutto è andato bene
  */
-int minerMiningLoop(Miner* miner,MinerStatus* status,pthread_mutex_t* miner_mutex,pthread_mutex_t* status_mutex);
+int minerMiningLoop(Miner* miner,MinerStatus* status);
 #endif //PROGETTO_MINER_H

@@ -32,11 +32,10 @@ Miner* minerCreate(){
 int minerDestroy(Miner* miner) {
     if (miner == NULL)return 1;
 
-    if (miner->mined_block != NULL) {
-        free(miner->mined_block);
-        free(miner);
-    }
+    if (miner->mined_block != NULL) free(miner->mined_block);
 
+
+    free(miner);
     return 0;
 }
 
@@ -127,69 +126,57 @@ static int minerMiningAttempt(const uint difficulty) {
     uint num = NUM_MIN_MAX(0,difficulty-1);
     return num == 0 ? 1 : 0;
 }
-static void updateState(MinerStatus* status,
-                        MinerState new_state,
-                        pthread_mutex_t* status_mutex) {
-    pthread_mutex_lock(status_mutex);
-    status->state = new_state;
-    pthread_mutex_unlock(status_mutex);
-}
 
-static void minerIncrementAttempts(MinerStatus* status,
-                        size_t increment,
-                        pthread_mutex_t* status_mutex) {
-    pthread_mutex_lock(status_mutex);
-    status->nonce_attempts += increment;
-    pthread_mutex_unlock(status_mutex);
-}
-static void minerCreateBlock(Miner* miner, Block** new, pthread_mutex_t* miner_mutex) {
+
+static void minerCreateBlock(Miner* miner, Block** new) {
     //blocco il la scrittura sul miner
-    pthread_mutex_lock(miner_mutex);
-
     *new = blockCreate();
 
     //Collego il blocco ma non lo riempio non ho le informazioni
     miner->mined_block = *new;
     //libero la scrittura
-    pthread_mutex_unlock(miner_mutex);
-}
-static void minerSetFoundBlock(MinerStatus* status,pthread_mutex_t* status_mutex) {
-    //blocco lo status
-    pthread_mutex_lock(status_mutex);
-    //Cambio lo stato del miner ho trovato un blocco!
-    //nonce -> reset
-    status->state = MINER_BLOCK_FOUND;
-    status->nonce_attempts = 0;
-    //libero la scrittura
-    pthread_mutex_unlock(status_mutex);
 }
 
-int minerMiningLoop(Miner* miner,
-                    MinerStatus* status,
-                    pthread_mutex_t* miner_mutex,
-                    pthread_mutex_t* status_mutex) {
-    //Controllo sul miner
-    if (miner == NULL ) return INVALID_PARAMS;
 
-    //puntatore al nuovo blocco
-    Block* new = NULL;
-    int sleeping_time = NUM_MIN_MAX(MIN_SLEEPING_TIME,MAX_SLEEPING_TIME);
+int minerMiningLoop(Miner* miner, MinerStatus* status) {
+    if (miner == NULL || status == NULL) return INVALID_PARAMS;
+    //ciclio infinito una volta iniziato non si interrompe finchè state = MINER_STOPPED
+    while (1) {
+        /*Con questa chiama bloccante controlliamo quando entra all'interno del ciclo di mining*/
+        //rimane bloccata finchè state = MINER_IDLE
+        msWaitForWork(status);
 
-    while (new == NULL) {
+        MinerState s;
+        mSGetState(status, &s);
+        if (s == MINER_STOPPED) break;
 
-        if ( 1 == minerMiningAttempt(miner->difficulty)) {
+        mSSetState(status, MINER_MINING);
 
-            minerCreateBlock(miner,&new,miner_mutex);
+        int trovato = 0;
+        int sleeping_time = NUM_MIN_MAX(MIN_SLEEPING_TIME, MAX_SLEEPING_TIME);
+        Block * new = NULL;
 
-            minerSetFoundBlock(status,status_mutex);
-        }else {
+        while (!trovato) {
+            sleep(sleeping_time);
 
-            minerIncrementAttempts(status,1,status_mutex);
+            // check abort — il comm thread ha chiamato msSignal(RESTART)?
+            mSGetState(status, &s);
+            if (s == MINER_RESTART || s == MINER_STOPPED) break;
 
+            if (minerMiningAttempt(miner->difficulty)) {
+                minerCreateBlock(miner, &new);
+                mSSetState(status, MINER_BLOCK_FOUND);
+                trovato = 1;
+            } else {
+                size_t attempts;
+                mSGetAttempts(status, &attempts);
+                mSSetAttempts(status, attempts + 1);
+            }
         }
-        sleep(sleeping_time);//riposino...
-    }
 
+        if (s == MINER_STOPPED) break;
+
+    }
 
     return 0;
 }
