@@ -36,8 +36,8 @@ static int    num_nodes  = 0;
 static int    num_miners = 0;
 
 /* Array degli fd di lettura (da ogni miner) e scrittura (verso ogni miner) */
-static int *read_fds  = NULL;   /* read_fds[i]  = pipe miner_i → questo node */
-static int *write_fds = NULL;   /* write_fds[i] = pipe questo node → miner_i  */
+static int *to_miner   = NULL;
+static int *from_miner = NULL;
 
 static FILE *log_file = NULL;
 
@@ -195,5 +195,107 @@ static int validate_merkle(const Block *block_ptr) {
     }
 
     return 0;
+}
+
+static int createNodeFifos(const int num_miners) {
+    to_miner   = (int*) malloc(sizeof(int) * num_miners);
+    from_miner = (int*) malloc(sizeof(int) * num_miners);
+ 
+    if (to_miner == NULL || from_miner == NULL) {
+        fprintf(stderr, "MINER: malloc fd arrays fallita\n");
+        free(to_miner);
+        free(from_miner);
+        return -1;
+    }
+
+    for (int i = 0; i < num_miners; i++) {
+        to_miner[i]   = -1;
+        from_miner[i] = -1;
+    }
+ 
+    ChildProcess *cp = childProcessCreate();
+
+    if (cp == NULL) {return -1;}
+ 
+    mSGetCPChildProcess(status, cp);
+ 
+    int id;
+    if (getCpId(cp, &id) != 0 || id < 0) {
+        childProcessDestroy(cp);
+        return -1;
+    }
+ 
+    for (int i = 0; i < num_miners; i++) {
+        char path_to[64];
+        snprintf(path_to, sizeof(path_to), "%s%d%d", MINER_NODE_FIFO, id, i);
+ 
+        if (mkfifo(path_to, 0666) < 0 && errno != EEXIST) {
+            fprintf(stderr, "MINER %d: mkfifo %s fallita: %s\n",
+                    id, path_to, strerror(errno));
+            return -1;
+        }
+ 
+        do {
+            to_miner[i] = open(path_to, O_WRONLY | O_NONBLOCK);
+            if (to_miner[i] < 0 && errno != ENXIO) {
+                fprintf(stderr,"open path_to");
+                return -1;
+            }
+            if (to_miner[i] < 0) usleep(10000);
+        } while (to_miner[i] < 0);
+ 
+        if (fcntl(to_miner[i], F_SETPIPE_SZ, PIPE_BUF) < 0) {
+            fprintf(stderr, "MINER %d: fcntl to_miner[%d] fallita: %s\n",
+                    id, i, strerror(errno));
+            return -1;
+        }
+ 
+        fprintf(stderr, "MINER %d: to_miner[%d] aperto (fd=%d path=%s)\n",
+                id, i, to_miner[i], path_to);
+    }
+ 
+    for (int i = 0; i < num_miners; i++) {
+        char path_from[64];
+        snprintf(path_from, sizeof(path_from), "%s%d%d", NODE_MINER_FIFO, i, id);
+ 
+        do {
+            from_miner[i] = open(path_from, O_RDONLY);
+            if (from_miner[i] < 0 && errno != ENXIO && errno != ENOENT) {
+                fprintf(stderr, "MINER %d: open %s fallita: %s\n",
+                        id, path_from, strerror(errno));
+                return -1;
+            }
+            if (from_miner[i] < 0) usleep(10000);
+        } while (from_miner[i] < 0);
+ 
+        if (fcntl(from_miner[i], F_SETPIPE_SZ, PIPE_BUF) < 0) {
+            fprintf(stderr, "MINER %d: fcntl from_miner[%d] fallita: %s\n",
+                    id, i, strerror(errno));
+            return -1;
+        }
+ 
+        fprintf(stderr, "MINER %d: from_miner[%d] aperto (fd=%d path=%s)\n",
+                id, i, from_miner[i], path_from);
+    }
+ 
+    return 0;
+}
+
+//funzione per chiudere e rimuovere le fifo del nodo
+static void destroyNodeFifos(int num_nodes) {
+    if (to_miner != NULL) {
+        for (int i = 0; i < num_nodes; i++) {
+            if (to_miner[i] >= 0) close(to_miner[i]);
+        }
+        free(to_miner);
+        to_miner = NULL;
+    }
+    if (from_miner != NULL) {
+        for (int i = 0; i < num_nodes; i++) {
+            if (from_miner[i] >= 0) close(from_miner[i]);
+        }
+        free(from_miner);
+        from_miner = NULL;
+    }
 }
 

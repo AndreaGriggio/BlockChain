@@ -53,8 +53,6 @@
 #define CSV_SEM_NAME  "/blockchain_csv"
 #define CSV_FILE_NAME "./blockchain.csv"
 
-
-
 //argoments constants
 #define MAX_NODE_COUNT 100
 #endif //PROGETTO_CONSTANTS_H
