@@ -50,7 +50,7 @@ int blockInit(Block *block_ptr,const u_int64_t index, const u_int64_t timestamp,
 
     if (txs == NULL){ block_ptr-> transactions[0] = '\0';
                       block_ptr -> merkle_root[0] = '\0';
-    }// inzializziamo il discorso ce non sono state passate transazioni da inserire
+    }// inzializziamo il discorso se non sono state passate transazioni da inserire
     else pack_transactions(block_ptr,txs);// mettiamo dentro al blocco le transazioni
 
     blockGetmerkle(block_ptr,block_ptr->merkle_root);
