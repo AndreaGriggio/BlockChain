@@ -50,15 +50,10 @@ NodeStatus *nodeCreateStatus(void) {
 
 void nodeDestroyStatus(NodeStatus *s) {
     if (s == NULL) return;
-
-    /* Distruggi condvar prima del mutex (ordine inverso rispetto alla creazione) */
     pthread_cond_destroy(&s->cond);
     pthread_mutex_destroy(&s->mutex);
 
     childProcessDestroy(s->cp);
-
-    /* last_block non è di nostra ownership — chi lo passa lo gestisce lui */
-
     free(s);
 }
 
@@ -129,10 +124,6 @@ int nSGetCPChildProcess(NodeStatus *s, ChildProcess *out) {
     return ret;
 }
 
-/* ------------------------------------------------------------------ */
-/*  Setter                                                             */
-/* ------------------------------------------------------------------ */
-
 int nSSetState(NodeStatus *s, NodeState state) {
     if (s == NULL) return INVALID_PARAMS;
 
@@ -153,11 +144,6 @@ int nSSetChainLength(NodeStatus *s, uint64_t length) {
     return 0;
 }
 
-/*
- * Aggiorna il puntatore last_block.
- * Il chiamante è responsabile di deallocare il vecchio blocco
- * se necessario — questa funzione non fa free().
- */
 int nSSetLastBlock(NodeStatus *s, const Block *block) {
     if (s == NULL) return INVALID_PARAMS;
 
