@@ -9,7 +9,7 @@
 #include "childProcess.h"
 #include "error.h"
 
-struct minerStatus {
+struct MinerStatus {
     ChildProcess    *cp;               /* ownership della struct: alloca/dealloca questa     */
     MinerState       state;            /* stato corrente del miner                           */
     size_t           nonce_attempts;   /* quante volte abbiamo provato un nonce              */
@@ -17,7 +17,7 @@ struct minerStatus {
 
     pthread_mutex_t  mutex;            /* protegge tutti i campi sopra                      */
     pthread_cond_t   cond;             /* il thread di mining ci dorme quando è IDLE         */
-}minerStatus;
+};
 
 
 
@@ -183,7 +183,7 @@ int mSSetTransactionCount(MinerStatus *s, uint64_t count) {
     return 0;
 }
 
-int mSSetCP(MinerStatus *s, const ChildProcess *cp) {
+int mSSetCP(const MinerStatus *s,const ChildProcess *cp) {
     if (s == NULL || cp == NULL) return INVALID_PARAMS;
 
     if (s->cp == NULL) return INVALID_PARAMS;

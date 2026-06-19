@@ -2,10 +2,15 @@
 //
 // Created by andrea on 17/06/26.
 //
+#include <fcntl.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <stdlib.h>
+#include <stdio.h>
 #include <unistd.h>
 
 
@@ -18,7 +23,38 @@ static Miner* miner = NULL;
 
 static volatile sig_atomic_t running = 1;
 
+static int *to_node   = NULL;
+static int *from_node = NULL;
 
+int createNodeFifos(int num_nodes) {
+    to_node   = (int*) malloc(sizeof(int) * num_nodes);
+    from_node = (int*) malloc(sizeof(int) * num_nodes);
+
+    if ( to_node == NULL || from_node == NULL ) {
+        fprintf(stderr,"MINER : Allocare fifo comunicazione Miner->Nodi è troppo complicato");
+        return -1;
+    }
+    for (int i = 0; i < num_nodes; i++) {
+        char path_to[64], path_from [64];
+        snprintf(path_to, sizeof(path_to),"%s%d",MINER_NODE_FIFO,i);
+        snprintf(path_from, sizeof(path_from),"%s%d",NODE_MINER_FIFO,i);
+
+        mkfifo(path_from,0666);
+        mkfifo(path_to,0666);
+
+        to_node[i]   = open(path_to, O_WRONLY | O_NONBLOCK);
+        from_node[i] = open(path_to, O_RDONLY);
+
+        if (to_node[i] < 0 || from_node[i] < 0) {
+            fprintf(stderr,"MINER : errore creazione node fifo comunicazione");
+            return -1;
+        }
+        if (fcntl(to_node[i], F_SETPIPE_SZ,PIPE_BUF)<0 ||
+            fcntl(from_node[i], F_SETPIPE_SZ,PIPE_BUF)<0 ||)
+    }
+
+
+}
 typedef struct MiningThreadArgs {
     Miner*           miner;
     MinerStatus*     status;
@@ -84,13 +120,14 @@ static int restartMining(void) {
 
 int main(int argc, char ** argv) {
 
-    if (argc < 3) {
+    if (argc < 4) {
         fprintf(stderr, "Utilizzo : %s <difficulty> <id>  \n",argv[0]);
         return 1;
     }
 
     const int difficulty = atoi(argv[1]);
     const int id = atoi(argv[2]);
+    const int fd_count = atoi(argv[3]);
 
     if (difficulty <= 0 ) {
         fprintf(stderr,"Difficulty non valida ex. difficulty > 0");
@@ -100,6 +137,12 @@ int main(int argc, char ** argv) {
         fprintf(stderr,"ID non valida ex. id > 0");
         return 1;
     }
+    if ( fd_count < 0 ) {
+        fprintf(stderr,"fd_count non valido ex. nodi_count > 0");
+    }
+
+
+
     struct sigaction sa ;
     sa.sa_handler = handle_signal;
     sigemptyset(&sa.sa_mask);

@@ -40,10 +40,17 @@
 #define CLIENT_MANAGER_SOCKET "./tmp/client_manager.sock"
 #define MINERS_SOCKET "./tmp/miners.sock"
 
+//fifo constants
+#define MINER_NODE_FIFO  ".tmp/miner_node_"
+#define NODE_MINER_FIFO  "./tmp/node_miner_"
+
 
 //miner constants
 #define MAX_SLEEPING_TIME 5
 #define MIN_SLEEPING_TIME 1
+
+//argoments constants
+#define MAX_NODE_COUNT 100
 #endif //PROGETTO_CONSTANTS_H
 
 
