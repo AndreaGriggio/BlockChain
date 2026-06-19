@@ -8,7 +8,8 @@
  
 typedef enum {
     NODE_IDLE,        //in ascolto, nessun blocco in elaborazione 
-    NODE_VALIDATING   //sta validando un blocco ricevuto          
+    NODE_VALIDATING,   //sta validando un blocco ricevuto
+    NODE_PROPAGATING   //sta propagando un blocco valido          
 } NodeState;
  
 typedef struct NodeStatus NodeStatus;
