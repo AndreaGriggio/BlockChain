@@ -39,6 +39,7 @@
 #define NODE_SOCKET "./tmp/blockchain_node_"
 #define CLIENT_MANAGER_SOCKET "./tmp/client_manager.sock"
 #define MINERS_SOCKET "./tmp/miners.sock"
+#define MAX_CONNECTION_TRIES 10
 
 //fifo constants
 #define MINER_NODE_FIFO  "./tmp/miner_node_"

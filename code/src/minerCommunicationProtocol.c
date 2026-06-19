@@ -10,6 +10,7 @@
 #include "message.h"
 #include "minerStatus.h"
 #include "protocolSocket.h"
+#include "utils.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -73,6 +74,8 @@ int receiveTransactionFromClient(int fd,char* tr){
     if (tr == NULL) tr = malloc(sizeof(char)*(payload_size+1));
 
     result = messageGetPayload(m, tr, (size_t)(payload_size + 1));
+
+    if (validateTransaction(tr)!= 0) return INVALID_TRANSACTION;
 
     free(m);
     return result;
