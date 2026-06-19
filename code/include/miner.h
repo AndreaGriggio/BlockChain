@@ -6,6 +6,7 @@
 #define PROGETTO_MINER_H
 
 #include "message.h"
+#include "minerStatus.h"
 typedef struct Miner Miner;
 
 /**
@@ -24,7 +25,7 @@ int minerDestroy(Miner* miner);
 *@param miner_difficulty difficolta con cui trovare il prossimo blocco
 *@return 0 se tutto è andato bene
 */
-int minerInit(Miner* miner,int miner_difficulty);
+int minerInit(Miner* miner,uint miner_difficulty);
 
 /**
  *Prende le transazioni contenute all'interno di un messaggio
@@ -61,17 +62,11 @@ int minerValidateTransaction(const Miner* miner_ptr, const size_t *transaction_i
 int minerRemoveTransactions(Miner* miner,const char transactions[MAX_TX_PER_BLOCK][MAX_TX_SIZE+1],size_t  number_of_transactions);
 
 /**
- *Inizia il processo di mining
- * @param miner miner che inizia il processo di calcolo del blocco
+ * Loop che continua finchè non trova un nuovo blocco o viene esternamente interrotto
+ * @param miner Puntatore al miner che inizierà a provare valori di nonce finchè non ne trova uno appropriato per il nuovo blocco
+ * @param status stato del miner
+ * @param miner_mutex mutex sulla scrittura di miner e status
  * @return 0 se tutto è andato bene
  */
-int startMining(Miner * miner);
-
-/**
- *Ferma il processo di mining
- * @param miner miner a cui fermare il processo
- * @return 0 se tutto è andato bene
- */
-int stopMining(Miner * miner);
-
+int minerMiningLoop(Miner* miner,MinerStatus* status);
 #endif //PROGETTO_MINER_H

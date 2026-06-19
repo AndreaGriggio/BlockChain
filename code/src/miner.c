@@ -1,13 +1,14 @@
-
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <unistd.h>
 #include "error.h"
 #include "miner.h"
 
-#include <string.h>
+#include <pthread.h>
 
 #include "client.h"
+#include "minerStatus.h"
 #include "utils.h"
 
 typedef struct Miner {
@@ -15,7 +16,7 @@ typedef struct Miner {
     u_int64_t last_block_index;
     char transactions[MAX_TX_PER_BLOCK][MAX_TX_SIZE+1];
     size_t transactions_count;
-    int difficulty;
+    uint difficulty;
     Block* mined_block;
 }Miner;
 
@@ -31,22 +32,20 @@ Miner* minerCreate(){
 int minerDestroy(Miner* miner) {
     if (miner == NULL)return 1;
 
-    if (miner->mined_block != NULL) {
-        free(miner->mined_block);
-        free(miner);
-    }
+    if (miner->mined_block != NULL) free(miner->mined_block);
 
+
+    free(miner);
     return 0;
 }
 
-int minerInit(Miner* miner,int miner_difficulty){
+int minerInit(Miner* miner,uint miner_difficulty){
     if (miner == NULL) {
         return -1;
     }
     miner->difficulty = miner_difficulty;
     miner->transactions_count = 0;
     miner->last_block_index = 0;
-    miner->difficulty = 0;
     miner->mined_block = NULL;
     return 0;
 }
@@ -123,3 +122,64 @@ int minerGetTransactionsFromMessage(Miner* miner, const Message *message_ptr){
 
     return 0;
 }
+static int minerMiningAttempt(const uint difficulty) {
+    uint num = NUM_MIN_MAX(0,difficulty-1);
+    return num == 0 ? 1 : 0;
+}
+
+
+static void minerCreateBlock(Miner* miner, Block** new) {
+    //blocco il la scrittura sul miner
+    *new = blockCreate();
+
+    //Collego il blocco ma non lo riempio non ho le informazioni
+    miner->mined_block = *new;
+    //libero la scrittura
+}
+
+
+int minerMiningLoop(Miner* miner, MinerStatus* status) {
+    if (miner == NULL || status == NULL) return INVALID_PARAMS;
+    //ciclio infinito una volta iniziato non si interrompe finchè state = MINER_STOPPED
+    while (1) {
+        /*Con questa chiama bloccante controlliamo quando entra all'interno del ciclo di mining*/
+        //rimane bloccata finchè state = MINER_IDLE
+        msWaitForWork(status);
+
+        MinerState s;
+        mSGetState(status, &s);
+        if (s == MINER_STOPPED) break;
+
+        mSSetState(status, MINER_MINING);
+
+        int trovato = 0;
+        int sleeping_time = NUM_MIN_MAX(MIN_SLEEPING_TIME, MAX_SLEEPING_TIME);
+        Block * new = NULL;
+
+        while (!trovato) {
+            sleep(sleeping_time);
+
+            // check abort — il comm thread ha chiamato msSignal(RESTART)?
+            mSGetState(status, &s);
+            if (s == MINER_RESTART || s == MINER_STOPPED) break;
+
+            if (minerMiningAttempt(miner->difficulty)) {
+                minerCreateBlock(miner, &new);
+                mSSetState(status, MINER_BLOCK_FOUND);
+                trovato = 1;
+            } else {
+                size_t attempts;
+                mSGetAttempts(status, &attempts);
+                mSSetAttempts(status, attempts + 1);
+            }
+        }
+
+        if (s == MINER_STOPPED) break;
+
+    }
+
+    return 0;
+}
+
+
+
