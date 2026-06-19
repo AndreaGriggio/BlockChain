@@ -1,27 +1,24 @@
-### ToDo list
-Fatti fin ora :
-Client struct
-1. [x] client
-2. [x] client send protocol
+Fatti:
+1. [x] client + protocollo invio
+2. [x] block: hash, merkle, csv (con 2 bug noti, vedi sotto)
+3. [x] utils: sha256, conversioni hex (validateTransaction da rifinire)
+4. [x] childProcess struct
+5. [x] Makefile (build/clean/run) — miner escluso, manca cleanup semaforo in clean
+6. [x] ClientsLauncher
+7. [x] bootstrap: parsing argomenti, genesis/CSV, semaforo POSIX
+8. [x] miner: mining loop (sleep+random) — presente ma con bug (vedi sotto)
 
-Block struct :
-3. [x] block implementation
-    a. block merkle root calculation
-    b. block hash computation
+Bug noti da correggere (block.c/utils.c — nostri):
+9. [x] calcMerkle: caso count==1 non applica il padding sha256("") richiesto dalla consegna
+10. [x] blockInit: prev_hash del genesis vuoto rompe il parsing CSV (blockFromCsv → INVALID_BLOCK)
+11. [x] validateTransaction: accetta "0 coins" e testo extra dopo "coins" (sscanf troppo permissivo)
 
-Utils :
-4. [x] Sha256 della transazione
-5. [x] convertion ex of int
-6. [x] block to big hex big endian
+In corso (Andrea):
+12. [ ] node.c: completare riscrittura FIFO (non compila, main()/listener mancanti)
+13. [ ] minerCommunicationProcess.c: collegare createNodeFifos a main(), aggiungere srand(), sleep interrompibile, fix busy loop, fix pause (MINER_IDLE ignorato durante mining)
 
-Varie per management :
-7. [x] child process struct
-
-Da fare :
-1. [] controllo-validazione regex su transaction
-2. [] entry point del progetto
-3. [] bash per interagire con il progetto quando viene eseguito
-4. [] cambiare e implementare dei protocolli IPC coerenti con le operazioni che deve fare
-5. [] implementazione nodo
-6. [] implementazione miner
-7. [] logging di ogni processo
+Da fare (nostri, non iniziati):
+14. [ ] main.c: creazione FIFO, fork/exec di node/miner/client
+15. [ ] main.c: REPL interattiva (submit, request, save, pause, resume, stop)
+16. [ ] blockchain.sh (--verify, --hash, --merkle)
+17. [ ] .gitignore: binari ancora tracciati

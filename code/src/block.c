@@ -40,7 +40,10 @@ int blockInit(Block *block_ptr,const u_int64_t index, const u_int64_t timestamp,
     block_ptr -> index = index;
     block_ptr -> timestamp = timestamp;
 
-    if (prev == NULL) block_ptr->prev_hash[0] = '\0'; // se il blocco è minato ma non aggiunto a blockchain
+    if (prev == NULL){
+        memset(block_ptr -> prev_hash,'0',HASH_HEX_SIZE);
+        block_ptr->prev_hash[HASH_HEX_SIZE]= '\0';
+    }
     else {
         const int res = blockGetHash(prev,block_ptr->prev_hash);
     if ( res == INVALID_HASH) return INVALID_BLOCK;
@@ -58,25 +61,74 @@ int blockInit(Block *block_ptr,const u_int64_t index, const u_int64_t timestamp,
 
     return 0;
 }
-int blockGetmerkle(const Block* block_ptr,char output_merkle[MERKLE_ROOT_HEX_SIZE+1]) {
-    if (block_ptr == NULL || block_ptr->transactions[0] == '\0' ) return INVALID_PARAMS;
-
+int blockGetmerkle(
+    const Block* block_ptr,
+    char output_merkle[MERKLE_ROOT_HEX_SIZE+1]
+) {
+    if (block_ptr == NULL || 
+        block_ptr->transactions[0] == '\0' )  {
+        return INVALID_PARAMS;
+    }
+        
     TxList list;
 
-    if ( unpack_transactions(block_ptr,&list)!= 0 ) return 1;
+    int result = unpack_transactions(block_ptr, &list);
+    if(result != 0 ){
+        return result;
+    }   
+
+    /*
+    evita di creare un VLA di dimensione zero nel caso in cui
+    il parsing non abbia trovato alcuna transazione valida
+    */
+    if (list.count == 0){
+        return INVALID_PARAMS;
+    }
+
+    /*
+    Abbiamo bisogno che un numero dispari di hash (qui sempre 1)
+    venga completato con sha256("") prima di essre combinato:
+    calcMerkle si aspetta sempre una lista già pronta da accoppiare,
+    quindi procediamo con 2 elementi
+    */
+
+   if (list.count == 1){
+    char pair_hashes [2] [MERKLE_ROOT_HEX_SIZE+1];
+
+        sha256_of_string(
+            (const unsigned char*) list.strings[0],
+            strlen(list.strings[0]),
+            pair_hashes[0]
+        );
+
+        sha256_of_string(
+            (const unsigned char*) "",
+             0, 
+             pair_hashes[1]
+        );
+    
+        return calcMerkle(
+            pair_hashes,
+            2,
+            output_merkle
+        );
+   }
 
     char transactionHashes[list.count][MERKLE_ROOT_HEX_SIZE+1];
 
 
     for (size_t i = 0; i < list.count ; i++) {
-        sha256_of_string((const unsigned char*) list.strings[i],
-                         strlen(list.strings[i])
-                         ,transactionHashes[i]);
+        sha256_of_string(
+            (const unsigned char*) list.strings[i],
+            strlen(list.strings[i]),
+            transactionHashes[i]
+        );
     }
 
-    return calcMerkle(transactionHashes,
-                      list.count,
-                      output_merkle);
+    return calcMerkle(
+        transactionHashes,
+        list.count,
+        output_merkle);
 }
 
 int blockGetMerkleRoot(const Block *block_ptr, char output[MERKLE_ROOT_HEX_SIZE + 1]) {
