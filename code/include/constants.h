@@ -39,6 +39,7 @@
 #define NODE_SOCKET "./tmp/blockchain_node_"
 #define CLIENT_MANAGER_SOCKET "./tmp/client_manager.sock"
 #define MINERS_SOCKET "./tmp/miners.sock"
+#define MAX_CONNECTION_TRIES 10
 
 //fifo constants
 #define MINER_NODE_FIFO  "./tmp/miner_node_"
@@ -48,6 +49,10 @@
 //miner constants
 #define MAX_SLEEPING_TIME 5
 #define MIN_SLEEPING_TIME 1
+
+//transaction pool constants
+#define POOL_INITIAL_CAPACITY 16   // slot allocati alla prima push
+#define POOL_GROWTH_FACTOR 2       // fattore di crescita quando il pool è pieno
 
 //node constants
 #define CSV_SEM_NAME  "/blockchain_csv"

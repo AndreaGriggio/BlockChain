@@ -14,20 +14,35 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <limits.h>
+#include <string.h>
+#include <sys/un.h>
+#include <sys/socket.h>
 
 #include "childProcess.h"
+#include "error.h"
 #include "miner.h"
 #include "minerStatus.h"
+#include "minerCommunicationProtocol.h"
+#include "transactionPool.h"
 
 static MinerStatus* status = NULL;
 static Miner* miner = NULL;
 
 static volatile sig_atomic_t running = 1;
+static volatile sig_atomic_t suspend = 1;
 
+
+static int difficulty;
+static int id;
+static int num_nodes;
 static int *to_node   = NULL;
 static int *from_node = NULL;
-
+static Block* previous_block = NULL;
+//static BlockList* pending_blocks = NULL;
 static int miner_id = -1;
+
+static int fd_socket = -1;
+static pthread_t mining_thread;
 /*TODO: SI potrebbero spostare in un file separato passando:
 *   1. Il numero di nodes, lo status per accedere all'id in alternativa direttamente l'id
 *   2. i puntatore per i file descriptor
@@ -98,7 +113,7 @@ static int createNodeFifos(const int num_nodes) {
 static void closeAndDestroyFifos(const int num_nodes) {
     for (int i = 0; i < num_nodes;i ++) {
         if (to_node != NULL) {
-            if (to_node[i] > 0) close(to_node[i]);
+            if (to_node[i] >= 0) close(to_node[i]);
 
             if (miner_id >= 0) {
                 char path_to[64];
@@ -107,7 +122,7 @@ static void closeAndDestroyFifos(const int num_nodes) {
             }
         }
         if (from_node != NULL) {
-            if (from_node[i] > 0) close(from_node[i]);
+            if (from_node[i] >= 0) close(from_node[i]);
         }
     }
     free(to_node);   to_node   = NULL;
@@ -176,34 +191,7 @@ static int restartMining(void) {
     return 0;
 
 }
-
-
-int main(int argc, char ** argv) {
-
-    if (argc < 4) {
-        fprintf(stderr, "Utilizzo : %s <difficulty> <id>  \n",argv[0]);
-        return 1;
-    }
-
-    const int difficulty = atoi(argv[1]);
-    const int id = atoi(argv[2]);
-    const int num_nodes = atoi(argv[3]);
-
-    if (difficulty <= 0 ) {
-        fprintf(stderr,"Difficulty non valida ex. difficulty > 0");
-        return 1;
-    }
-    if (id < 0) {
-        fprintf(stderr,"ID non valida ex. id > 0");
-        return 1;
-    }
-    if ( num_nodes < 0 ) {
-        fprintf(stderr,"fd_count non valido ex. nodi_count > 0");
-    }
-
-    createNodeFifos(num_nodes);
-
-
+static int init(void) {
     struct sigaction sa ;
     sa.sa_handler = handle_signal;
     sigemptyset(&sa.sa_mask);
@@ -215,12 +203,12 @@ int main(int argc, char ** argv) {
     ChildProcess* childProcess = childProcessCreate();
 
     if (childProcess == NULL) {
-        fprintf(stderr,"Error creating child process");
+        fprintf(stderr,"MINER %d : Error creating child process\n",id);
         return 1;
     }
 
     if (childProcessInit(childProcess, getpid(),id,MINER) != 0) {
-        fprintf(stderr,"Error initializing child process");
+        fprintf(stderr,"MINER %d : Error initializing child process\n",id);
         free(childProcess);
         return 1;
     }
@@ -228,41 +216,151 @@ int main(int argc, char ** argv) {
 
     minerInitStatus(status,childProcess,MINER_IDLE,0,0);
 
+    /* Le FIFO leggono miner_id da status->cp: vanno create DOPO minerInitStatus. */
+    if (createNodeFifos(num_nodes) != 0) {
+        fprintf(stderr,"MINER %d : errore creazione FIFO nodi\n",id);
+        return 1;
+    }
 
     //creo la struttura dati per accogliere il blocco
     miner = minerCreate();
     if (miner == NULL) {
-        fprintf(stderr,"Error allocation miner");
+        fprintf(stderr,"MINER %d : Error allocation miner",id);
         return 1;
     }
 
     if (minerInit(miner, difficulty) != 0) {
-        fprintf(stderr,"Miner Init error");
+        fprintf(stderr,"MINER %d : Init error",id);
         free(miner);
         free(childProcess);
         return 1;
     };
 
-    pthread_t mining_thread;
-
-    MiningThreadArgs args = {
-        .miner        = miner,
-        .status       = status,
-    };
+    /* static: il thread di mining usa &args dopo che init() è ritornata. */
+    static MiningThreadArgs args;
+    args.miner  = miner;
+    args.status = status;
 
     startMining(&mining_thread,&args);
 
+    struct sockaddr_un addr;
+    addr.sun_family = AF_UNIX;
+    strncpy(addr.sun_path,
+        MINERS_SOCKET,
+          sizeof(addr.sun_path)-1);
 
-    while (running) {
-        /*quello che deve fare il miner è :
-        *1. Ascoltare periodicamente sulla socket se è stato segnalato con un segnale comune quando vengono caricate informazioni
-        *2. Minare come un dannato e provare a risolvere il blocco -> thread separato su cui questo while ha completo controllo
-        */
 
+    int tries = 0;
+    int res = 0;
 
+    do {
+        fd_socket = socket(AF_UNIX,SOCK_STREAM,0);
+        tries ++;
+        usleep(10000);
+        if (tries > MAX_CONNECTION_TRIES) return SOCKET_ERROR;
+    }while (fd_socket < 0 );
+
+    tries = 0;
+
+    do {
+        res = connect (fd_socket,(struct sockaddr *) &addr,sizeof(addr));
+        tries ++;
+        usleep(10000);
+        if (tries > MAX_CONNECTION_TRIES) return SOCKET_ERROR;
+    }while (res < 0);
+
+    return 0;
+}
+
+static int sendBlockToNodes(void) {
+
+    for (int i = 0; i < num_nodes; i++) {
+
+        int tries = 0;
+        int res = 0;
+
+        do {
+             res = sendBlockToNode(previous_block,to_node[i]);
+            if ( res == INVALID_PARAMS) break;
+            tries ++;
+        }while (res != 0 && tries < MAX_CONNECTION_TRIES);
+    }
+}
+int main(int argc, char ** argv) {
+
+    if (argc < 4) {
+        fprintf(stderr, "Utilizzo : %s <difficulty> <id>  \n",argv[0]);
+        return 1;
+    }
+
+    difficulty = atoi(argv[1]);
+    id = atoi(argv[2]);
+    num_nodes = atoi(argv[3]);
+
+    if (id < 0) {
+        fprintf(stderr,"ID non valida ex. id > 0\n");
+        return 1;
+    }
+
+    if (difficulty <= 0 ) {
+        fprintf(stderr,"MINER %d : Difficulty non valida ex. difficulty > 0\n",id);
+        return 1;
+    }
+
+    if ( num_nodes < 0 ) {
+        fprintf(stderr,"MINER %d : fd_count non valido ex. nodi_count > 0\n",id);
+        return 1;
+    }
+
+    if (init() != 0) {
+        fprintf(stderr,"MINER %d : init fallita\n",id);
+        return 1;
     }
 
 
+    //Strutture dati per gestire un blocco
+
+    TransactionPool* trxs= createTransactionPool();
+    MinerState current_state = MINER_IDLE;
+
+
+    while (1) {
+        if (suspend == 0) break;
+
+            while (running) {
+
+
+                /*quello che deve fare il miner è :
+                *1. Ascoltare periodicamente sulla socket se è stato segnalato con un segnale comune quando vengono caricate informazioni
+                *2. Minare come un dannato e provare a risolvere il blocco -> thread separato su cui questo while ha completo controllo
+                */
+
+
+                receiveTransactionFromClient(fd_socket,trxs);
+
+                mSSetTransactionCount(status, trxs->count);
+
+                mSGetState(status,&current_state);
+
+                if ( trxs->count != 0 && current_state == MINER_BLOCK_FOUND) {
+                    for (int i = 0; i<MAX_TX_PER_BLOCK; i ++ ) {
+                        minerGetBlock(miner,previous_block);
+
+                        blockAddTransaction(previous_block,poolRemoveLast(trxs));
+                    }
+                }
+
+
+                sendBlockToNodes();
+
+
+            }
+
+        if ( suspend == 0) break;
+    }
+
+
+    close(fd_socket);
     stopMining(&mining_thread);
     closeAndDestroyFifos(num_nodes);
     return 0;
