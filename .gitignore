@@ -4,21 +4,25 @@
 *.exe
 *.dSYM/
 *.dSYM
-main
 code/blockchain
+code/bin/*
+!code/bin/qui_salvare_exe.txt
 code/src/output/
+
+# Runtime
+*.log
+blockchain.csv
+tmp/
 
 # CLion / CMake
 .idea/
-.cmake/
+.vscode/
+.cache/
 cmake-build-*/
-CMakeFiles/
 CMakeCache.txt
-Makefile
-cmake_install.cmake
 compile_commands.json
 
-# Project assignment files, not part of our code
+# Project assignment files
 2026-project-4.pdf
 2026-project-4.tar.gz
 2026-project-4/
@@ -30,4 +34,3 @@ compile_commands.json
 .LSOverride
 Icon?
 *.log
-*.cmake

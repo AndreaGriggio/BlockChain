@@ -79,64 +79,118 @@ static void log_msg(const char *fmt, ...) {
     fflush(log_file);
 }
 
-
-//funzione per aggiungere un blocco al file csv condiviso 
-static int append_block_to_csv(const Block *block_ptr) {
+// Chiamata protetta dal mutex, precedentemente preso dal process_block
+// Quando accede alla CS , legge la bloclchain, aggiorna la propria,
+// e verifica che il blocco sia effettivamente corretto, se sì
+// lo mette come successivo, se invalido allora lo rifiuta 
+static int commit_block_to_shared_csv(Block *new_block) {
     sem_t *sem = sem_open(CSV_SEM_NAME, 0);
     if (sem == SEM_FAILED) {
         log_msg("ERROR: sem_open fallito: %s", strerror(errno));
         return SEM_ERROR;
     }
- 
-    sem_wait(sem);
- 
-    FILE *f = fopen(CSV_FILE_NAME, "a");
-    if (f == NULL) {
-        log_msg("ERROR: apertura CSV fallita: %s", strerror(errno));
-        sem_post(sem);
+    if (sem_wait(sem) == -1) {
+        log_msg("ERROR: sem_wait fallito: %s", strerror(errno));
         sem_close(sem);
-        return CSV_ERROR;
+        return SEM_ERROR;
     }
- 
+
+    int rc = 0;
+    FILE *f = NULL;
+    Block *csv_tail = NULL;
+    int found = 0;
+    uint64_t tail_index = 0;
+    uint64_t new_index = 0;
     char line[BLOCK_CSV_LINE_SIZE];
-    if (blockToCsv(block_ptr, line, sizeof(line)) != 0) {
-        log_msg("ERROR: blockToCsv fallito");
-        fclose(f);
-        sem_post(sem);
-        sem_close(sem);
-        return CSV_ERROR;
+    char last_line[BLOCK_CSV_LINE_SIZE];
+    char out_line[BLOCK_CSV_LINE_SIZE];
+
+    // Legge la coda della blockchain all'interno del CSV condiviso
+    f = fopen(CSV_FILE_NAME, "r");
+    if (f == NULL) {
+        log_msg("ERROR: apertura del CSV condiviso in lettura fallita: %s", strerror(errno));
+        rc = CSV_ERROR;
+        goto out;
     }
- 
-    fprintf(f, "%s\n", line);
+    while (fgets(line, sizeof(line), f) != NULL) {
+        line[strcspn(line, "\n")] = '\0';
+        if (line[0] == '\0' || strncmp(line, "index,", 6) == 0) continue;
+        strncpy(last_line, line, sizeof(last_line) - 1);
+        last_line[sizeof(last_line) - 1] = '\0';
+        found = 1;
+    }
+    if (ferror(f)) {
+        log_msg("ERROR: lettura del CSV condiviso fallita");
+        rc = CSV_ERROR;
+        goto out;
+    }
     fclose(f);
- 
+    f = NULL;
+    if (!found) {
+        log_msg("ERROR: Il CSV condiviso non presenta alcun blocco");
+        rc = CSV_ERROR;
+        goto out;
+    }
+
+    csv_tail = blockCreate();
+    if (csv_tail == NULL) {
+        log_msg("ERROR: L'aggiunta del Blocco in coda è fallita ");
+        rc = -1;
+        goto out;
+    }
+    if (blockFromCsv(csv_tail, last_line) != 0) {
+        log_msg("ERROR: La coda del CSV condiviso non valida");
+        rc = INVALID_BLOCK;
+        goto out;
+    }
+
+    // Verifica del blocco
+    if (blockValidate(new_block, csv_tail) != 0) {
+        // Non è valido: Il node ri-sincronizza la chain in memoria
+        blockGetIndex(csv_tail, &tail_index);
+        if (last_block != NULL) blockDestroy(last_block);
+        last_block = csv_tail;      
+        csv_tail = NULL;            
+        chain_length = tail_index + 1;
+        log_msg("Blocco rifiutato dal CSV condiviso, chain ri-sincronizzata");
+        rc = CHAIN_MISMATCH;
+        goto out;
+    }
+
+    // Se il blocco è valido allora, lo si conferma e lo si aggiunge alla blockchain
+    if (blockToCsv(new_block, out_line, sizeof(out_line)) != 0) {
+        log_msg("ERROR: blockToCsv fallito");
+        rc = CSV_ERROR;
+        goto out;
+    }
+    f = fopen(CSV_FILE_NAME, "a");
+    if (f == NULL) {
+        log_msg("ERROR: apertura del CSV condiviso per l'aggiunta del blocco fallita: %s", strerror(errno));
+        rc = CSV_ERROR;
+        goto out;
+    }
+    if (fprintf(f, "%s\n", out_line) < 0) {
+        log_msg("ERROR: scrittura sul CSV condiviso fallita");
+        rc = CSV_ERROR;
+        goto out;
+    }
+    fclose(f);
+    f = NULL;
+
+    // Fa avanzare la chain in memoria al blocco appena scritto
+    blockGetIndex(new_block, &new_index);
+    if (last_block != NULL) blockDestroy(last_block);
+    last_block = new_block;         // il globale prende possesso di new_block
+    chain_length = new_index + 1;
+
+out:
+    if (f != NULL) fclose(f);
+    if (csv_tail != NULL) blockDestroy(csv_tail);
     sem_post(sem);
     sem_close(sem);
-    return 0;
+    return rc;
 }
 
-//funzione per aggiungere un blocco al file csv locale del nodo 
-static int append_block_to_csv_local(const Block *block_ptr) {
-    char path[64];
-    snprintf(path, sizeof(path), "node_%d_blockchain.csv", node_id);
- 
-    FILE *f = fopen(path, "a");
-    if (f == NULL) {
-        log_msg("ERROR: apertura CSV locale fallita: %s", strerror(errno));
-        return CSV_ERROR;
-    }
- 
-    char line[BLOCK_CSV_LINE_SIZE];
-    if (blockToCsv(block_ptr, line, sizeof(line)) != 0) {
-        log_msg("ERROR: blockToCsv fallito");
-        fclose(f);
-        return CSV_ERROR;
-    }
- 
-    fprintf(f, "%s\n", line);
-    fclose(f);
-    return 0;
-}
 
 //funzione per caricare lo stato iniziale della blockchain da un file csv
 static int load_initial_state(const char *csv_path) {
@@ -369,96 +423,45 @@ static void notify_all_miners(uint64_t block_index, BlockValidationResult result
     }
 }
 
-
-/*
- * valida un blocco e se valido lo aggiunge alla chain locale.
- *
- * RITORNA:
- *   0              blocco valido e aggiunto
- *   CHAIN_MISMATCH index o prev_hash errati
- *   INVALID_MERKLE merkle root non coincide
- *   BLOCK_TOO_FAR  index troppo avanti
- *   GENESIS_ERROR  errore sul blocco genesis
- *   -1             errore interno
- */
 static int process_block(Block *new_block) {
     if (new_block == NULL) return INVALID_BLOCK;
- 
-    pthread_mutex_lock(&chain_mutex);
- 
+
     char hash[HASH_HEX_SIZE + 1];
     if (blockGetHash(new_block, hash) != 0) {
         log_msg("ERROR: blockGetHash fallito");
-        pthread_mutex_unlock(&chain_mutex);
         return -1;
     }
- 
-    if (last_block == NULL && chain_length == 0) {
-        log_msg("Blocco genesis ricevuto: hash=%.16s...", hash);
- 
+
+    // Validazione del Blocco ( essendo che dipende solo dalle transazioni,
+    // la validazione la facciamo al di fuori del lock
         if (validate_merkle(new_block) != 0) {
-            log_msg("ERROR: merkle del blocco genesis non valido");
-            pthread_mutex_unlock(&chain_mutex);
-            return GENESIS_ERROR;
-        }
- 
-    } else if (last_block != NULL) {
-        uint64_t new_index;
-        uint64_t last_index;
-        blockGetIndex(new_block,  &new_index);
-        blockGetIndex(last_block, &last_index);
- 
-        if (new_index > last_index + 1) {
-            log_msg("ERROR: blocco troppo avanti, index=%llu atteso=%llu",
-                    (unsigned long long)new_index,
-                    (unsigned long long)(last_index + 1));
-            pthread_mutex_unlock(&chain_mutex);
-            return BLOCK_TOO_FAR;
-        }
- 
-        if (blockValidate(new_block, last_block) != 0) {
-            log_msg("ERROR: CHAIN_MISMATCH hash=%.16s...", hash);
-            pthread_mutex_unlock(&chain_mutex);
-            return CHAIN_MISMATCH;
-        }
- 
-        if (validate_merkle(new_block) != 0) {
-            log_msg("ERROR: INVALID_MERKLE hash=%.16s...", hash);
-            pthread_mutex_unlock(&chain_mutex);
-            return INVALID_MERKLE;
-        }
- 
-    } else {
-        log_msg("ERROR: stato interno inconsistente (last_block NULL, chain_length=%llu)",
-                (unsigned long long)chain_length);
-        pthread_mutex_unlock(&chain_mutex);
-        return -1;
+        log_msg("ERROR: INVALID_MERKLE hash=%.16s...", hash);
+        return INVALID_MERKLE;
     }
- 
-    Block *old = last_block;
-    last_block  = new_block;
-    chain_length++;
- 
+
+    pthread_mutex_lock(&chain_mutex);
+
+    // L'autorità è della coda del CSV condiviso quindi si ri-sincronizza la blockchain,
+    // basandosi su quella e in caso di Blocco validato la si aggiorna
+
+    int rc = commit_block_to_shared_csv(new_block);
+    if (rc != 0) {
+        pthread_mutex_unlock(&chain_mutex);
+        return rc;
+    }
+
+    uint64_t len = chain_length;
     pthread_mutex_unlock(&chain_mutex);
- 
-    if (old != NULL) blockDestroy(old);
- 
+
     nSSetLastBlock(status, new_block);
-    nSSetChainLength(status, chain_length);
+    nSSetChainLength(status, len);
     nSSetState(status, NODE_IDLE);
- 
-    if (append_block_to_csv_local(new_block) != 0) {
-        log_msg("ERROR: scrittura CSV locale fallita");
-        return CSV_ERROR;
-    }
- 
+
     log_msg("Blocco accettato: index=%llu hash=%.16s...",
-            (unsigned long long)(chain_length - 1), hash);
- 
+            (unsigned long long)(len - 1), hash);
     return 0;
 }
-
-
+ 
 /*legge blocchi dai miner con select() e li valida.
  *
  * FLUSSO:
@@ -558,9 +561,8 @@ static void *listener_thread(void *arg) {
             int res = process_block(new_block);
  
             if (res == 0) {
-                //blocco valido va implementata la comunicazione con gli altri nodi per propagare il blocco
-            
-            
+                log_msg("Blocco dal miner %d accettato", i);
+                notify_all_miners(block_index, BLOCK_VALID);
             } else {
                 log_msg("Blocco dal miner %d rifiutato (codice %d)", i, res);
                 blockDestroy(new_block);
@@ -571,4 +573,204 @@ static void *listener_thread(void *arg) {
  
     log_msg("Listener thread terminato");
     return NULL;
+}
+
+int main (int argc, char* argv[]){
+
+    // Il processo node viene avviato dal bootstrap/launcher
+
+    if (argc < 4 ) {
+        fprintf(stderr, "Utilizzo: %s <node_id> <num_nodes> <num_miners>\n",argv[0]);
+    return INVALID_PARAMS;
+    }
+
+
+    node_id= atoi(argv[1]); // identifica il nodo
+    num_nodes = atoi(argv[2]); // totale del numero di nodi nel sistema
+    num_miners = atoi(argv[3]); // numero totale di miners (serve per aprire le fifo verso i miner)
+
+
+    if (node_id < 0 || 
+        num_nodes <= 0 || 
+        num_miners <= 0 || 
+        node_id >= num_nodes){
+            fprintf(stderr, "NODE: argomenti non validi\n");
+            return INVALID_PARAMS;
+    }
+
+    char log_path[64]; // ogni processo deve avere il suo file di log
+    snprintf(log_path, 
+            sizeof(log_path),
+            "node-%d.log",
+            (int) getpid()); // usiamo il pid reale
+
+    log_file = fopen(log_path, "a");
+    if (log_file == NULL) {
+        fprintf(stderr, "NODE %d: impossibile aprire il log%s:%s\n", 
+            node_id, 
+            log_path, 
+            strerror(errno));
+        return -1;
+    }
+
+    /*Singal handler : se arriva sigterm o sigint, 
+    handle_signal mette runnin g = 0
+    In modo che il processo esca in modo sicuro
+    */ 
+    
+    struct sigaction sa;
+    sa.sa_handler = handle_signal;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+
+    if(sigaction(SIGTERM, &sa, NULL) == -1 ||
+       sigaction(SIGINT, &sa, NULL) == -1) {
+        fprintf(stderr, "NODE %d: sigaction fallita: %s\n",
+            node_id,
+            strerror(errno));
+        fclose(log_file);
+        return -1;
+       }
+
+    log_msg("Avvio node");
+
+    /*
+    NodeStatus contiene lo stato logico del node
+    ovvero non possedendo i blocchi: conserva solo riferimenti e metadati
+    protetti da un mutex
+    */
+
+    status = nodeCreateStatus();
+    if(status == NULL) {
+        log_msg("ERROR: nodeCreateStatus fallita ");
+        fclose(log_file);
+        return -1;
+    }
+    
+    /*
+    ChildProcess descrive questo processo dal punto di vista logico
+    ovvero pid reale ma id logico e ruolo NODE
+    */
+
+    ChildProcess * cp = childProcessCreate();
+    if (cp == NULL) {
+        log_msg("ERROR: childProcessCreate fallita");
+        nodeDestroyStatus(status);
+        fclose(log_file);
+        return -1;
+    }
+
+    if(childProcessInit(cp,getpid(),node_id,NODE) != 0){
+        log_msg("ERROR: childProcessInit fallita");
+        childProcessDestroy(cp);
+        nodeDestroyStatus(status);
+        fclose(log_file);
+        return INVALID_PARAMS;
+    }
+
+    /*
+    Copio le informazioni del ChildProcess dentro NodeStatus
+    In modo che NodeStatus abbia una copia , e quindi possiamo distruggere cp
+    */
+
+    if (nodeInitStatus(status, cp, NODE_IDLE, 0) != 0) {
+        log_msg("ERROR: nodeInitStatus fallita");
+        childProcessDestroy(cp);
+        nodeDestroyStatus(status);
+        fclose(log_file);
+        return INVALID_PARAMS;
+    }
+
+    childProcessDestroy(cp);
+
+    /* 
+    Carico la blockchain iniziale dal CVS condiviso
+    Il bootstrap crea questo file prima di lanciare i node 
+    */
+
+     if (load_initial_state(CSV_FILE_NAME) != 0) {
+        log_msg("ERROR: load_initial_state fallita");
+        nodeDestroyStatus(status);
+        fclose(log_file);
+        return CSV_ERROR;
+    }
+
+    /*
+    Sincronizzazione di NodeStatus con lo stato caricato da CSV
+    l'ultimo blocco rimane comunque a node.c mentre
+    NodeStatus possiede il puntatore const
+    */
+
+    pthread_mutex_lock(&chain_mutex);
+    const Block *loaded_last_block = last_block;
+    uint64_t loaded_chain_length = chain_length;
+    pthread_mutex_unlock(&chain_mutex);
+
+    if(loaded_last_block != NULL) {
+        nSSetLastBlock(status, loaded_last_block);
+    }
+    nSSetChainLength(status,loaded_chain_length);
+
+    /*
+    Creazione del canale di comunicazione node -> Miners    
+    */
+
+    if(createNodeFifos(num_miners) != 0){
+        log_msg("ERROR: createNodeFifos fallita");
+        nodeDestroyStatus(status);
+        if (last_block != NULL) blockDestroy(last_block);
+        fclose(log_file);
+        return FIFO_ERROR;
+    }
+
+    /*
+    Il thread di comunicazione resta in ascolto sul canale dei miner
+    */
+
+    pthread_t listener;
+    if(pthread_create(&listener, NULL, listener_thread, NULL) != 0){
+        log_msg("ERROR: pthread_create listener fallita");
+        destroyNodeFifos(num_miners);
+        nodeDestroyStatus(status);
+        if (last_block != NULL) blockDestroy(last_block);
+        fclose(log_file);
+        return -1;
+    }
+
+    log_msg("Node avviato correttamente");
+
+    /*
+    Il processo si ferma solo in caso di SIGTERM o SIGINT
+    */
+
+    while (running){
+        pause();
+    }
+
+    log_msg("Terminazione del blocco richiesto");
+
+    /*
+    Appena il thred di comunicazione termina , rilasciamo le risorse condivise
+    */
+
+    pthread_join(listener, NULL);
+
+    destroyNodeFifos(num_miners);
+
+    nodeDestroyStatus(status);
+
+    status = NULL;
+
+    if(last_block != NULL) {
+        blockDestroy(last_block);
+        last_block = NULL;
+    }
+
+    if(log_file != NULL) {
+        log_msg("Node terminato");
+        fclose(log_file);
+        log_file = NULL;
+    }
+
+    return 0;
 }

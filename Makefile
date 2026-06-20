@@ -1,5 +1,5 @@
 CC := gcc
-CFLAGS := -std=gnu11 -Wall -Wextra -g
+CFLAGS := -std=gnu11 -Wall -Wextra -g -pthread
 INCLUDES := -Icode/include
 LDLIBS := -lcrypto
 
@@ -32,7 +32,7 @@ $(BIN)/miner: $(OBJ)/miner.o $(OBJ)/minerCommunicationProcess.o $(OBJ)/minerStat
 $(BIN)/client: $(OBJ)/ClientProcess.o $(OBJ)/client.o $(COMMON_OBJS)
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^ $(LDLIBS)
 
-$(BIN)/node: $(OBJ)/node.o $(COMMON_OBJS)
+$(BIN)/node: $(OBJ)/node.o $(OBJ)/nodeStatus.o $(COMMON_OBJS) 
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^ $(LDLIBS)
 
 $(BIN)/ClientsLauncher: $(OBJ)/ClientsLauncher.o

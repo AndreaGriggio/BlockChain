@@ -10,7 +10,7 @@
 struct NodeStatus {
     ChildProcess    *cp;            
     NodeState        state;         
-    Block           *last_block;   
+    const Block     *last_block;   
     uint64_t         chain_length; 
 
     pthread_mutex_t  mutex;         
@@ -97,7 +97,7 @@ int nSGetChainLength(NodeStatus *s, uint64_t *out) {
 }
 
 
-int nSGetLastBlock(NodeStatus *s, Block *out) {
+int nSGetLastBlock(NodeStatus *s,const Block **out) {
     if (s == NULL || out == NULL) return INVALID_PARAMS;
 
     pthread_mutex_lock(&s->mutex);
@@ -107,7 +107,7 @@ int nSGetLastBlock(NodeStatus *s, Block *out) {
         return BLOCK_NOT_FOUND;
     }
 
-    memcpy(out, s->last_block, sizeof(Block));
+    *out = s->last_block;
 
     pthread_mutex_unlock(&s->mutex);
     return 0;
@@ -145,10 +145,10 @@ int nSSetChainLength(NodeStatus *s, uint64_t length) {
 }
 
 int nSSetLastBlock(NodeStatus *s, const Block *block) {
-    if (s == NULL) return INVALID_PARAMS;
+    if (s == NULL || block == NULL) return INVALID_PARAMS;
 
     pthread_mutex_lock(&s->mutex);
-    s->last_block = (Block *)block;
+    s->last_block = block;
     pthread_mutex_unlock(&s->mutex);
 
     return 0;
