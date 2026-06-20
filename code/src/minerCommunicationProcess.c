@@ -201,12 +201,12 @@ static int init(void) {
     ChildProcess* childProcess = childProcessCreate();
 
     if (childProcess == NULL) {
-        fprintf(stderr,"Error creating child process");
+        fprintf(stderr,"MINER %d : Error creating child process\n",id);
         return 1;
     }
 
     if (childProcessInit(childProcess, getpid(),id,MINER) != 0) {
-        fprintf(stderr,"Error initializing child process");
+        fprintf(stderr,"MINER %d : Error initializing child process\n",id);
         free(childProcess);
         return 1;
     }
@@ -216,19 +216,19 @@ static int init(void) {
 
     /* Le FIFO leggono miner_id da status->cp: vanno create DOPO minerInitStatus. */
     if (createNodeFifos(num_nodes) != 0) {
-        fprintf(stderr,"MINER : errore creazione FIFO nodi\n");
+        fprintf(stderr,"MINER %d : errore creazione FIFO nodi\n",id);
         return 1;
     }
 
     //creo la struttura dati per accogliere il blocco
     miner = minerCreate();
     if (miner == NULL) {
-        fprintf(stderr,"Error allocation miner");
+        fprintf(stderr,"MINER %d : Error allocation miner",id);
         return 1;
     }
 
     if (minerInit(miner, difficulty) != 0) {
-        fprintf(stderr,"Miner Init error");
+        fprintf(stderr,"MINER %d : Init error",id);
         free(miner);
         free(childProcess);
         return 1;
@@ -281,33 +281,44 @@ int main(int argc, char ** argv) {
     id = atoi(argv[2]);
     num_nodes = atoi(argv[3]);
 
-    if (difficulty <= 0 ) {
-        fprintf(stderr,"Difficulty non valida ex. difficulty > 0");
-        return 1;
-    }
     if (id < 0) {
-        fprintf(stderr,"ID non valida ex. id > 0");
+        fprintf(stderr,"ID non valida ex. id > 0\n");
         return 1;
     }
+
+    if (difficulty <= 0 ) {
+        fprintf(stderr,"MINER %d : Difficulty non valida ex. difficulty > 0\n",id);
+        return 1;
+    }
+
     if ( num_nodes < 0 ) {
-        fprintf(stderr,"fd_count non valido ex. nodi_count > 0");
+        fprintf(stderr,"MINER %d : fd_count non valido ex. nodi_count > 0\n",id);
         return 1;
     }
 
     if (init() != 0) {
-        fprintf(stderr,"MINER : init fallita\n");
+        fprintf(stderr,"MINER %d : init fallita\n",id);
         return 1;
     }
 
 
-    while (1) {
+    //Strutture dati per gestire un blocco
+    char transactions[MAX_TX_PER_BLOCK][MAX_TX_SIZE];
 
+
+
+    while (1) {
+        if (suspend == 0) break;
 
             while (running) {
+
+                fd_socket = accept(fd_socket,NULL,NULL,NULL);
                 /*quello che deve fare il miner è :
                 *1. Ascoltare periodicamente sulla socket se è stato segnalato con un segnale comune quando vengono caricate informazioni
                 *2. Minare come un dannato e provare a risolvere il blocco -> thread separato su cui questo while ha completo controllo
                 */
+
+
 
 
             }
