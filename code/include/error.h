@@ -24,6 +24,7 @@ typedef enum error {
     SEM_ERROR = 13,           // errore apertura/uso semaforo
     GENESIS_ERROR = 14,        // errore sul blocco genesis
     FIFO_ERROR = 15,
-    FIFO_CLOSED = 16
+    FIFO_CLOSED = 16,
+    MEMORY_ERROR = 17          // malloc/realloc fallita
 }error;
 #endif //ERROR_H

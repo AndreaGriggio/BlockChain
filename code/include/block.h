@@ -100,4 +100,5 @@ int pack_transactions(Block *block_ptr, const TxList *list);
 int unpack_transactions(const Block *block_ptr, TxList *list);
 
 
+
 #endif //BLOCK_H

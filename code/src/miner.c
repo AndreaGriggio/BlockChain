@@ -122,6 +122,15 @@ int minerGetTransactionsFromMessage(Miner* miner, const Message *message_ptr){
 
     return 0;
 }
+
+int minerGetBlock(Miner* miner,Block* block_ptr) {
+    if (miner == NULL || block_ptr == NULL) return INVALID_PARAMS;
+    if (miner->mined_block == NULL) return INVALID_PARAMS;
+    block_ptr = miner->mined_block;
+    miner->mined_block= NULL;
+
+    return 0;
+}
 static int minerMiningAttempt(const uint difficulty) {
     uint num = NUM_MIN_MAX(0,difficulty-1);
     return num == 0 ? 1 : 0;

@@ -22,6 +22,8 @@
 #include "error.h"
 #include "miner.h"
 #include "minerStatus.h"
+#include "minerCommunicationProtocol.h"
+#include "transactionPool.h"
 
 static MinerStatus* status = NULL;
 static Miner* miner = NULL;
@@ -270,6 +272,20 @@ static int init(void) {
     return 0;
 }
 
+static int sendBlockToNodes(void) {
+
+    for (int i = 0; i < num_nodes; i++) {
+
+        int tries = 0;
+        int res = 0;
+
+        do {
+             res = sendBlockToNode(previous_block,to_node[i]);
+            if ( res == INVALID_PARAMS) break;
+            tries ++;
+        }while (res != 0 && tries < MAX_CONNECTION_TRIES);
+    }
+}
 int main(int argc, char ** argv) {
 
     if (argc < 4) {
@@ -303,8 +319,9 @@ int main(int argc, char ** argv) {
 
 
     //Strutture dati per gestire un blocco
-    char transactions[MAX_TX_PER_BLOCK][MAX_TX_SIZE];
 
+    TransactionPool* trxs= createTransactionPool();
+    MinerState current_state = MINER_IDLE;
 
 
     while (1) {
@@ -312,13 +329,29 @@ int main(int argc, char ** argv) {
 
             while (running) {
 
-                fd_socket = accept(fd_socket,NULL,NULL,NULL);
+
                 /*quello che deve fare il miner è :
                 *1. Ascoltare periodicamente sulla socket se è stato segnalato con un segnale comune quando vengono caricate informazioni
                 *2. Minare come un dannato e provare a risolvere il blocco -> thread separato su cui questo while ha completo controllo
                 */
 
 
+                receiveTransactionFromClient(fd_socket,trxs);
+
+                mSSetTransactionCount(status, trxs->count);
+
+                mSGetState(status,&current_state);
+
+                if ( trxs->count != 0 && current_state == MINER_BLOCK_FOUND) {
+                    for (int i = 0; i<MAX_TX_PER_BLOCK; i ++ ) {
+                        minerGetBlock(miner,previous_block);
+
+                        blockAddTransaction(previous_block,poolRemoveLast(trxs));
+                    }
+                }
+
+
+                sendBlockToNodes();
 
 
             }

@@ -48,8 +48,9 @@ int sendBlockToNode(Block* block_ptr,MinerStatus* status, int fd) {
 
 int receiveBlockFromNode(Block* block_ptr, int fd) {
 return 0;}
-int receiveTransactionFromClient(int fd,char* tr){
+int receiveTransactionFromClient(int fd,TransactionPool* pool){
     if (fd < 0) return SOCKET_ERROR;
+    char * tr = NULL;
 
     Message* m = messageCreate();
     if (m == NULL) return INVALID_PARAMS;
@@ -71,12 +72,15 @@ int receiveTransactionFromClient(int fd,char* tr){
     uint32_t payload_size = 0;
     messageGetSize(m, &payload_size);
 
-    if (tr == NULL) tr = malloc(sizeof(char)*(payload_size+1));
+    tr = malloc(sizeof(char)*(payload_size+1));
 
     result = messageGetPayload(m, tr, (size_t)(payload_size + 1));
+    if ( result != 0 ) return SOCKET_ERROR;
 
     if (validateTransaction(tr)!= 0) return INVALID_TRANSACTION;
 
+    result = poolPush(pool,tr);
+    free(tr);
     free(m);
     return result;
 }
