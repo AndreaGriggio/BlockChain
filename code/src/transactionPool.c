@@ -99,7 +99,7 @@ const char* poolGet(const TransactionPool* pool, size_t index) {
     return copy;
 }
 
-const char* poolRemoveLast(const TransactionPool* pool) {
+const char* poolRemoveLast(TransactionPool* pool) {
     if (pool == NULL) return NULL;
     if (pool->count == 0) return NULL;
     size_t len = strlen(pool->items[pool->count - 1]);

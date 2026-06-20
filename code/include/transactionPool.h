@@ -86,5 +86,5 @@ const char* poolGet(const TransactionPool* pool, size_t index);
  * @return 0 se ok, INVALID_PARAMS se pool == NULL
  */
 int destroyTransactionPool(TransactionPool* pool);
-const char* poolRemoveLast(const TransactionPool* pool)
+const char* poolRemoveLast(TransactionPool* pool);
 #endif //TRANSACTIONPOOL_H

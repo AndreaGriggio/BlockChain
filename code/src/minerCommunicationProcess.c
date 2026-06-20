@@ -280,7 +280,7 @@ static int sendBlockToNodes(void) {
         int res = 0;
 
         do {
-             res = sendBlockToNode(previous_block,to_node[i]);
+             res = sendBlockToNode(previous_block,status,to_node[i]);
             if ( res == INVALID_PARAMS) break;
             tries ++;
         }while (res != 0 && tries < MAX_CONNECTION_TRIES);
