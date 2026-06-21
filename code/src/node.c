@@ -186,18 +186,35 @@ static int commit_block_to_shared_csv(Block *new_block) {
         goto out;
     }
 
-    // Verifica del blocco
+     // Verifica del blocco
     if (blockValidate(new_block, csv_tail) != 0) {
-        // Non è valido: Il node ri-sincronizza la chain in memoria
+        // Nel caso di blocco già inserito, 
+        // il secondo node ceh quindi accede alla CS
+        // confronta gli hash per capire se blocco diverso allora (Invalid)
+        // se il blocco è identico allora termina
+        char tail_hash[HASH_HEX_SIZE + 1];
+        char new_hash[HASH_HEX_SIZE + 1];
+        int same = (blockGetHash(csv_tail, tail_hash) == 0 &&
+                    blockGetHash(new_block, new_hash) == 0 &&
+                    strcmp(tail_hash, new_hash) == 0);
+
+        // In ogni caso il node si ri-sincronizza sulla coda reale del CSV
         blockGetIndex(csv_tail, &tail_index);
         if (last_block != NULL) blockDestroy(last_block);
-        last_block = csv_tail;      
-        csv_tail = NULL;            
+        last_block = csv_tail;
+        csv_tail = NULL;
         chain_length = tail_index + 1;
-        log_msg("Blocco rifiutato dal CSV condiviso, chain ri-sincronizzata");
-        rc = CHAIN_MISMATCH;
+
+        if (same) {
+            log_msg("Blocco gia' presente nel CSV condiviso, copia locale aggiornata");
+            rc = BLOCK_ALREADY_PRESENT;
+        } else {
+            log_msg("Blocco perdente rifiutato, chain ri-sincronizzata");
+            rc = CHAIN_MISMATCH;
+        }
         goto out;
     }
+
 
     // Se il blocco è valido allora, lo si conferma e lo si aggiunge alla blockchain
     if (blockToCsv(new_block, out_line, sizeof(out_line)) != 0) {
@@ -231,7 +248,7 @@ out:
     blockDestroy(csv_tail);
     sem_post(sem);
     // aggiorna la copia locale del node copiandola dal CSV condiviso
-    if( rc == 0 || rc == CHAIN_MISMATCH) {
+    if( rc == 0 || rc == CHAIN_MISMATCH || rc == BLOCK_ALREADY_PRESENT) {
         mirror_shared_to_local();
     }
     sem_close(sem);
@@ -610,7 +627,11 @@ static void *listener_thread(void *arg) {
             if (res == 0) {
                 log_msg("Blocco dal miner %d accettato", i);
                 notify_all_miners(block_index, BLOCK_VALID);
-            } else {
+            } else if(res == BLOCK_ALREADY_PRESENT){
+                log_msg("Blocco dal miner %d gia' presente",i);
+                blockDestroy(new_block);
+            }
+            else {
                 log_msg("Blocco dal miner %d rifiutato (codice %d)", i, res);
                 blockDestroy(new_block);
                 notify_miner(i, block_index, BLOCK_INVALID);

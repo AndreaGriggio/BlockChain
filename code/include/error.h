@@ -25,6 +25,7 @@ typedef enum error {
     GENESIS_ERROR = 14,        // errore sul blocco genesis
     FIFO_ERROR = 15,
     FIFO_CLOSED = 16,
-    MEMORY_ERROR = 17          // malloc/realloc fallita
+    MEMORY_ERROR = 17,       // malloc/realloc fallita
+    BLOCK_ALREADY_PRESENT = 18
 }error;
 #endif //ERROR_H
