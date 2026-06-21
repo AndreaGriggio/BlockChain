@@ -1,0 +1,104 @@
+[
+{
+  "directory": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio",
+  "command": "/usr/bin/gcc  -I\"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/include\" -g -std=gnu11 -fdiagnostics-color=always -o CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/main.c.o -c \"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/main.c\"",
+  "file": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/main.c",
+  "output": "CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/main.c.o"
+},
+{
+  "directory": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio",
+  "command": "/usr/bin/gcc  -I\"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/include\" -g -std=gnu11 -fdiagnostics-color=always -o CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/childProcess.c.o -c \"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/childProcess.c\"",
+  "file": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/childProcess.c",
+  "output": "CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/childProcess.c.o"
+},
+{
+  "directory": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio",
+  "command": "/usr/bin/gcc  -I\"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/include\" -g -std=gnu11 -fdiagnostics-color=always -o CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/node.c.o -c \"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/node.c\"",
+  "file": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/node.c",
+  "output": "CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/node.c.o"
+},
+{
+  "directory": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio",
+  "command": "/usr/bin/gcc  -I\"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/include\" -g -std=gnu11 -fdiagnostics-color=always -o CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/miner.c.o -c \"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/miner.c\"",
+  "file": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/miner.c",
+  "output": "CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/miner.c.o"
+},
+{
+  "directory": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio",
+  "command": "/usr/bin/gcc  -I\"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/include\" -g -std=gnu11 -fdiagnostics-color=always -o CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/client.c.o -c \"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/client.c\"",
+  "file": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/client.c",
+  "output": "CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/client.c.o"
+},
+{
+  "directory": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio",
+  "command": "/usr/bin/gcc  -I\"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/include\" -g -std=gnu11 -fdiagnostics-color=always -o CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/block.c.o -c \"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/block.c\"",
+  "file": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/block.c",
+  "output": "CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/block.c.o"
+},
+{
+  "directory": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio",
+  "command": "/usr/bin/gcc  -I\"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/include\" -g -std=gnu11 -fdiagnostics-color=always -o CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/message.c.o -c \"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/message.c\"",
+  "file": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/message.c",
+  "output": "CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/message.c.o"
+},
+{
+  "directory": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio",
+  "command": "/usr/bin/gcc  -I\"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/include\" -g -std=gnu11 -fdiagnostics-color=always -o CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/utils.c.o -c \"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/utils.c\"",
+  "file": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/utils.c",
+  "output": "CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/utils.c.o"
+},
+{
+  "directory": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio",
+  "command": "/usr/bin/gcc  -I\"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/include\" -g -std=gnu11 -fdiagnostics-color=always -o CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/ClientProcess.c.o -c \"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/ClientProcess.c\"",
+  "file": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/ClientProcess.c",
+  "output": "CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/ClientProcess.c.o"
+},
+{
+  "directory": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio",
+  "command": "/usr/bin/gcc  -I\"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/include\" -g -std=gnu11 -fdiagnostics-color=always -o CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/protocolSocket.c.o -c \"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/protocolSocket.c\"",
+  "file": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/protocolSocket.c",
+  "output": "CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/protocolSocket.c.o"
+},
+{
+  "directory": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio",
+  "command": "/usr/bin/gcc  -I\"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/include\" -g -std=gnu11 -fdiagnostics-color=always -o CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/minerCommunicationProcess.c.o -c \"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/minerCommunicationProcess.c\"",
+  "file": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/minerCommunicationProcess.c",
+  "output": "CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/minerCommunicationProcess.c.o"
+},
+{
+  "directory": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio",
+  "command": "/usr/bin/gcc  -I\"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/include\" -g -std=gnu11 -fdiagnostics-color=always -o CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/minerStatus.c.o -c \"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/minerStatus.c\"",
+  "file": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/minerStatus.c",
+  "output": "CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/minerStatus.c.o"
+},
+{
+  "directory": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio",
+  "command": "/usr/bin/gcc  -I\"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/include\" -g -std=gnu11 -fdiagnostics-color=always -o CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/minerCommunicationProtocol.c.o -c \"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/minerCommunicationProtocol.c\"",
+  "file": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/minerCommunicationProtocol.c",
+  "output": "CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/minerCommunicationProtocol.c.o"
+},
+{
+  "directory": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio",
+  "command": "/usr/bin/gcc  -I\"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/include\" -g -std=gnu11 -fdiagnostics-color=always -o CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/transactionPool.c.o -c \"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/transactionPool.c\"",
+  "file": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/transactionPool.c",
+  "output": "CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/transactionPool.c.o"
+},
+{
+  "directory": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio",
+  "command": "/usr/bin/gcc  -I\"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/include\" -g -std=gnu11 -fdiagnostics-color=always -o CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/blocksPool.c.o -c \"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/blocksPool.c\"",
+  "file": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/blocksPool.c",
+  "output": "CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/blocksPool.c.o"
+},
+{
+  "directory": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio",
+  "command": "/usr/bin/gcc  -I\"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/include\" -g -std=gnu11 -fdiagnostics-color=always -o CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/minerFifo.c.o -c \"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/minerFifo.c\"",
+  "file": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/minerFifo.c",
+  "output": "CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/minerFifo.c.o"
+},
+{
+  "directory": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio",
+  "command": "/usr/bin/gcc  -I\"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/include\" -g -std=gnu11 -fdiagnostics-color=always -o CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/minerThread.c.o -c \"/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/minerThread.c\"",
+  "file": "/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/code/src/minerThread.c",
+  "output": "CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/minerThread.c.o"
+}
+]

@@ -9,7 +9,7 @@ typedef enum BlockState {
     BLOCK_CONFIRMED = 1,
     BLOCK_WAITING = 2,
     BLOCK_DISCARDED = 3,
-    UNUSED_POOL = 4
+    UNUSED_POOL = 4,
 }BlockState;
 
 typedef struct BlockHandlingHelper {
