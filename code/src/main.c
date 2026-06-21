@@ -14,6 +14,10 @@
 #include "constants.h"   // MINERS_SOCKET
 #include <signal.h>     // sigaction
 #include <sys/wait.h>   // waitpid
+#include "message.h"        // Message, MSG_NEW_TX, sendMessage (protocolSocket.h/childProcess.h)
+#include "childProcess.h"   // ChildProcess per identificare il mittente
+#include "utils.h"          // validateTransaction 
+
 
 /* 
 Path su cui viene scritto/mantenuto lo stato della catena,
@@ -305,6 +309,63 @@ static pid_t spawn_child(char *const argv[]) {
     return pid;
 }
 
+/*
+ Invia una transazione ai miner connettendosi a MINERS_SOCKET,
+ con lo stesso protocollo del client (Message di tipo MSG_NEW_TX).
+ Il padre si presenta come mittente con ruolo CLIENT.
+ Ritorna 0 se inviata, un codice di errore se la tx e' malformata
+ oppure se la connessione/invio falliscono.
+*/
+static int submit_transaction(const char *tx) {
+    // Verifica su lunghezza max
+    if (tx == NULL || strlen(tx) > MAX_TX_SIZE) return INVALID_TRANSACTION;
+
+    // Buffer
+    char buf[MAX_TX_SIZE + 1];
+    strncpy(buf, tx, sizeof buf - 1);
+    buf[sizeof buf - 1] = '\0';
+
+    // Verifica Contenuto
+    if (validateTransaction(buf) != 0) return INVALID_TRANSACTION;
+
+    // il padre si identifica come mittente: ruolo CLIENT, id convenzionale 0
+    ChildProcess *self = childProcessCreate();
+    if (self == NULL) return MEMORY_ERROR;
+    if (childProcessInit(self, getpid(), 0, CLIENT) != 0) {
+        childProcessDestroy(self);
+        return INVALID_PARAMS;
+    }
+
+    // messaggio
+    Message message;
+    messageInit(&message);
+    messageSetType(&message, MSG_NEW_TX);
+    messageSetSender(&message, self);
+    messageSetPayload(&message, buf, (uint32_t)strlen(buf));
+
+    // Connessione Miners_Socket
+    struct sockaddr_un addr;
+    addr.sun_family = AF_UNIX;
+    strncpy(addr.sun_path, MINERS_SOCKET, sizeof addr.sun_path - 1);
+    addr.sun_path[sizeof addr.sun_path - 1] = '\0';
+
+    int fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (fd < 0) {
+        childProcessDestroy(self);
+        return SOCKET_ERROR;
+    }
+    if (connect(fd, (struct sockaddr *)&addr, sizeof addr) < 0) {
+        close(fd);
+        childProcessDestroy(self);
+        return SOCKET_ERROR;
+    }
+
+    int rc = sendMessage(fd, &message);   // serializza header+payload 
+    close(fd);
+    childProcessDestroy(self);
+    return rc;
+}
+
 
 int main(int argc, char *argv[]) {
 	BootstrapConfig cfg;
@@ -402,16 +463,76 @@ int main(int argc, char *argv[]) {
 
     printf("Avviati %d processi (pgid=%d). Ctrl-C per terminare.\n", n_children, child_pgid);
 
-    /* 
-	Il padre resta vivo come supervisore finche' non arriva un segnale
+    /*
+    Il padre fa da supervisore: invece di dormire aspettando un segnale,
+    apre una REPL e resta in ascolto dei comandi dell'utente su stdin
+    Se arriva SIGINT/SIGTERM mentre fgets e' bloccata, fgets ritorna NULL
+    Ctrl-D (EOF) lo trattiamo come 'stop'.
     */
-    while (running) pause();
+    char line[512];
+    printf("> ");
+    fflush(stdout);
+
+    while (running && fgets(line, sizeof line, stdin) != NULL) {
+
+        // toglie il newline che fgets lascia in fondo alla riga
+        line[strcspn(line, "\n")] = '\0';
+
+        // il primo token e' il comando
+        char *cmd = strtok(line, " ");
+        if (cmd == NULL) {           
+            printf("> ");
+            fflush(stdout);
+            continue;
+        }
+
+        if (strcmp(cmd, "pause") == 0) {
+            // sospendo tutti i figli (miner/node/client), il padre resta vivo
+            killpg(child_pgid, SIGSTOP);
+            printf("Sistema in pausa\n");
+
+        } else if (strcmp(cmd, "resume") == 0) {
+            killpg(child_pgid, SIGCONT);
+            printf("Sistema ripreso\n");
+
+		        } else if (strcmp(cmd, "submit") == 0) {
+            // Argomento dopo "submit"
+            char *arg = strtok(NULL, "");
+            if (arg == NULL) {
+                printf("Uso: submit \"Mittente pays Destinatario N coins\"\n");
+            } else {
+                // Pulizia virgolette
+                if (*arg == '"') arg++;
+                size_t alen = strlen(arg);
+                if (alen > 0 && arg[alen - 1] == '"') arg[alen - 1] = '\0';
+
+                // Invio
+                if (submit_transaction(arg) == 0)
+                    printf("Transazione inviata: %s\n", arg);
+                else
+                    printf("Transazione rifiutata (malformata o invio fallito)\n");
+            }
+
+        } else if (strcmp(cmd, "stop") == 0) {
+            // Uscita dal loop, poi terminazione
+            running = 0;
+            break;
+
+        } else {
+            printf("Comando sconosciuto: %s\n", cmd);
+        }
+
+
+        printf("> ");
+        fflush(stdout);
+    }
 
     /* 
 	Shutdown : prima avviamo la terminazione ordinata (SIGTERM),
 	poi con SIGKILL terminiamo chiunque sia rimasto bloccato o crashato
 	Waitpid raccoglie tutti gli zombie. 
 	*/
+    killpg(child_pgid, SIGCONT);   // sveglia quelli in pausa
     killpg(child_pgid, SIGTERM);
     sleep(2);
     killpg(child_pgid, SIGKILL);
