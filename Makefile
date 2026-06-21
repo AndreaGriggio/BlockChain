@@ -49,7 +49,10 @@ clean:
 	rm -f code/blockchain
 	rm -f $(BIN)/miner $(BIN)/client $(BIN)/node $(BIN)/ClientsLauncher $(BIN)/MinerLauncher
 	rm -f *.log
-	rm -f ./tmp/*.sock
+	rm -f ./tmp/*
+	rm -f /dev/shm/sem.blockchain_csv
+	rm -f blockchain.csv node_*.csv
+
 
 run: build
 	./code/blockchain $(ARGS)

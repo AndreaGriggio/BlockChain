@@ -79,8 +79,50 @@ static void log_msg(const char *fmt, ...) {
     fflush(log_file);
 }
 
+/* 
+Copia l'intero CSV condiviso nella copia locale del node (node_<id>_blockchain.csv)
+Viene chiamata quando si utilizza il semaforo, cosi' la copia riflette uno stato consistente
+del CSV condiviso (nessuna riga letta a meta' mentre un altro nodo aggiunge un blocco)
+La copia locale si riscrive da capo ogni volta che viene consultato il CSV 
+*/ 
+static int mirror_shared_to_local(void) {
+    char local_path[64];
+    snprintf(local_path, sizeof(local_path), "node_%d_blockchain.csv", node_id);
+
+    FILE *src = fopen(CSV_FILE_NAME, "r");
+    if (src == NULL) {
+        log_msg("ERROR: apertura CSV condiviso per mirror fallita: %s", strerror(errno));
+        return CSV_ERROR;
+    }
+    FILE *dst = fopen(local_path, "w");
+    if (dst == NULL) {
+        log_msg("ERROR: apertura copia locale fallita: %s", strerror(errno));
+        fclose(src);
+        return CSV_ERROR;
+    }
+
+    char buf[4096];
+    size_t n;
+    while ((n = fread(buf, 1, sizeof(buf), src)) > 0) {
+        if (fwrite(buf, 1, n, dst) != n) {
+            log_msg("ERROR: scrittura copia locale fallita");
+            fclose(src);
+            fclose(dst);
+            return CSV_ERROR;
+        }
+    }
+    int read_err = ferror(src);
+    fclose(src);
+    fclose(dst);
+    if (read_err) {
+        log_msg("ERROR: lettura CSV condiviso per mirror fallita");
+        return CSV_ERROR;
+    }
+    return 0;
+}
+
 // Chiamata protetta dal mutex, precedentemente preso dal process_block
-// Quando accede alla CS , legge la bloclchain, aggiorna la propria,
+// Quando accede alla CS , legge la blockchain, aggiorna la propria,
 // e verifica che il blocco sia effettivamente corretto, se sì
 // lo mette come successivo, se invalido allora lo rifiuta 
 static int commit_block_to_shared_csv(Block *new_block) {
@@ -185,8 +227,13 @@ static int commit_block_to_shared_csv(Block *new_block) {
 
 out:
     if (f != NULL) fclose(f);
-    if (csv_tail != NULL) blockDestroy(csv_tail);
+    if (csv_tail != NULL) 
+    blockDestroy(csv_tail);
     sem_post(sem);
+    // aggiorna la copia locale del node copiandola dal CSV condiviso
+    if( rc == 0 || rc == CHAIN_MISMATCH) {
+        mirror_shared_to_local();
+    }
     sem_close(sem);
     return rc;
 }

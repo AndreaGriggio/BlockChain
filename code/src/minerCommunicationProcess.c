@@ -175,7 +175,7 @@ static void* minerMining_Thread_Entry_point(void* arg) {
 }
 
 /**
- * Avvia il thread di mining creando un nuovo pthread sull'entry point dedicato.
+ * Avvia il thread di mining creando un nuovo pthread sull'entry point dedicato
  * @param mining_thread Puntatore all'handle del thread da inizializzare
  * @param args Argomenti (MiningThreadArgs) passati al thread di mining
  */
