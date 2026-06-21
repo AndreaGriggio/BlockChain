@@ -14,6 +14,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+/**
+ * Serializza un blocco in formato CSV, lo incapsula in un messaggio MSG_BLOCK_MINED
+ * con il mittente del miner e lo invia al nodo tramite il file descriptor indicato.
+ * @param block_ptr Blocco da inviare
+ * @param status Stato del miner usato per ricavare il child process mittente
+ * @param fd File descriptor su cui inviare il messaggio
+ * @return 0 se tutto è andato a buon fine, INVALID_PARAMS per parametri non validi,
+ *         FIFO_ERROR in caso di fd non valido o errore di invio
+ */
 int sendBlockToNode(Block* block_ptr,MinerStatus* status, int fd) {
     //Trasformare il blocco in un messaggio da mandare
     if (block_ptr == NULL || status == NULL )return INVALID_PARAMS;
@@ -46,8 +55,24 @@ int sendBlockToNode(Block* block_ptr,MinerStatus* status, int fd) {
 }
 
 
+/**
+ * Riceve un blocco da un nodo tramite il file descriptor indicato.
+ * @param block_ptr Buffer di output in cui salvare il blocco ricevuto
+ * @param fd File descriptor da cui leggere
+ * @return 0 se tutto è andato a buon fine
+ * @note Implementazione ancora da completare.
+ */
 int receiveBlockFromNode(Block* block_ptr, int fd) {
 return 0;}
+/**
+ * Riceve un messaggio MSG_NEW_TX dal client, ne estrae e valida la transazione e
+ * la inserisce nella transaction pool.
+ * @param fd File descriptor da cui ricevere il messaggio
+ * @param pool Transaction pool in cui inserire la transazione ricevuta
+ * @return 0 se tutto è andato a buon fine, SOCKET_ERROR per errori di socket,
+ *         INVALID_PARAMS se il messaggio non è valido o non è di tipo MSG_NEW_TX,
+ *         INVALID_TRANSACTION se la transazione non supera la validazione
+ */
 int receiveTransactionFromClient(int fd,TransactionPool* pool){
     if (fd < 0) return SOCKET_ERROR;
     char * tr = NULL;

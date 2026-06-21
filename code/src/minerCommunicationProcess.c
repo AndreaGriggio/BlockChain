@@ -47,6 +47,14 @@ static pthread_t mining_thread;
 *   1. Il numero di nodes, lo status per accedere all'id in alternativa direttamente l'id
 *   2. i puntatore per i file descriptor
 */
+/**
+ * Crea e apre le FIFO di comunicazione bidirezionale tra il miner e tutti i nodi:
+ * un canale di scrittura (miner->nodo) e uno di lettura (nodo->miner) per ciascun
+ * nodo, ricavando l'id del miner dal child process nello status.
+ * @param num_nodes Numero di nodi con cui stabilire le FIFO
+ * @return 0 se tutto è andato a buon fine, -1 in caso di errore di allocazione o
+ *         di apertura delle FIFO
+ */
 static int createNodeFifos(const int num_nodes) {
     to_node   = (int*) malloc(sizeof(int) * num_nodes);
     from_node = (int*) malloc(sizeof(int) * num_nodes);
@@ -110,6 +118,11 @@ static int createNodeFifos(const int num_nodes) {
 
 }
 
+/**
+ * Chiude tutti i descrittori delle FIFO verso e dai nodi, rimuove dal filesystem
+ * le FIFO create dal miner e libera gli array dei descrittori.
+ * @param num_nodes Numero di nodi le cui FIFO vanno chiuse e rimosse
+ */
 static void closeAndDestroyFifos(const int num_nodes) {
     for (int i = 0; i < num_nodes;i ++) {
         if (to_node != NULL) {
@@ -161,6 +174,11 @@ static void* minerMining_Thread_Entry_point(void* arg) {
     return NULL;
 }
 
+/**
+ * Avvia il thread di mining creando un nuovo pthread sull'entry point dedicato.
+ * @param mining_thread Puntatore all'handle del thread da inizializzare
+ * @param args Argomenti (MiningThreadArgs) passati al thread di mining
+ */
 static void startMining(pthread_t* mining_thread,void* args) {
     pthread_create( mining_thread,
             NULL,
@@ -180,17 +198,32 @@ static int stopMining(const pthread_t* mining_thread) {
     return 0;
 }
 
+/**
+ * Mette in pausa il mining portando lo stato del miner a MINER_IDLE.
+ * @return 0 se tutto è andato a buon fine
+ */
 static int pauseMining(void) {
 
     msSignal(status,MINER_IDLE);
     return 0;
 }
+/**
+ * Richiede il riavvio del ciclo di mining portando lo stato a MINER_RESTART.
+ * @return 0 se tutto è andato a buon fine
+ */
 static int restartMining(void) {
 
     msSignal(status,MINER_RESTART);
     return 0;
 
 }
+/**
+ * Inizializza il processo miner: installa gli handler dei segnali, crea e
+ * inizializza child process, status e miner, crea le FIFO verso i nodi, avvia il
+ * thread di mining e stabilisce la connessione socket con il processo master.
+ * @return 0 se tutto è andato a buon fine, valore non nullo (1 o SOCKET_ERROR) in
+ *         caso di errore
+ */
 static int init(void) {
     struct sigaction sa ;
     sa.sa_handler = handle_signal;
@@ -272,6 +305,11 @@ static int init(void) {
     return 0;
 }
 
+/**
+ * Invia il blocco corrente (previous_block) a tutti i nodi, ritentando l'invio
+ * fino a MAX_CONNECTION_TRIES volte per ciascun nodo in caso di errore.
+ * @return 0 al termine del tentativo di invio verso tutti i nodi
+ */
 static int sendBlockToNodes(void) {
 
     for (int i = 0; i < num_nodes; i++) {
@@ -285,7 +323,17 @@ static int sendBlockToNodes(void) {
             tries ++;
         }while (res != 0 && tries < MAX_CONNECTION_TRIES);
     }
+    return 0;
 }
+/**
+ * Entry point del processo miner: valida gli argomenti (difficoltà, id, numero di
+ * nodi), esegue l'inizializzazione e gira il ciclo principale ricevendo
+ * transazioni dal client, gestendo lo stato del mining e inviando i blocchi ai
+ * nodi; al termine rilascia socket, thread di mining e FIFO.
+ * @param argc Numero di argomenti da riga di comando
+ * @param argv Argomenti: [1] difficoltà, [2] id, [3] numero di nodi
+ * @return 0 in caso di terminazione corretta, 1 in caso di errore
+ */
 int main(int argc, char ** argv) {
 
     if (argc < 4) {
@@ -334,24 +382,41 @@ int main(int argc, char ** argv) {
                 *1. Ascoltare periodicamente sulla socket se è stato segnalato con un segnale comune quando vengono caricate informazioni
                 *2. Minare come un dannato e provare a risolvere il blocco -> thread separato su cui questo while ha completo controllo
                 */
+                //operazioni da fare :
+                //1. prendere transazioni da client
+                //2. prendere il numero di transazioni
+                //3. bloccare il processo di mining
+                //4.
 
-
+                //pool controllo e lettura delle transazioni mentre il miner sta attivamenete minando
                 receiveTransactionFromClient(fd_socket,trxs);
 
-                mSSetTransactionCount(status, trxs->count);
 
+
+                //prendo lo stato del miner
                 mSGetState(status,&current_state);
 
+
+                msSignal(status,MINER_IDLE);//<- distrugge lo stato precedente e si blocca il miner
+
                 if ( trxs->count != 0 && current_state == MINER_BLOCK_FOUND) {
-                    for (int i = 0; i<MAX_TX_PER_BLOCK; i ++ ) {
+                    uint64_t i = 0;
+                    mSGetTransactionCount(status,&i);
+                    while (trxs->count != 0 &&  i < MAX_TX_PER_BLOCK){
                         minerGetBlock(miner,previous_block);
 
                         blockAddTransaction(previous_block,poolRemoveLast(trxs));
+                        i++;
                     }
+                    mSSetTransactionCount(status,i);
                 }
 
+                msSignal(status, MINER_MINING);
 
-                sendBlockToNodes();
+
+                if (sendBlockToNodes() == 0 ) {
+
+                }
 
 
             }
@@ -366,6 +431,13 @@ int main(int argc, char ** argv) {
     return 0;
 }
 
+/**
+ * Wrapper che inoltra l'esecuzione al main del processo miner (utile per avviare
+ * il miner da un launcher esterno).
+ * @param argc Numero di argomenti da riga di comando
+ * @param argv Argomenti da riga di comando
+ * @return Valore di ritorno di main()
+ */
 int miner_communication_main(int argc,char * argv[]) {
     return main(argc,argv);
 }

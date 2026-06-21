@@ -1,0 +1,3 @@
+/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/CMakeFiles/Gonzato_Luongo_Griggio.dir
+/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/CMakeFiles/edit_cache.dir
+/home/andrea/Documenti/Uni/Secondo Anno/Sistemi_Operativi/Gonzato_Luongo_Griggio/CMakeFiles/rebuild_cache.dir

@@ -29,6 +29,8 @@ add_executable(Gonzato_Luongo_Griggio
         code/include/minerCommunicationProtocol.h
         code/include/transactionPool.h
         code/src/transactionPool.c
+        code/src/blocksPool.c
+        code/include/blocksPool.h
 )
 
 target_include_directories(Gonzato_Luongo_Griggio PRIVATE code/include)

@@ -96,6 +96,7 @@ int blockKillTransactions(Block *block_ptr);
 int blockGetMerkleRoot(const Block *block_ptr, char output[MERKLE_ROOT_HEX_SIZE + 1]);
 int blockGetIndex(const Block *block_ptr, uint64_t *index);
 
+int blockCopy(Block* dst, const Block* src);
 int pack_transactions(Block *block_ptr, const TxList *list);
 int unpack_transactions(const Block *block_ptr, TxList *list);
 

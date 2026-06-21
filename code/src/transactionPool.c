@@ -21,6 +21,7 @@ TransactionPool* createTransactionPool(void) {
 int initTransactionPool(TransactionPool* pool) {
     if (pool == NULL) return INVALID_PARAMS;
 
+
     pool->items = NULL;
     pool->count = 0;
     pool->capacity = 0;
@@ -61,7 +62,8 @@ int poolPush(TransactionPool* pool, const char* tx) {
 }
 
 int poolRemoveAt(TransactionPool* pool, size_t index) {
-    if (pool == NULL || index >= pool->count) return INVALID_PARAMS;
+    if (pool == NULL ) return INVALID_PARAMS;
+    if (index >= pool->count) return INVALID_PARAMS;
 
     free(pool->items[index]);
 

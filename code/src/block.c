@@ -363,6 +363,21 @@ int blockKillTransactions(Block *block_ptr) {
     return 0;
 }
 
+int blockCopy(Block* dst, const Block* src) {
+    if ( dst == NULL || src == NULL ) return INVALID_PARAMS;
+
+    dst->index = src->index;
+    dst->timestamp = src->timestamp;
+    dst->nonce = src->nonce;
+
+    memcpy(dst->merkle_root, src->merkle_root, MERKLE_ROOT_HEX_SIZE + 1);
+    memcpy(dst->prev_hash, src->prev_hash, HASH_HEX_SIZE +1 );
+    memcpy(dst->transactions, src->transactions, MAX_BLOCK_TXS_BUF +1 );
+
+    return 0;
+}
+
+
 //funzione per impacchettare le transazioni
 int pack_transactions(Block *b, const TxList *list) {
     memset(b->transactions, 0, MAX_BLOCK_TXS_BUF);      //azzero transactions nel blocco
