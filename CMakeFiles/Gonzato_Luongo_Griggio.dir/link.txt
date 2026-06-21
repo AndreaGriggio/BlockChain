@@ -1,1 +1,0 @@
-/usr/bin/gcc -g CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/block.c.o CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/childProcess.c.o CMakeFiles/Gonzato_Luongo_Griggio.dir/code/src/main.c.o -o Gonzato_Luongo_Griggio 

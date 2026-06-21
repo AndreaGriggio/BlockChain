@@ -20,6 +20,10 @@ tmp/
 .cache/
 cmake-build-*/
 CMakeCache.txt
+CMakeFiles/
+build/
+.cmake/
+CMakeLists.txt
 compile_commands.json
 
 # Project assignment files
