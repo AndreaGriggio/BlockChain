@@ -2,21 +2,25 @@
 // Created by andrea on 18/06/26.
 //
 
-#ifndef _MINERSTATUS_H
-#define _MINERSTATUS_H
+#ifndef MINERSTATUS_H
+#define MINERSTATUS_H
 
-#include <stddef.h>
+
 #include <stdint.h>
-#include <sys/types.h>
+
 
 #include "../childProcess.h"
 typedef enum MinerState {
     MINER_IDLE        = 0,//Non fa mining funziona solo la comunicazione
     MINER_MINING      = 1,//Fa mining
-    MINER_BLOCK_FOUND = 2,//Quando trova un blocco
     MINER_STOPPED     = 3,//Il thread viene terminato
     MINER_RESTART     = 4,//fa ripartire il ciclo di mining
 }MinerState;
+
+typedef enum MinerBlockState {
+    MINER_BLOCK_FOUND     = 1,
+    MINER_BLOCK_NOT_FOUND = 0,
+}MinerBlockState;
 
 typedef struct MinerStatus MinerStatus;
 
@@ -83,7 +87,10 @@ int mSGetCPChildProcess(MinerStatus *status, ChildProcess *out);
  * @param out copia di minerstate
  * @return 0 se tutto va bene
  */
-int mSGetState(MinerStatus *status, MinerState *out);/**
+int mSGetState(MinerStatus *status, MinerState *out);
+int msGetBlockState(MinerStatus* s, MinerBlockState* out);
+
+/**
  *
  * @param status Puntatore allo status del miner
  * @param out copia di nonceAttempts
@@ -108,7 +115,7 @@ int minerGetTransactionCount(MinerStatus *status, uint64_t *out);
  * @param cp cp da settare
  * @return 0 se tutto va bene
  */
-int mSSetCP(const MinerStatus* minerStatus, const ChildProcess* cp);
+int mSSetCP(MinerStatus* minerStatus, const ChildProcess* cp);
 
 /**
  * Serve per settare lo stato del miner
@@ -118,6 +125,18 @@ int mSSetCP(const MinerStatus* minerStatus, const ChildProcess* cp);
  */
 int mSSetState(MinerStatus *status, MinerState state);
 
+
+int mSSetBlockState(MinerStatus *s, MinerBlockState state);
+
+/**
+ * Imposta atomicamente found_block_state = MINER_BLOCK_FOUND e state = MINER_IDLE
+ * (singola sezione critica): usata dal thread di mining quando trova un blocco e
+ * si auto-parcheggia, per editor che il comm thread veda BLOCK_FOUND con lo
+ * stato ancora MINER_MINING.
+ * @param s Stato del miner da aggiornare
+ * @return 0 se tutto è andato a buon fine, INVALID_PARAMS se s è NULL
+ */
+int msSetBlockFoundAndIdle(MinerStatus *s);
 /**
  * Serve per settare il numero di attempts che il miner ha compiuto
  * @param status Puntatore dove settare i nuovi attempts
@@ -132,4 +151,4 @@ int mSSetAttempts(MinerStatus *status, size_t attempts);
  * @return 0 se tutto va bene
  */
 int mSSetTransactionCount(MinerStatus *status, uint64_t count);
-#endif //_MINERSTATUS_H
+#endif //MINERSTATUS_H

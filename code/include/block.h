@@ -22,7 +22,7 @@ Block* blockCreate();
  * @param block_ptr puntatore al blocco
  * @param index indice del blocco
  * @param timestamp timestamp del blocco
- * @param prev blocco precedente
+ * @param prev_hash hashcode blocco precedente
  * @param nonce nonce del blocco 
  * @param txs lista di transazioni
  * @return stato dell'operazione
@@ -31,7 +31,7 @@ int blockInit(
     Block *block_ptr,
     uint64_t index,
     uint64_t timestamp,
-    const Block *prev,
+    const char prev_hash[HASH_HEX_SIZE+1],
     uint64_t nonce,
     const TxList *txs);
 

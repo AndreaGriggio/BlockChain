@@ -6,6 +6,8 @@
 #define TRANSACTIONPOOL_H
 #include <stddef.h>
 
+#include "block.h"
+
 /**
  * Pool dinamico di transazioni: array di puntatori a stringa che cresce
  * automaticamente (raddoppio della capacità) cosi' da non avere un limite
@@ -86,5 +88,6 @@ const char* poolGet(const TransactionPool* pool, size_t index);
  * @return 0 se ok, INVALID_PARAMS se pool == NULL
  */
 int destroyTransactionPool(TransactionPool* pool);
-const char* poolRemoveLast(TransactionPool* pool);
+char* poolRemoveLast(TransactionPool* pool);
+TxList* poolTrxCreateList(TransactionPool* pool);
 #endif //TRANSACTIONPOOL_H

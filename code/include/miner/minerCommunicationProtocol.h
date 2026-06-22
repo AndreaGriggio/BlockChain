@@ -10,13 +10,19 @@
 //
 
 
+<<<<<<< HEAD:code/include/miner/minerCommunicationProtocol.h
 #include "../block.h"
 #include "../communication/transactionPool.h"
+=======
+#include "block.h"
+#include "miner.h"
+#include "transactionPool.h"
+>>>>>>> Sviluppo-Processo-Miner:code/include/minerCommunicationProtocol.h
 #include "minerStatus.h"
 
 
 int sendBlockToNode(Block* block_ptr,MinerStatus * Status, int fd);
-int receiveBlockFromNode(Block* block_ptr, int fd);
-int receiveTransactionFromClient(int fd,TransactionPool* pool);
+int receiveBlockFromNode(Miner* miner, int fd);
+int receiveTransactionFromClient(int fd,Miner* miner);
 
 #endif //GONZATO_LUONGO_GRIGGIO_MINERCOMMUNICATIONPROTOCOL_H

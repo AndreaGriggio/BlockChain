@@ -9,15 +9,16 @@
 #include "childProcess.h"
 #include "error.h"
 
-struct MinerStatus {
+typedef struct MinerStatus {
     ChildProcess    *cp;               /* ownership della struct: alloca/dealloca questa     */
-    MinerState       state;            /* stato corrente del miner                           */
+    MinerState       state;            /* stato corrente del miner      */
+    MinerBlockState  found_block_state;
     size_t           nonce_attempts;   /* quante volte abbiamo provato un nonce              */
     uint64_t         transaction_count;/* transazioni accumulate dall'ultima pulizia         */
 
     pthread_mutex_t  mutex;            /* protegge tutti i campi sopra                      */
     pthread_cond_t   cond;             /* il thread di mining ci dorme quando è IDLE         */
-};
+}MinerStatus;
 
 
 
@@ -51,6 +52,7 @@ MinerStatus *minerCreateStatus(void) {
     }
 
     s->state             = MINER_IDLE;
+    s->found_block_state = MINER_BLOCK_NOT_FOUND;
     s->nonce_attempts    = 0;
     s->transaction_count = 0;
 
@@ -161,6 +163,14 @@ int mSGetState(MinerStatus *s, MinerState *out) {
     return 0;
 }
 
+int msGetBlockState(MinerStatus* s, MinerBlockState* out) {
+    if (s == NULL || out == NULL) return INVALID_PARAMS;
+    pthread_mutex_lock(&s->mutex);
+    *out = s->found_block_state;
+    pthread_mutex_unlock(&s->mutex);
+    return 0;
+}
+
 /**
  * Legge in modo thread-safe il numero di tentativi sul nonce effettuati.
  * @param s Stato del miner da leggere
@@ -230,6 +240,30 @@ int mSSetState(MinerStatus *s, MinerState state) {
     return 0;
 }
 
+int mSSetBlockState(MinerStatus *s, MinerBlockState state){
+    if (s == NULL) return INVALID_PARAMS;
+    pthread_mutex_lock(&s->mutex);
+    s->found_block_state = state;
+    pthread_mutex_unlock(&s->mutex);
+    return 0;
+}
+
+/**
+ * Marca atomicamente il ritrovamento di un blocco e parcheggia il thread di
+ * mining: imposta found_block_state = MINER_BLOCK_FOUND e state = MINER_IDLE
+ * sotto un'unica acquisizione del mutex, così nessun lettore può osservare
+ * BLOCK_FOUND mentre lo stato è ancora MINER_MINING.
+ * @param s Stato del miner da aggiornare
+ * @return 0 se tutto è andato a buon fine, INVALID_PARAMS se s è NULL
+ */
+int msSetBlockFoundAndIdle(MinerStatus *s) {
+    if (s == NULL) return INVALID_PARAMS;
+    pthread_mutex_lock(&s->mutex);
+    s->found_block_state = MINER_BLOCK_FOUND;
+    s->state             = MINER_IDLE;
+    pthread_mutex_unlock(&s->mutex);
+    return 0;
+}
 /**
  * Imposta in modo thread-safe il numero di tentativi sul nonce.
  * @param s Stato del miner da aggiornare
@@ -269,7 +303,7 @@ int mSSetTransactionCount(MinerStatus *s, uint64_t count) {
  * @return 0 se tutto è andato a buon fine, INVALID_PARAMS per parametri nulli o
  *         se lo stato non possiede un child process
  */
-int mSSetCP(const MinerStatus *s,const ChildProcess *cp) {
+int mSSetCP( MinerStatus *s,const ChildProcess *cp) {
     if (s == NULL || cp == NULL) return INVALID_PARAMS;
 
     if (s->cp == NULL) return INVALID_PARAMS;

@@ -2,33 +2,87 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <pthread.h>
+
 #include "error.h"
 #include "miner.h"
 
-#include <pthread.h>
 
+#include "transactionPool.h"
 #include "client.h"
 #include "minerStatus.h"
+<<<<<<< HEAD:code/src/miner/miner.c
 #include "../utils.h"
+=======
+#include "utils.h"
+#include "blocksPool.h"
+>>>>>>> Sviluppo-Processo-Miner:code/src/miner.c
 
 typedef struct Miner {
-    
-    u_int64_t last_block_index;
-    char transactions[MAX_TX_PER_BLOCK][MAX_TX_SIZE+1];
-    size_t transactions_count;
+    BlocksPool* pending_pool;
+    TransactionPool* transaction_pool;
+
     uint difficulty;
+    char previous_hash[HASH_HEX_SIZE + 1];
+    uint64_t previous_index;
     Block* mined_block;
+
+    pthread_mutex_t lock;
+
 }Miner;
 
 /**
  * Alloca sull'heap una nuova struttura Miner (non inizializzata).
  * @return Puntatore al miner allocato, oppure NULL se l'allocazione fallisce
  */
-Miner* minerCreate(){
+Miner* minerCreate(uint difficulty,const char* previous_hash,const uint64_t previous_index){
     Miner* miner = malloc(sizeof(Miner));
     if (miner == NULL) {
         return NULL;
     }
+
+    miner->pending_pool = createBlocksPool();
+
+    if (miner->pending_pool == NULL) {
+        free(miner);
+        return NULL;
+    }
+
+    miner->transaction_pool = createTransactionPool();
+
+    if (miner->transaction_pool == NULL) {
+        destroyBlocksPool(miner->pending_pool);
+        free(miner);
+        return NULL;
+    }
+
+    // Salviamo solo hash e indice dell'ultimo blocco: genesi (NULL) -> tutti '0'
+    if (previous_hash == NULL) {
+        memset(miner->previous_hash, '0', HASH_HEX_SIZE);
+    } else {
+        if (strlen(previous_hash) != HASH_HEX_SIZE) {
+            destroyTransactionPool(miner->transaction_pool);
+            destroyBlocksPool(miner->pending_pool);
+            free(miner);
+            return NULL;
+        }
+        memcpy(miner->previous_hash, previous_hash, HASH_HEX_SIZE);
+    }
+    miner->previous_hash[HASH_HEX_SIZE] = '\0';
+    miner->previous_index = previous_index;
+
+    miner->mined_block = NULL;
+
+    if (pthread_mutex_init(&miner->lock,NULL) != 0) {
+
+        destroyTransactionPool(miner->transaction_pool);
+        destroyBlocksPool(miner->pending_pool);
+        free(miner);
+        return NULL;
+    }
+
+    minerInit(miner, difficulty);
+
 
     return miner;
 }
@@ -41,8 +95,11 @@ Miner* minerCreate(){
 int minerDestroy(Miner* miner) {
     if (miner == NULL)return 1;
 
-    if (miner->mined_block != NULL) free(miner->mined_block);
+    destroyBlocksPool(miner->pending_pool);
+    destroyTransactionPool(miner->transaction_pool);
+    pthread_mutex_destroy(&miner->lock);
 
+    blockDestroy(miner->mined_block);
 
     free(miner);
     return 0;
@@ -56,112 +113,87 @@ int minerDestroy(Miner* miner) {
  * @return 0 se tutto è andato a buon fine, -1 se miner è NULL
  */
 int minerInit(Miner* miner,uint miner_difficulty){
-    if (miner == NULL) {
+    if (miner == NULL || miner_difficulty == 0 ) {
         return -1;
     }
+
+    poolBlockSetState(miner->pending_pool,BLOCK_WAITING);
+
     miner->difficulty = miner_difficulty;
-    miner->transactions_count = 0;
-    miner->last_block_index = 0;
-    miner->mined_block = NULL;
+
     return 0;
 }
-
-
-
-/**
- * Valida tutte le transazioni del miner compattando quelle valide all'inizio
- * dell'array (le non valide vengono scartate) e aggiornando il conteggio.
- * @param miner_ptr Miner di cui validare le transazioni
- * @param number_of_transactions Numero di transazioni da esaminare
- * @return Numero di transazioni valide rimaste, oppure INVALID_PARAMS per
- *         parametri non validi
- */
-int minerValidateTransactions(Miner* miner_ptr,
-                              const size_t number_of_transactions)
-{
-    if (miner_ptr == NULL  || number_of_transactions > MAX_TX_PER_BLOCK) {
-        return INVALID_PARAMS;
-    }
-
-
-    size_t write_idx = 0;
-
-    //Riscrive solamente le transaction valide nel primo posto "libero" = write_idx
-    for (size_t i = 0; i < number_of_transactions; i++) {
-        if (minerValidateTransaction(miner_ptr,&i) == 0) {
-            if (write_idx != i) {
-                strcpy(miner_ptr->transactions[write_idx], miner_ptr->transactions[i]);
-            }
-            write_idx++;
-        }
-    }
-    miner_ptr->transactions_count = write_idx;
-    return (int)write_idx;   // numero di transazioni valide rimaste nell'array
-}
-/**
- * Valida la singola transazione del miner all'indice indicato (controlla indice,
- * lunghezza e validità del contenuto).
- * @param miner_ptr Miner che contiene la transazione
- * @param transaction_idx Puntatore all'indice della transazione da validare
- * @return 0 se la transazione è valida, INVALID_PARAMS altrimenti
- */
-int minerValidateTransaction(const Miner *miner_ptr, const size_t *transaction_idx) {
-    if (miner_ptr == NULL || transaction_idx == NULL) return INVALID_PARAMS;
-    if ( miner_ptr->transactions_count < *transaction_idx) {return INVALID_PARAMS;}
-    if (strlen(miner_ptr->transactions[*transaction_idx]) > MAX_TX_SIZE)    return INVALID_PARAMS;
-
-    return validateTransaction(miner_ptr->transactions[*transaction_idx]);
-}
-
-
-
-/**
- * Estrae le transazioni dal payload di un messaggio (separate da "::") e le
- * inserisce nell'array del miner, aggiornando il relativo conteggio.
- * @param miner Miner in cui salvare le transazioni
- * @param message_ptr Messaggio contenente le transazioni nel payload
- * @return 0 se tutto è andato a buon fine, INVALID_PARAMS per parametri nulli,
- *         BUFFER_TOO_SMALL se il payload eccede la dimensione massima
- */
-int minerGetTransactionsFromMessage(Miner* miner, const Message *message_ptr){
-    //Cose da verificare : che il messaggio no sia null che miner non sia null
-    //che il payload del messaggio non sia null e che la dimensione del payload sia accettabile
-    //Ritorna 0 se tutto è andato a buon fine
-    if (miner == NULL || message_ptr == NULL) return INVALID_PARAMS;
-
-    if (message_ptr->payload_size > MAX_BLOCK_TXS_BUF) return BUFFER_TOO_SMALL;
-
-
-    size_t tx_len = 0;
-    int count = 0;
-    const char *cursor = message_ptr->payload;   // puntatore che avanza nel payload
-    while (*cursor != '\0' && count < MAX_TX_PER_BLOCK) {
-
-        const char *delim  = "::";
-        const size_t delim_len = 2;
-        const char *end = strstr(cursor, delim); // trova il prossimo "::"
-
-        // lunghezza della transazione corrente
-        if (end != NULL) {
-            tx_len = (size_t)(end - cursor);  // fino al delimitatore
-        }else{
-            tx_len = strlen(cursor);          // fino al '\0' (ultima tx)
-        }
-
-        if (tx_len > 0 && tx_len <= MAX_TX_SIZE) {
-            strncpy(miner->transactions[count], cursor, tx_len);
-            miner->transactions[count][tx_len] = '\0';  // termina esplicitamente
-            count++;
-        }
-
-        if (end == NULL) break;              // era l'ultima transazione
-        cursor = end + delim_len;            // salta il "::" e continua
-    }
-    miner->transactions_count = count;
+int minerPushTransaction(Miner* miner,const char* tx) {
+    if ( miner == NULL || tx == NULL ) return INVALID_PARAMS;
+    pthread_mutex_lock(& miner->lock );
+    poolPush(miner->transaction_pool,tx);
+    pthread_mutex_unlock(&miner->lock);
 
     return 0;
 }
 
+static int minerInitMinedBlock(Miner* miner,u_int64_t nonce ) {
+    if (miner == NULL ) return INVALID_PARAMS;
+    if (miner->mined_block == NULL ) return INVALID_PARAMS;
+
+
+    pthread_mutex_lock(&miner->lock);
+    uint64_t index = miner->previous_index + 1;
+
+    TxList* list = poolTrxCreateList(miner->transaction_pool);
+
+    if (list == NULL) {
+        pthread_mutex_unlock(&miner->lock);
+        return MEMORY_ERROR;
+    }
+    if (list->count == 0 ) {
+        free(list);
+        pthread_mutex_unlock(&miner->lock);
+        return INVALID_BLOCK;
+    }
+    int res = blockInit(miner->mined_block,
+              index,
+              nowUnix(),
+              miner->previous_hash,
+              nonce,
+              list
+              );
+    if (res != 0) {
+
+        for (size_t i = 0; i < list->count; i++) {
+            poolPush(miner->transaction_pool, list->strings[i]);
+        }
+    }
+    free(list);
+    pthread_mutex_unlock(&miner->lock);
+
+    return res;
+}
+
+
+int minerAddBlockToPending(Miner* miner,Block* block) {
+    if (miner == NULL || block == NULL ) return INVALID_PARAMS;
+
+    int res = poolPushBlock(miner->pending_pool,block);
+    blockDestroy(block);
+    return res;
+
+}
+
+int minerUpdatePrevious(Miner* miner, const char* new_hash, uint64_t new_index) {
+    if ( miner == NULL || new_hash == NULL) return INVALID_PARAMS;
+    if ( strlen(new_hash) != HASH_HEX_SIZE) return INVALID_PARAMS;
+
+    pthread_mutex_lock(&miner->lock);
+
+    strncpy(miner->previous_hash,new_hash,HASH_HEX_SIZE);
+    miner->previous_index = new_index;
+
+    pthread_mutex_unlock(&miner->lock);
+
+
+    return 0;
+}
 /**
  * Trasferisce al chiamante il blocco minato dal miner, cedendone la proprietà
  * (dopo la chiamata il miner non punta più al blocco).
@@ -170,11 +202,17 @@ int minerGetTransactionsFromMessage(Miner* miner, const Message *message_ptr){
  * @return 0 se tutto è andato a buon fine, INVALID_PARAMS se i parametri sono
  *         nulli o se non esiste un blocco minato
  */
-int minerGetBlock(Miner* miner,const Block* block_ptr) {
+int minerPopMinedBlock(Miner* miner,Block** block_ptr) {
     if (miner == NULL || block_ptr == NULL) return INVALID_PARAMS;
-    if (miner->mined_block == NULL) return INVALID_PARAMS;
-    block_ptr = miner->mined_block;
+
+    pthread_mutex_lock(& miner->lock );
+    if (miner->mined_block == NULL) {
+        pthread_mutex_unlock(&miner->lock);
+        return INVALID_PARAMS;
+    }
+    *block_ptr = miner->mined_block;
     miner->mined_block= NULL;
+    pthread_mutex_unlock(&miner->lock);
 
     return 0;
 }
@@ -182,11 +220,15 @@ int minerGetBlock(Miner* miner,const Block* block_ptr) {
  * Simula un singolo tentativo di mining: la probabilità di successo dipende
  * dalla difficoltà richiesta.
  * @param difficulty Difficoltà del mining
+ * @param nonce valore da trovare
  * @return 1 se il tentativo ha avuto successo, 0 altrimenti
  */
-static int minerMiningAttempt(const uint difficulty) {
+static int minerMiningAttempt(const uint difficulty,const uint nonce) {
     const uint num = NUM_MIN_MAX(0,difficulty-1);
-    return num == 0 ? 1 : 0;
+    return num == nonce ? 1 : 0;
+}
+static uint minerInitNonce(const uint difficulty) {
+    return NUM_MIN_MAX(0,difficulty-1);
 }
 
 
@@ -196,14 +238,38 @@ static int minerMiningAttempt(const uint difficulty) {
  * @param miner Miner a cui associare il nuovo blocco
  * @param new Puntatore di output al blocco appena creato
  */
-static void minerCreateBlock(Miner* miner, Block** new) {
-    //blocco il la scrittura sul miner
-    *new = blockCreate();
+static int minerCreateBlock(Miner* miner, Block** new,u_int64_t nonce) {
+    if ( miner == NULL || new == NULL ) return INVALID_PARAMS;
 
+    Block* b = blockCreate();
+    if (b == NULL) return MEMORY_ERROR;
+
+    pthread_mutex_lock(&miner->lock);
+    //Libero un eventuale blocco precedente non ancora consumato per evitare leak
+    if (miner->mined_block != NULL) {
+        blockDestroy(miner->mined_block);
+    }
     //Collego il blocco ma non lo riempio non ho le informazioni
-    miner->mined_block = *new;
-    //libero la scrittura
+    miner->mined_block = b;
+    pthread_mutex_unlock(&miner->lock);
+
+    int res = minerInitMinedBlock(miner,nonce);
+    if (res != 0) {
+        //Init fallita: scollego e distruggo il blocco, non lo lascio agganciato
+        pthread_mutex_lock(&miner->lock);
+        if (miner->mined_block == b) {
+            blockDestroy(miner->mined_block);
+            miner->mined_block = NULL;
+        }
+        pthread_mutex_unlock(&miner->lock);
+        return res;
+    }
+
+    *new = b;
+    return 0;
 }
+
+
 
 
 /**
@@ -224,28 +290,33 @@ int minerMiningLoop(Miner* miner, MinerStatus* status) {
 
         MinerState s;
         mSGetState(status, &s);
+        mSSetBlockState(status, MINER_BLOCK_NOT_FOUND);
         if (s == MINER_STOPPED) break;
 
-        mSSetState(status, MINER_MINING);
 
         int trovato = 0;
-        int sleeping_time = NUM_MIN_MAX(MIN_SLEEPING_TIME, MAX_SLEEPING_TIME);
+        const int sleeping_time = NUM_MIN_MAX(MIN_SLEEPING_TIME, MAX_SLEEPING_TIME);
+        const uint nonce = minerInitNonce(miner->difficulty);
+        size_t attempts = 0;
         Block * new = NULL;
 
 
-        while (!trovato) {
+        while (!trovato && s != MINER_IDLE ){
             sleep(sleeping_time);
 
             // check abort — il comm thread ha chiamato msSignal(RESTART)?
             mSGetState(status, &s);
             if (s == MINER_RESTART || s == MINER_STOPPED) break;
 
-            if (minerMiningAttempt(miner->difficulty)) {
-                minerCreateBlock(miner, &new);
-                mSSetState(status, MINER_BLOCK_FOUND);
-                trovato = 1;
+            if (minerMiningAttempt(miner->difficulty,nonce)) {
+                if (minerCreateBlock(miner, &new,nonce) == 0 ) {
+                    /* set di found + park in un'unica sezione critica: il comm
+                     * thread non può vedere BLOCK_FOUND con stato ancora MINING. */
+                    msSetBlockFoundAndIdle(status);
+                    trovato = 1;
+                }
             } else {
-                size_t attempts;
+
                 mSGetAttempts(status, &attempts);
                 mSSetAttempts(status, attempts + 1);
             }
