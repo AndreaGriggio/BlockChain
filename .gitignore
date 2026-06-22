@@ -38,3 +38,14 @@ compile_commands.json
 .LSOverride
 Icon?
 *.log
+
+# Binari compiled
+/blockchain
+/client
+/miner
+/node
+/ClientsLauncher
+/MinerLauncher
+
+# Script install di CMake
+cmake_install.cmake
