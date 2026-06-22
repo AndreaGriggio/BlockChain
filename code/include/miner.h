@@ -61,11 +61,11 @@ int minerValidateTransaction(const Miner* miner_ptr, const size_t *transaction_i
  */
 int minerRemoveTransactions(Miner* miner,const char transactions[MAX_TX_PER_BLOCK][MAX_TX_SIZE+1],size_t  number_of_transactions);
 
+int minerGetBlock(Miner*miner,const Block* block_ptr);
 /**
  * Loop che continua finchè non trova un nuovo blocco o viene esternamente interrotto
  * @param miner Puntatore al miner che inizierà a provare valori di nonce finchè non ne trova uno appropriato per il nuovo blocco
  * @param status stato del miner
- * @param miner_mutex mutex sulla scrittura di miner e status
  * @return 0 se tutto è andato bene
  */
 int minerMiningLoop(Miner* miner,MinerStatus* status);

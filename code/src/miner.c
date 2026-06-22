@@ -20,6 +20,10 @@ typedef struct Miner {
     Block* mined_block;
 }Miner;
 
+/**
+ * Alloca sull'heap una nuova struttura Miner (non inizializzata).
+ * @return Puntatore al miner allocato, oppure NULL se l'allocazione fallisce
+ */
 Miner* minerCreate(){
     Miner* miner = malloc(sizeof(Miner));
     if (miner == NULL) {
@@ -29,6 +33,11 @@ Miner* minerCreate(){
     return miner;
 }
 
+/**
+ * Distrugge un miner liberando sia l'eventuale blocco minato che la struttura stessa.
+ * @param miner Miner da distruggere
+ * @return 0 se tutto è andato a buon fine, 1 se miner è NULL
+ */
 int minerDestroy(Miner* miner) {
     if (miner == NULL)return 1;
 
@@ -39,6 +48,13 @@ int minerDestroy(Miner* miner) {
     return 0;
 }
 
+/**
+ * Inizializza i campi di un miner già allocato impostando la difficoltà e
+ * azzerando contatori e blocco minato.
+ * @param miner Miner da inizializzare
+ * @param miner_difficulty Difficoltà di mining da assegnare al miner
+ * @return 0 se tutto è andato a buon fine, -1 se miner è NULL
+ */
 int minerInit(Miner* miner,uint miner_difficulty){
     if (miner == NULL) {
         return -1;
@@ -52,6 +68,14 @@ int minerInit(Miner* miner,uint miner_difficulty){
 
 
 
+/**
+ * Valida tutte le transazioni del miner compattando quelle valide all'inizio
+ * dell'array (le non valide vengono scartate) e aggiornando il conteggio.
+ * @param miner_ptr Miner di cui validare le transazioni
+ * @param number_of_transactions Numero di transazioni da esaminare
+ * @return Numero di transazioni valide rimaste, oppure INVALID_PARAMS per
+ *         parametri non validi
+ */
 int minerValidateTransactions(Miner* miner_ptr,
                               const size_t number_of_transactions)
 {
@@ -72,8 +96,15 @@ int minerValidateTransactions(Miner* miner_ptr,
         }
     }
     miner_ptr->transactions_count = write_idx;
-    return write_idx;   // numero di transazioni valide rimaste nell'array
+    return (int)write_idx;   // numero di transazioni valide rimaste nell'array
 }
+/**
+ * Valida la singola transazione del miner all'indice indicato (controlla indice,
+ * lunghezza e validità del contenuto).
+ * @param miner_ptr Miner che contiene la transazione
+ * @param transaction_idx Puntatore all'indice della transazione da validare
+ * @return 0 se la transazione è valida, INVALID_PARAMS altrimenti
+ */
 int minerValidateTransaction(const Miner *miner_ptr, const size_t *transaction_idx) {
     if (miner_ptr == NULL || transaction_idx == NULL) return INVALID_PARAMS;
     if ( miner_ptr->transactions_count < *transaction_idx) {return INVALID_PARAMS;}
@@ -84,6 +115,14 @@ int minerValidateTransaction(const Miner *miner_ptr, const size_t *transaction_i
 
 
 
+/**
+ * Estrae le transazioni dal payload di un messaggio (separate da "::") e le
+ * inserisce nell'array del miner, aggiornando il relativo conteggio.
+ * @param miner Miner in cui salvare le transazioni
+ * @param message_ptr Messaggio contenente le transazioni nel payload
+ * @return 0 se tutto è andato a buon fine, INVALID_PARAMS per parametri nulli,
+ *         BUFFER_TOO_SMALL se il payload eccede la dimensione massima
+ */
 int minerGetTransactionsFromMessage(Miner* miner, const Message *message_ptr){
     //Cose da verificare : che il messaggio no sia null che miner non sia null
     //che il payload del messaggio non sia null e che la dimensione del payload sia accettabile
@@ -122,12 +161,41 @@ int minerGetTransactionsFromMessage(Miner* miner, const Message *message_ptr){
 
     return 0;
 }
+
+/**
+ * Trasferisce al chiamante il blocco minato dal miner, cedendone la proprietà
+ * (dopo la chiamata il miner non punta più al blocco).
+ * @param miner Miner da cui prelevare il blocco minato
+ * @param block_ptr Puntatore di output al blocco minato
+ * @return 0 se tutto è andato a buon fine, INVALID_PARAMS se i parametri sono
+ *         nulli o se non esiste un blocco minato
+ */
+int minerGetBlock(Miner* miner,const Block* block_ptr) {
+    if (miner == NULL || block_ptr == NULL) return INVALID_PARAMS;
+    if (miner->mined_block == NULL) return INVALID_PARAMS;
+    block_ptr = miner->mined_block;
+    miner->mined_block= NULL;
+
+    return 0;
+}
+/**
+ * Simula un singolo tentativo di mining: la probabilità di successo dipende
+ * dalla difficoltà richiesta.
+ * @param difficulty Difficoltà del mining
+ * @return 1 se il tentativo ha avuto successo, 0 altrimenti
+ */
 static int minerMiningAttempt(const uint difficulty) {
-    uint num = NUM_MIN_MAX(0,difficulty-1);
+    const uint num = NUM_MIN_MAX(0,difficulty-1);
     return num == 0 ? 1 : 0;
 }
 
 
+/**
+ * Crea un nuovo blocco vuoto e lo collega al miner come blocco minato corrente
+ * (il blocco non viene ancora riempito con i dati).
+ * @param miner Miner a cui associare il nuovo blocco
+ * @param new Puntatore di output al blocco appena creato
+ */
 static void minerCreateBlock(Miner* miner, Block** new) {
     //blocco il la scrittura sul miner
     *new = blockCreate();
@@ -138,6 +206,14 @@ static void minerCreateBlock(Miner* miner, Block** new) {
 }
 
 
+/**
+ * Ciclo principale di mining eseguito dal thread dedicato. Attende il segnale di
+ * lavoro, tenta ripetutamente di minare un blocco e aggiorna lo stato condiviso;
+ * termina solo quando lo stato passa a MINER_STOPPED.
+ * @param miner Miner che esegue il mining
+ * @param status Stato condiviso usato per sincronizzazione e segnalazioni
+ * @return 0 all'uscita dal ciclo, INVALID_PARAMS se i parametri sono nulli
+ */
 int minerMiningLoop(Miner* miner, MinerStatus* status) {
     if (miner == NULL || status == NULL) return INVALID_PARAMS;
     //ciclio infinito una volta iniziato non si interrompe finchè state = MINER_STOPPED

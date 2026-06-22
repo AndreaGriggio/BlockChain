@@ -1,27 +1,28 @@
-### ToDo list
-Fatti fin ora :
-Client struct
-1. [x] client
-2. [x] client send protocol
-
-Block struct :
-3. [x] block implementation
-    a. block merkle root calculation
-    b. block hash computation
-
-Utils :
-4. [x] Sha256 della transazione
-5. [x] convertion ex of int
-6. [x] block to big hex big endian
-
-Varie per management :
-7. [x] child process struct
-
 Da fare :
-1. [] controllo-validazione regex su transaction
-2. [] entry point del progetto
-3. [] bash per interagire con il progetto quando viene eseguito
-4. [] cambiare e implementare dei protocolli IPC coerenti con le operazioni che deve fare
-5. [] implementazione nodo
-6. [] implementazione miner
-7. [] logging di ogni processo
+1. [ ] main.c: creazione+bind+listen MINERS_SOCKET prima del fork 
+    (lato server client->miner; ORA non lo ascolta nessuno). 
+    NB: le FIFO le creano da soli node e miner
+
+2. [ ] main.c: fork/exec dei figli (via MinerLauncher/ClientsLauncher + node), tutti in un process group
+
+3. [ ] main.c: 
+    REPL (submit, request, save, pause, resume, stop)
+    . pause/resume/stop via killpg (SIGSTOP/SIGCONT/SIGTERM); 
+    request/save leggono il CSV condiviso
+
+4. [ ] main.c: shutdown pulito (killpg + waitpid, sem_unlink, unlink socket/fifo)
+
+7. [ ] report.pdf (10% voto)
+
+8. [ ] integrazione end-to-end + edge case 2.2.7 (crash, CSV corrotto, pause/resume)
+
+9.[ ] minerCommunicationProcess.c: 
+    main loop e' un while vuoto. 
+    Serve: accept() client sul socket,
+    creazione blocco reale,
+    rilettura tip dal CSV, 
+    sleep interrompibile, 
+    reazione a notify VALID/INVALID. 
+    srand mancante
+
+10. [ ] NodeLauncher (analogo a MinerLauncher) 

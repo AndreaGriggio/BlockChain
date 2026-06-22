@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "utils.h"
 
@@ -21,6 +22,11 @@ void sha256_of_string(const unsigned char* input,const size_t input_size, char* 
         snprintf(output+i*2,3,"%02x",raw_hash[i]);//conversione binario -> esadecimale
     }
     output[HASH_HEX_SIZE]='\0';
+}
+uint64_t nowUnix(void){
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    return (uint64_t)ts.tv_sec;
 }
 int parse_uint64_hex(const char *str, uint64_t *out){
     if (str == NULL || out == NULL) {
@@ -43,27 +49,15 @@ int parse_uint64_hex(const char *str, uint64_t *out){
     *out = (uint64_t)value;
     return 0;
 }
-int validateTransaction(const char transaction[]) {
-    char sender[MAX_NAME_SIZE+1];
-    char pays_word[8];
-    char receiver[MAX_NAME_SIZE+1];
-    unsigned long amount;
-    char coins_word[8];
+int validateTransaction(const char transaction[MAX_TX_SIZE+1]) {
+    regex_t re;
+    int ret = regcomp(&re, "^[A-Za-z0-9]+ pays [A-Za-z0-9]+ [1-9][0-9]* coins$",REG_EXTENDED);
+    if (ret != 0) return INVALID_TRANSACTION;
 
-    // parsa tutti e 5 i token in una sola chiamata
-    const int parsed = sscanf(transaction,
-                            "%10s %7s %10s %lu %7s",
-                                sender, pays_word, receiver, &amount, coins_word);
+    ret = regexec(&re, transaction, 0, NULL, 0);
+    regfree(&re);
 
-    if (parsed != 5)                        return INVALID_TRANSACTION;
-    if (strcmp(pays_word,  "pays")  != 0)   return INVALID_TRANSACTION;
-    if (strcmp(coins_word, "coins") != 0)   return INVALID_TRANSACTION;
-
-    // validazione nomi con regex POSIX
-    if (validateName(sender)   != 0)        return INVALID_TRANSACTION;
-    if (validateName(receiver) != 0)        return INVALID_TRANSACTION;
-
-    return 0;
+    return (ret == 0) ? 0 : INVALID_TRANSACTION;
 }
 int validateName(const char *name) {
     if (name == NULL) return -1;

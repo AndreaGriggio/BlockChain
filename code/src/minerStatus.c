@@ -21,6 +21,12 @@ struct MinerStatus {
 
 
 
+/**
+ * Alloca e inizializza una nuova struttura di stato condiviso del miner,
+ * compresi il child process associato, il mutex e la condition variable.
+ * @return Puntatore allo stato creato, oppure NULL se una qualsiasi allocazione
+ *         o inizializzazione fallisce
+ */
 MinerStatus *minerCreateStatus(void) {
     MinerStatus *s = malloc(sizeof(MinerStatus));
     if (s == NULL) return NULL;
@@ -51,6 +57,12 @@ MinerStatus *minerCreateStatus(void) {
     return s;
 }
 
+/**
+ * Distrugge lo stato del miner liberando condition variable, mutex, child process
+ * e la struttura stessa (la condvar viene distrutta prima del mutex, in ordine
+ * inverso rispetto alla creazione).
+ * @param s Stato da distruggere (no-op se NULL)
+ */
 void minerDestroyStatus(MinerStatus *s) {
     if (s == NULL) return;
 
@@ -63,6 +75,16 @@ void minerDestroyStatus(MinerStatus *s) {
     free(s);
 }
 
+/**
+ * Inizializza i campi dello stato del miner copiando il child process fornito e
+ * impostando stato, tentativi e conteggio transazioni (operazione protetta da mutex).
+ * @param s Stato da inizializzare
+ * @param cp Child process da copiare nello stato
+ * @param state Stato iniziale del miner
+ * @param nonce_attempts Numero iniziale di tentativi sul nonce
+ * @param transaction_count Numero iniziale di transazioni
+ * @return 0 se tutto è andato a buon fine, INVALID_PARAMS per parametri non validi
+ */
 int minerInitStatus(MinerStatus       *s,
                     const ChildProcess *cp,
                     MinerState          state,
@@ -84,6 +106,12 @@ int minerInitStatus(MinerStatus       *s,
 
 
 
+/**
+ * Blocca il thread chiamante sulla condition variable finché lo stato resta
+ * MINER_IDLE, risvegliandolo quando arriva del lavoro (chiamata bloccante).
+ * @param s Stato del miner su cui attendere
+ * @return 0 al risveglio, INVALID_PARAMS se s è NULL
+ */
 int msWaitForWork(MinerStatus *s) {
     if (s == NULL) return INVALID_PARAMS;
 
@@ -98,6 +126,13 @@ int msWaitForWork(MinerStatus *s) {
     return 0;
 }
 
+/**
+ * Imposta un nuovo stato e risveglia il thread eventualmente in attesa sulla
+ * condition variable (usata per comunicare al thread di mining un cambio di stato).
+ * @param s Stato del miner da aggiornare
+ * @param new_state Nuovo stato da impostare
+ * @return 0 se tutto è andato a buon fine, INVALID_PARAMS se s è NULL
+ */
 int msSignal(MinerStatus *s, MinerState new_state) {
     if (s == NULL) return INVALID_PARAMS;
 
@@ -110,6 +145,12 @@ int msSignal(MinerStatus *s, MinerState new_state) {
 }
 
 
+/**
+ * Legge in modo thread-safe lo stato corrente del miner.
+ * @param s Stato del miner da leggere
+ * @param out Buffer di output in cui scrivere lo stato
+ * @return 0 se tutto è andato a buon fine, INVALID_PARAMS per parametri nulli
+ */
 int mSGetState(MinerStatus *s, MinerState *out) {
     if (s == NULL || out == NULL) return INVALID_PARAMS;
 
@@ -120,6 +161,12 @@ int mSGetState(MinerStatus *s, MinerState *out) {
     return 0;
 }
 
+/**
+ * Legge in modo thread-safe il numero di tentativi sul nonce effettuati.
+ * @param s Stato del miner da leggere
+ * @param out Buffer di output in cui scrivere il numero di tentativi
+ * @return 0 se tutto è andato a buon fine, INVALID_PARAMS per parametri nulli
+ */
 int mSGetAttempts(MinerStatus *s, size_t *out) {
     if (s == NULL || out == NULL) return INVALID_PARAMS;
 
@@ -130,6 +177,12 @@ int mSGetAttempts(MinerStatus *s, size_t *out) {
     return 0;
 }
 
+/**
+ * Legge in modo thread-safe il numero di transazioni accumulate.
+ * @param s Stato del miner da leggere
+ * @param out Buffer di output in cui scrivere il conteggio delle transazioni
+ * @return 0 se tutto è andato a buon fine, INVALID_PARAMS per parametri nulli
+ */
 int mSGetTransactionCount(MinerStatus *s, uint64_t *out) {
     if (s == NULL || out == NULL) return INVALID_PARAMS;
 
@@ -140,6 +193,14 @@ int mSGetTransactionCount(MinerStatus *s, uint64_t *out) {
     return 0;
 }
 
+/**
+ * Copia in modo thread-safe il child process associato allo stato nel buffer
+ * fornito.
+ * @param s Stato del miner da cui leggere il child process
+ * @param out Child process di output in cui copiare i dati
+ * @return 0 se tutto è andato a buon fine, INVALID_PARAMS per parametri nulli o
+ *         se lo stato non possiede un child process
+ */
 int mSGetCPChildProcess(MinerStatus *s, ChildProcess *out) {
     if (s == NULL || out == NULL) return INVALID_PARAMS;
     if (s->cp == NULL)            return INVALID_PARAMS;
@@ -153,6 +214,12 @@ int mSGetCPChildProcess(MinerStatus *s, ChildProcess *out) {
 
 
 
+/**
+ * Imposta in modo thread-safe lo stato del miner (senza segnalare la condvar).
+ * @param s Stato del miner da aggiornare
+ * @param state Nuovo stato da impostare
+ * @return 0 se tutto è andato a buon fine, INVALID_PARAMS se s è NULL
+ */
 int mSSetState(MinerStatus *s, MinerState state) {
     if (s == NULL) return INVALID_PARAMS;
 
@@ -163,6 +230,12 @@ int mSSetState(MinerStatus *s, MinerState state) {
     return 0;
 }
 
+/**
+ * Imposta in modo thread-safe il numero di tentativi sul nonce.
+ * @param s Stato del miner da aggiornare
+ * @param attempts Nuovo numero di tentativi
+ * @return 0 se tutto è andato a buon fine, INVALID_PARAMS se s è NULL
+ */
 int mSSetAttempts(MinerStatus *s, size_t attempts) {
     if (s == NULL) return INVALID_PARAMS;
 
@@ -173,6 +246,12 @@ int mSSetAttempts(MinerStatus *s, size_t attempts) {
     return 0;
 }
 
+/**
+ * Imposta in modo thread-safe il numero di transazioni accumulate.
+ * @param s Stato del miner da aggiornare
+ * @param count Nuovo conteggio delle transazioni
+ * @return 0 se tutto è andato a buon fine, INVALID_PARAMS se s è NULL
+ */
 int mSSetTransactionCount(MinerStatus *s, uint64_t count) {
     if (s == NULL) return INVALID_PARAMS;
 
@@ -183,6 +262,13 @@ int mSSetTransactionCount(MinerStatus *s, uint64_t count) {
     return 0;
 }
 
+/**
+ * Copia in modo thread-safe il child process fornito dentro lo stato del miner.
+ * @param s Stato del miner da aggiornare
+ * @param cp Child process sorgente da copiare nello stato
+ * @return 0 se tutto è andato a buon fine, INVALID_PARAMS per parametri nulli o
+ *         se lo stato non possiede un child process
+ */
 int mSSetCP(const MinerStatus *s,const ChildProcess *cp) {
     if (s == NULL || cp == NULL) return INVALID_PARAMS;
 

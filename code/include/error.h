@@ -22,6 +22,10 @@ typedef enum error {
     BLOCK_TOO_FAR = 11,       // blocco con index troppo avanti, mancano intermedi
     CSV_ERROR = 12,           // errore lettura/scrittura file CSV
     SEM_ERROR = 13,           // errore apertura/uso semaforo
-    GENESIS_ERROR = 14        // errore sul blocco genesis
+    GENESIS_ERROR = 14,        // errore sul blocco genesis
+    FIFO_ERROR = 15,
+    FIFO_CLOSED = 16,
+    MEMORY_ERROR = 17,       // malloc/realloc fallita
+    BLOCK_ALREADY_PRESENT = 18
 }error;
 #endif //ERROR_H

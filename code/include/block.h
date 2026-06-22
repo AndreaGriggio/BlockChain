@@ -28,8 +28,8 @@ Block* blockCreate();
  * @return stato dell'operazione
  */
 int blockInit(
-    Block *block_ptr
-    ,uint64_t index,
+    Block *block_ptr,
+    uint64_t index,
     uint64_t timestamp,
     const Block *prev,
     uint64_t nonce,
@@ -52,6 +52,8 @@ int calcMerkle(char hashes[][MERKLE_ROOT_HEX_SIZE+1],size_t count,char output_me
  * @return 0 se tutto è andato a buon fine
  */
 int blockGetHash(const Block *block_ptr, char out_hash[HASH_HEX_SIZE + 1]);
+
+int blockGetTransaction(const Block * block_ptr, char out[MAX_BLOCK_TXS_BUF+1]);
 /**
  *
  * @param block_ptr Blocco da validare
@@ -94,8 +96,10 @@ int blockKillTransactions(Block *block_ptr);
 int blockGetMerkleRoot(const Block *block_ptr, char output[MERKLE_ROOT_HEX_SIZE + 1]);
 int blockGetIndex(const Block *block_ptr, uint64_t *index);
 
+int blockCopy(Block* dst, const Block* src);
 int pack_transactions(Block *block_ptr, const TxList *list);
 int unpack_transactions(const Block *block_ptr, TxList *list);
+
 
 
 #endif //BLOCK_H

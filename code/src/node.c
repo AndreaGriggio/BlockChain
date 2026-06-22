@@ -1,9 +1,13 @@
+#define _GNU_SOURCE
+
 #include "node.h"
 #include "block.h"
 #include "message.h"
 #include "childProcess.h"
 #include "error.h"
 #include "protocolSocket.h"
+#include "constants.h"
+#include "communicationProtocol.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,27 +23,31 @@
 #include <time.h>
 #include <errno.h>
 #include <pthread.h>
+#include <limits.h>
+
 
 static volatile sig_atomic_t running = 1;
 
-static Block   *last_block   = NULL;
+
+// Puntatore all'ultimo blocco della catena locale 
+static Block   *last_block   = NULL; 
 static uint64_t chain_length = 0;
 
 static pthread_mutex_t chain_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+
 static int    node_id    = -1;
 static int    num_nodes  = 0;
-static char **node_fifos = NULL;
-static char   my_fifo[256];
+static int    num_miners = 0;
+
+/* Array degli fd di lettura (da ogni miner) e scrittura (verso ogni miner) */
+static int *to_miner   = NULL;
+static int *from_miner = NULL;
+
+static NodeStatus* status = NULL;
 
 static FILE *log_file = NULL;
 
-#define CSV_SEM_NAME  "/blockchain_csv"
-#define CSV_FILE_NAME "./blockchain.csv"
-
-typedef struct {
-    int server_fd;
-} ListenerArgs;
 
 static void handle_signal(int sig) {
     if (sig == SIGTERM || sig == SIGINT) {
@@ -47,84 +55,241 @@ static void handle_signal(int sig) {
     }
 }
 
+
+// Funzione di log con timestamp
 static void log_msg(const char *fmt, ...) {
     if (log_file == NULL) return;
-
+ 
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
-
+ 
     struct tm *tm_info = localtime(&ts.tv_sec);
     char time_buf[32];
     strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", tm_info);
-
+ 
     fprintf(log_file, "[%s.%03ld] [NODE-%d|PID-%d] ",
             time_buf, ts.tv_nsec / 1000000, node_id, (int)getpid());
-
+ 
     va_list args;
     va_start(args, fmt);
     vfprintf(log_file, fmt, args);
     va_end(args);
-
+ 
     fprintf(log_file, "\n");
     fflush(log_file);
 }
 
+/* 
+Copia l'intero CSV condiviso nella copia locale del node (node_<id>_blockchain.csv)
+Viene chiamata quando si utilizza il semaforo, cosi' la copia riflette uno stato consistente
+del CSV condiviso (nessuna riga letta a meta' mentre un altro nodo aggiunge un blocco)
+La copia locale si riscrive da capo ogni volta che viene consultato il CSV 
+*/ 
+static int mirror_shared_to_local(void) {
+    char local_path[64];
+    snprintf(local_path, sizeof(local_path), "node_%d_blockchain.csv", node_id);
 
-static int append_block_to_csv(const Block *block_ptr) {
+    FILE *src = fopen(CSV_FILE_NAME, "r");
+    if (src == NULL) {
+        log_msg("ERROR: apertura CSV condiviso per mirror fallita: %s", strerror(errno));
+        return CSV_ERROR;
+    }
+    FILE *dst = fopen(local_path, "w");
+    if (dst == NULL) {
+        log_msg("ERROR: apertura copia locale fallita: %s", strerror(errno));
+        fclose(src);
+        return CSV_ERROR;
+    }
+
+    char buf[4096];
+    size_t n;
+    while ((n = fread(buf, 1, sizeof(buf), src)) > 0) {
+        if (fwrite(buf, 1, n, dst) != n) {
+            log_msg("ERROR: scrittura copia locale fallita");
+            fclose(src);
+            fclose(dst);
+            return CSV_ERROR;
+        }
+    }
+    int read_err = ferror(src);
+    fclose(src);
+    fclose(dst);
+    if (read_err) {
+        log_msg("ERROR: lettura CSV condiviso per mirror fallita");
+        return CSV_ERROR;
+    }
+    return 0;
+}
+
+// Chiamata protetta dal mutex, precedentemente preso dal process_block
+// Quando accede alla CS , legge la blockchain, aggiorna la propria,
+// e verifica che il blocco sia effettivamente corretto, se sì
+// lo mette come successivo, se invalido allora lo rifiuta 
+static int commit_block_to_shared_csv(Block *new_block) {
     sem_t *sem = sem_open(CSV_SEM_NAME, 0);
     if (sem == SEM_FAILED) {
         log_msg("ERROR: sem_open fallito: %s", strerror(errno));
         return SEM_ERROR;
     }
-
-    sem_wait(sem);
-
-    FILE *f = fopen(CSV_FILE_NAME, "a");
-    if (f == NULL) {
-        log_msg("ERROR: apertura CSV fallita: %s", strerror(errno));
-        sem_post(sem);
+    if (sem_wait(sem) == -1) {
+        log_msg("ERROR: sem_wait fallito: %s", strerror(errno));
         sem_close(sem);
-        return CSV_ERROR;
+        return SEM_ERROR;
     }
 
+    int rc = 0;
+    FILE *f = NULL;
+    Block *csv_tail = NULL;
+    int found = 0;
+    uint64_t tail_index = 0;
+    uint64_t new_index = 0;
     char line[BLOCK_CSV_LINE_SIZE];
-    if (blockToCsv(block_ptr, line, sizeof(line)) != 0) {
-        log_msg("ERROR: blockToCsv fallito");
-        fclose(f);
-        sem_post(sem);
-        sem_close(sem);
-        return CSV_ERROR;
+    char last_line[BLOCK_CSV_LINE_SIZE];
+    char out_line[BLOCK_CSV_LINE_SIZE];
+
+    // Legge la coda della blockchain all'interno del CSV condiviso
+    f = fopen(CSV_FILE_NAME, "r");
+    if (f == NULL) {
+        log_msg("ERROR: apertura del CSV condiviso in lettura fallita: %s", strerror(errno));
+        rc = CSV_ERROR;
+        goto out;
+    }
+    while (fgets(line, sizeof(line), f) != NULL) {
+        line[strcspn(line, "\n")] = '\0';
+        if (line[0] == '\0' || strncmp(line, "index,", 6) == 0) continue;
+        strncpy(last_line, line, sizeof(last_line) - 1);
+        last_line[sizeof(last_line) - 1] = '\0';
+        found = 1;
+    }
+    if (ferror(f)) {
+        log_msg("ERROR: lettura del CSV condiviso fallita");
+        rc = CSV_ERROR;
+        goto out;
+    }
+    fclose(f);
+    f = NULL;
+    if (!found) {
+        log_msg("ERROR: Il CSV condiviso non presenta alcun blocco");
+        rc = CSV_ERROR;
+        goto out;
     }
 
-    fprintf(f, "%s\n", line);
-    fclose(f);
+    csv_tail = blockCreate();
+    if (csv_tail == NULL) {
+        log_msg("ERROR: L'aggiunta del Blocco in coda è fallita ");
+        rc = -1;
+        goto out;
+    }
+    if (blockFromCsv(csv_tail, last_line) != 0) {
+        log_msg("ERROR: La coda del CSV condiviso non valida");
+        rc = INVALID_BLOCK;
+        goto out;
+    }
 
+     // Verifica del blocco
+    if (blockValidate(new_block, csv_tail) != 0) {
+        // Nel caso di blocco già inserito, 
+        // il secondo node ceh quindi accede alla CS
+        // confronta gli hash per capire se blocco diverso allora (Invalid)
+        // se il blocco è identico allora termina
+        char tail_hash[HASH_HEX_SIZE + 1];
+        char new_hash[HASH_HEX_SIZE + 1];
+        int same = (blockGetHash(csv_tail, tail_hash) == 0 &&
+                    blockGetHash(new_block, new_hash) == 0 &&
+                    strcmp(tail_hash, new_hash) == 0);
+
+        // In ogni caso il node si ri-sincronizza sulla coda reale del CSV
+        blockGetIndex(csv_tail, &tail_index);
+        if (last_block != NULL) blockDestroy(last_block);
+        last_block = csv_tail;
+        csv_tail = NULL;
+        chain_length = tail_index + 1;
+
+        if (same) {
+            log_msg("Blocco gia' presente nel CSV condiviso, copia locale aggiornata");
+            rc = BLOCK_ALREADY_PRESENT;
+        } else {
+            log_msg("Blocco perdente rifiutato, chain ri-sincronizzata");
+            rc = CHAIN_MISMATCH;
+        }
+        goto out;
+    }
+
+
+    // Se il blocco è valido allora, lo si conferma e lo si aggiunge alla blockchain
+    if (blockToCsv(new_block, out_line, sizeof(out_line)) != 0) {
+        log_msg("ERROR: blockToCsv fallito");
+        rc = CSV_ERROR;
+        goto out;
+    }
+    f = fopen(CSV_FILE_NAME, "a");
+    if (f == NULL) {
+        log_msg("ERROR: apertura del CSV condiviso per l'aggiunta del blocco fallita: %s", strerror(errno));
+        rc = CSV_ERROR;
+        goto out;
+    }
+    if (fprintf(f, "%s\n", out_line) < 0) {
+        log_msg("ERROR: scrittura sul CSV condiviso fallita");
+        rc = CSV_ERROR;
+        goto out;
+    }
+    fclose(f);
+    f = NULL;
+
+    // Fa avanzare la chain in memoria al blocco appena scritto
+    blockGetIndex(new_block, &new_index);
+    if (last_block != NULL) blockDestroy(last_block);
+    last_block = new_block;         // il globale prende possesso di new_block
+    chain_length = new_index + 1;
+
+out:
+    if (f != NULL) fclose(f);
+    if (csv_tail != NULL) 
+    blockDestroy(csv_tail);
     sem_post(sem);
+    // aggiorna la copia locale del node copiandola dal CSV condiviso
+    if( rc == 0 || rc == CHAIN_MISMATCH || rc == BLOCK_ALREADY_PRESENT) {
+        mirror_shared_to_local();
+    }
     sem_close(sem);
-    return 0;
+    return rc;
 }
 
+
+//funzione per caricare lo stato iniziale della blockchain da un file csv
 static int load_initial_state(const char *csv_path) {
+    if (csv_path == NULL || strlen(csv_path) == 0) return 0;
+ 
     FILE *f = fopen(csv_path, "r");
     if (f == NULL) {
+        if (errno == ENOENT) {
+            f = fopen(csv_path, "w");
+            if (f == NULL) {
+                log_msg("ERROR: creazione %s fallita: %s", csv_path, strerror(errno));
+                return CSV_ERROR;
+            }
+            fclose(f);
+            log_msg("CSV non esistente, creato nuovo file: %s", csv_path);
+            return 0;
+        }
         log_msg("ERROR: impossibile aprire %s: %s", csv_path, strerror(errno));
-        return -1;
+        return CSV_ERROR;
     }
-
+ 
     char line[BLOCK_CSV_LINE_SIZE];
     Block *prev = NULL;
-
+ 
     long first_pos = ftell(f);
     if (fgets(line, sizeof(line), f) != NULL) {
         if (strncmp(line, "index,", 6) != 0) {
             fseek(f, first_pos, SEEK_SET);
         }
     }
-
+ 
     while (fgets(line, sizeof(line), f) != NULL) {
         line[strcspn(line, "\n")] = '\0';
         if (strlen(line) == 0) continue;
-
+ 
         Block *b = blockCreate();
         if (b == NULL) {
             log_msg("ERROR: blockCreate fallito");
@@ -132,32 +297,33 @@ static int load_initial_state(const char *csv_path) {
             if (prev) blockDestroy(prev);
             return -1;
         }
-
+ 
         if (blockFromCsv(b, line) != 0) {
             log_msg("ERROR: blockFromCsv fallito su: %s", line);
             blockDestroy(b);
             fclose(f);
             if (prev) blockDestroy(prev);
-            return -1;
+            return INVALID_BLOCK;
         }
-
+ 
         if (prev) blockDestroy(prev);
         prev = b;
         chain_length++;
     }
-
+ 
     fclose(f);
-
+ 
     pthread_mutex_lock(&chain_mutex);
     if (last_block) blockDestroy(last_block);
     last_block = prev;
     pthread_mutex_unlock(&chain_mutex);
-
+ 
     log_msg("Stato iniziale caricato: %llu blocchi",
             (unsigned long long)chain_length);
     return 0;
 }
 
+//funzione per validare il merkle root di un blocco
 static int validate_merkle(const Block *block_ptr) {
     char computed[MERKLE_ROOT_HEX_SIZE + 1];
     char stored[MERKLE_ROOT_HEX_SIZE + 1];
@@ -180,263 +346,499 @@ static int validate_merkle(const Block *block_ptr) {
     return 0;
 }
 
+static int createNodeFifos(const int num_miners) {
+    to_miner   = (int*) malloc(sizeof(int) * num_miners);
+    from_miner = (int*) malloc(sizeof(int) * num_miners);
+ 
+    if (to_miner == NULL || from_miner == NULL) {
+        fprintf(stderr, "MINER: malloc fd arrays fallita\n");
+        free(to_miner);
+        free(from_miner);
+        return -1;
+    }
 
-/*
- * process_block - Valida un blocco ricevuto e lo aggiunge alla chain locale.
- *
- * PARAMETRI:
- *    new_block  - blocco da validare e aggiungere
- *    from_miner - 1 se arriva da un miner, 0 se da un altro node.
- *                 Per ora non usato, servirà per la propagazione tra node.
- *
- * CONCORRENZA:
- *    Acquisisce chain_mutex all'inizio per garantire che un solo thread
- *    alla volta modifichi last_block e chain_length. Due thread che
- *    ricevono blocchi contemporaneamente vengono serializzati qui:
- *    il primo acquisisce il mutex e vince, il secondo aspetta e poi
- *    trova last_block già aggiornato e fallisce la validazione.
- *
- * FLUSSO:
- *
- * 1. Acquisisce chain_mutex
- *
- * 2. Calcola l'hash del blocco
- *
- * 3. Decide il caso:
- *
- *    CASO GENESIS (last_block == NULL && chain_length == 0)
- *    → Chain vuota, è il primo blocco della blockchain.
- *    → Viene accettato senza validare prev_hash perché non esiste
- *      un blocco precedente da confrontare.
- *
- *    CASO NORMALE (last_block != NULL)
- *    → blockValidate: controlla che index == last_block.index + 1
- *                     controlla che prev_hash == hash(last_block)
- *                     Se fallisce ritorna CHAIN_MISMATCH.
- *    → validate_merkle: ricalcola il merkle root dalle transazioni
- *                       e lo confronta con quello dichiarato nel blocco.
- *                       Se fallisce ritorna INVALID_BLOCK.
- *
- *    CASO INCONSISTENTE (last_block == NULL && chain_length > 0)
- *    → Stato interno corrotto — non dovrebbe mai accadere.
- *    → Ritorna -1.
- *
- * 4. Blocco valido — aggiorna la chain
- *    → Salva last_block in old
- *    → last_block = new_block
- *    → chain_length++
- *
- * 5. Rilascia chain_mutex
- *    Il mutex viene rilasciato prima di scrivere sul CSV per non
- *    tenerlo bloccato durante operazioni lente su disco.
- *
- * 6. Libera la memoria del blocco precedente ora che non serve più.
- *
- * 7. Scrive il blocco sul CSV
- *    append_block_to_csv usa il semaforo POSIX per garantire
- *    accesso esclusivo al file condiviso tra tutti i node.
- *
- * RITORNA:
- *    0             se il blocco è stato accettato
- *    CHAIN_MISMATCH se index o prev_hash non validi
- *    INVALID_BLOCK  se merkle root non valido
- *    -1             in caso di errore interno
- */
+    for (int i = 0; i < num_miners; i++) {
+        to_miner[i]   = -1;
+        from_miner[i] = -1;
+    }
+ 
+    ChildProcess *cp = childProcessCreate();
 
-static int process_block(Block *new_block, int from_miner) {
-    (void)from_miner; 
-    pthread_mutex_lock(&chain_mutex);
+    if (cp == NULL) {return -1;}
 
-    char hash[HASH_HEX_SIZE + 1];
-    blockGetHash(new_block, hash);
+    if (status == NULL) {
+    fprintf(stderr, "NODE: status non inizializzato\n");
+    childProcessDestroy(cp);
+    return -1;
+    }
 
-    if (last_block == NULL && chain_length == 0) {
-        log_msg("Blocco genesis ricevuto: hash=%.16s...", hash);
-
-    } else if (last_block != NULL) {
-
-            uint64_t new_index;
-            uint64_t last_index;
-            blockGetIndex(new_block, &new_index);
-            blockGetIndex(last_block, &last_index);
-
-            if (new_index > last_index + 1) {
-                log_msg("ERROR: blocco troppo avanti, index=%llu atteso=%llu",
-                        (unsigned long long)new_index,
-                        (unsigned long long)(last_index + 1));
-                pthread_mutex_unlock(&chain_mutex);
-                return BLOCK_TOO_FAR;
+    nSGetCPChildProcess(status,cp);
+ 
+    int id;
+    if (getCpId(cp, &id) != 0 || id < 0) {
+        childProcessDestroy(cp);
+        return -1;
+    }
+    
+    childProcessDestroy(cp);    
+    for (int i = 0; i < num_miners; i++) {
+        char path_to[64];
+        snprintf(path_to, sizeof(path_to), "%s%d%d", NODE_MINER_FIFO, id, i);
+ 
+        if (mkfifo(path_to, 0666) < 0 && errno != EEXIST) {
+            fprintf(stderr, "NODE %d: mkfifo %s fallita: %s\n",
+                    id, path_to, strerror(errno));
+            return -1;
+        }
+ 
+        do {
+            to_miner[i] = open(path_to, O_WRONLY | O_NONBLOCK);
+            if (to_miner[i] < 0 && errno != ENXIO) {
+                fprintf(stderr,"open path_to");
+                return -1;
             }
-
-        if (blockValidate(new_block, last_block) != 0) {
-            log_msg("ERROR: CHAIN_MISMATCH, blocco scartato");
-            pthread_mutex_unlock(&chain_mutex);
-            return CHAIN_MISMATCH;
+            if (to_miner[i] < 0) usleep(10000);
+        } while (to_miner[i] < 0);
+ 
+        if (fcntl(to_miner[i], F_SETPIPE_SZ, PIPE_BUF) < 0) {
+            fprintf(stderr, "NODE %d: fcntl to_miner[%d] fallita: %s\n",
+                    id, i, strerror(errno));
+            return -1;
         }
-
-        if (validate_merkle(new_block) != 0) {
-            log_msg("ERROR: Merkle root non valido, blocco scartato");
-            pthread_mutex_unlock(&chain_mutex);
-            return INVALID_MERKLE; 
+ 
+        fprintf(stderr, "NODE %d: to_miner[%d] aperto (fd=%d path=%s)\n",
+                id, i, to_miner[i], path_to);
+    }
+ 
+    for (int i = 0; i < num_miners; i++) {
+        char path_from[64];
+        snprintf(path_from, sizeof(path_from), "%s%d%d", MINER_NODE_FIFO, i, id);
+ 
+        do {
+            from_miner[i] = open(path_from, O_RDONLY);
+            if (from_miner[i] < 0 && errno != ENXIO && errno != ENOENT) {
+                fprintf(stderr, "NODE %d: open %s fallita: %s\n",
+                        id, path_from, strerror(errno));
+                return -1;
+            }
+            if (from_miner[i] < 0) usleep(10000);
+        } while (from_miner[i] < 0);
+ 
+        if (fcntl(from_miner[i], F_SETPIPE_SZ, PIPE_BUF) < 0) {
+            fprintf(stderr, "NODE %d: fcntl from_miner[%d] fallita: %s\n",
+                    id, i, strerror(errno));
+            return -1;
         }
-
-    } else {
-        log_msg("ERROR: stato interno inconsistente");
-        pthread_mutex_unlock(&chain_mutex);
-        return -1;
+ 
+        fprintf(stderr, "NODE %d: from_miner[%d] aperto (fd=%d path=%s)\n",
+                id, i, from_miner[i], path_from);
     }
-
-    Block *old = last_block;
-    last_block = new_block;
-    chain_length++;
-
-    pthread_mutex_unlock(&chain_mutex);
-
-    if (old) blockDestroy(old);
-
-    if (append_block_to_csv(new_block) != 0) {
-        log_msg("ERROR: scrittura CSV fallita");
-        return -1;
-    }
-
-    log_msg("Blocco accettato: index=%llu hash=%.16s...",
-            (unsigned long long)(chain_length - 1), hash);
-
+ 
     return 0;
 }
 
+//funzione per chiudere e rimuovere le fifo del nodo
+static void destroyNodeFifos(int num_nodes) {
+    if (to_miner != NULL) {
+        for (int i = 0; i < num_nodes; i++) {
+            if (to_miner[i] >= 0) close(to_miner[i]);
+        }
+        free(to_miner);
+        to_miner = NULL;
+    }
+    if (from_miner != NULL) {
+        for (int i = 0; i < num_nodes; i++) {
+            if (from_miner[i] >= 0) close(from_miner[i]);
+        }
+        free(from_miner);
+        from_miner = NULL;
+    }
+}
 
+
+
+
+//manda una BlockResponse a un singolo miner
+static int notify_miner(int miner_idx, uint64_t block_index, BlockValidationResult result) {
+    if (to_miner[miner_idx] < 0) return -1;
+ 
+    BlockResponse resp;
+    resp.block_index = block_index;
+    resp.miner_id    = miner_idx;
+    resp.result      = result;
+ 
+    ssize_t written = write(to_miner[miner_idx], &resp, sizeof(BlockResponse));
+    if (written != sizeof(BlockResponse)) {
+        log_msg("ERROR: notify_miner %d fallita", miner_idx);
+        return -1;
+    }
+ 
+    log_msg("Notificato miner %d: block_index=%llu result=%s",
+            miner_idx,
+            (unsigned long long)block_index,
+            result == BLOCK_VALID ? "VALID" : "INVALID");
+    return 0;
+}
+ 
+//manda una BlockResponse a tutti i miner
+static void notify_all_miners(uint64_t block_index, BlockValidationResult result) {
+    for (int i = 0; i < num_miners; i++) {
+        notify_miner(i, block_index, result);
+    }
+}
+
+static int process_block(Block *new_block) {
+    if (new_block == NULL) return INVALID_BLOCK;
+
+    char hash[HASH_HEX_SIZE + 1];
+    if (blockGetHash(new_block, hash) != 0) {
+        log_msg("ERROR: blockGetHash fallito");
+        return -1;
+    }
+
+    // Validazione del Blocco ( essendo che dipende solo dalle transazioni,
+    // la validazione la facciamo al di fuori del lock
+        if (validate_merkle(new_block) != 0) {
+        log_msg("ERROR: INVALID_MERKLE hash=%.16s...", hash);
+        return INVALID_MERKLE;
+    }
+
+    pthread_mutex_lock(&chain_mutex);
+
+    // L'autorità è della coda del CSV condiviso quindi si ri-sincronizza la blockchain,
+    // basandosi su quella e in caso di Blocco validato la si aggiorna
+
+    int rc = commit_block_to_shared_csv(new_block);
+    if (rc != 0) {
+        pthread_mutex_unlock(&chain_mutex);
+        return rc;
+    }
+
+    uint64_t len = chain_length;
+    pthread_mutex_unlock(&chain_mutex);
+
+    nSSetLastBlock(status, new_block);
+    nSSetChainLength(status, len);
+    nSSetState(status, NODE_IDLE);
+
+    log_msg("Blocco accettato: index=%llu hash=%.16s...",
+            (unsigned long long)(len - 1), hash);
+    return 0;
+}
+ 
+/*legge blocchi dai miner con select() e li valida.
+ *
+ * FLUSSO:
+ *   1. select() su tutti i from_miner in attesa di blocchi
+ *   2. Per ogni pipe pronta legge il messaggio e deserializza il blocco
+ *   3. Valida il blocco con process_block
+ *   4. Se valido:
+ *     Bisogna implementare la propagazione del blocco agli altri nodi (non implementata in questa funzione)
+ *   5. Se non valido:
+ *      - manda BLOCK_INVALID solo al miner che lo ha inviato
+ *      - continua ad ascoltare
+ */
 static void *listener_thread(void *arg) {
-    ListenerArgs *args = (ListenerArgs *)arg;
-    int server_fd = args->server_fd;
+    (void)arg;
+ 
+    log_msg("Listener thread avviato, ascolto su %d miner", num_miners);
+ 
+    int block_accepted = 0;
+ 
+    while (running && !block_accepted) {
+        fd_set rfds;
+        FD_ZERO(&rfds);
+        int maxfd = -1;
+ 
+        for (int i = 0; i < num_miners; i++) {
+            if (from_miner[i] < 0) continue;
+            FD_SET(from_miner[i], &rfds);
+            if (from_miner[i] > maxfd) maxfd = from_miner[i];
+        }
+ 
+        if (maxfd < 0) {
+            log_msg("Tutte le pipe dei miner chiuse, listener termina");
+            break;
+        }
 
-    log_msg("Listener socket avviato");
-
-    while (running) {
-        int client_fd = accept(server_fd, NULL, NULL);
-        if (client_fd < 0) {
+        struct timeval tv = { .tv_sec = 1, .tv_usec = 0 };
+        int ready = select(maxfd + 1, &rfds, NULL, NULL, &tv);
+ 
+        if (ready < 0) {
             if (errno == EINTR) continue;
-            if (!running) break;
-            log_msg("ERROR: accept fallita: %s", strerror(errno));
-            continue;
+            log_msg("ERROR: select fallita: %s", strerror(errno));
+            break;
         }
-
-        Message msg;
-        messageInit(&msg);
-
-        int r = receiveMessage(client_fd, &msg);
-        if (r != 0) {
-            log_msg("ERROR: receiveMessage fallita: %d", r);
-            close(client_fd);
-            continue;
-        }
-
-        close(client_fd);
-
-        MessageType type;
-        messageGetType(&msg, &type);
-
-        if (type == MSG_BLOCK_MINED) {
-            log_msg("Ricevuto MSG_BLOCK_MINED da miner");
-
-            char csv_line[BLOCK_CSV_LINE_SIZE];
-            if (messageGetPayload(&msg, csv_line, sizeof(csv_line)) != 0) {
-                log_msg("ERROR: messageGetPayload fallita");
+ 
+        if (ready == 0) continue;  
+ 
+        for (int i = 0; i < num_miners; i++) {
+            if (from_miner[i] < 0)               continue;
+            if (!FD_ISSET(from_miner[i], &rfds)) continue;
+ 
+            Message msg;
+            messageInit(&msg);
+ 
+            int r = receiveMessage(from_miner[i], &msg);
+            if (r == SOCKET_CLOSED) {
+                log_msg("Pipe del miner %d chiusa", i);
+                close(from_miner[i]);
+                from_miner[i] = -1;
                 continue;
             }
-
+            if (r != 0) {
+                log_msg("ERROR: receiveMessage dal miner %d fallita: %d", i, r);
+                continue;
+            }
+ 
+            MessageType type;
+            messageGetType(&msg, &type);
+ 
+            if (type != MSG_BLOCK_MINED) {
+                log_msg("WARN: tipo messaggio inatteso dal miner %d: %d", i, type);
+                continue;
+            }
+ 
+            log_msg("Ricevuto MSG_BLOCK_MINED dal miner %d", i);
+ 
+            char csv_line[BLOCK_CSV_LINE_SIZE];
+            if (messageGetPayload(&msg, csv_line, sizeof(csv_line)) != 0) {
+                log_msg("ERROR: messageGetPayload fallita (miner %d)", i);
+                continue;
+            }
+ 
             Block *new_block = blockCreate();
             if (new_block == NULL) {
                 log_msg("ERROR: blockCreate fallita");
                 continue;
             }
-
+ 
             if (blockFromCsv(new_block, csv_line) != 0) {
-                log_msg("ERROR: blockFromCsv fallita");
+                log_msg("ERROR: blockFromCsv fallita (miner %d)", i);
                 blockDestroy(new_block);
                 continue;
             }
-
-            /* processo il blocco */
-            if (process_block(new_block, 1) != 0) {
+ 
+            uint64_t block_index;
+            blockGetIndex(new_block, &block_index);
+ 
+            int res = process_block(new_block);
+ 
+            if (res == 0) {
+                log_msg("Blocco dal miner %d accettato", i);
+                notify_all_miners(block_index, BLOCK_VALID);
+            } else if(res == BLOCK_ALREADY_PRESENT){
+                log_msg("Blocco dal miner %d gia' presente",i);
                 blockDestroy(new_block);
             }
-
-        } else {
-            log_msg("WARN: tipo messaggio inatteso: %d", type);
+            else {
+                log_msg("Blocco dal miner %d rifiutato (codice %d)", i, res);
+                blockDestroy(new_block);
+                notify_miner(i, block_index, BLOCK_INVALID);
+            }
         }
     }
-
-    log_msg("Listener socket terminato");
+ 
+    log_msg("Listener thread terminato");
     return NULL;
 }
 
+int main (int argc, char* argv[]){
 
+    // Il processo node viene avviato dal bootstrap/launcher
 
-
-int main(int argc, char *argv[]) {
-    if (argc < 6) {
-        fprintf(stderr,
-            "Utilizzo: %s <id> <num_nodes> <server_fd> <initial_csv> <fifo0> [fifo1 ...]\n",
-            argv[0]);
-        return 1;
+    if (argc < 4 ) {
+        fprintf(stderr, "Utilizzo: %s <node_id> <num_nodes> <num_miners>\n",argv[0]);
+    return INVALID_PARAMS;
     }
 
-    node_id         = atoi(argv[1]);
-    num_nodes       = atoi(argv[2]);
-    int server_fd   = atoi(argv[3]);
-    const char *initial_csv = argv[4];
 
-    if (node_id < 0 || num_nodes <= 0 || server_fd < 0) {
-        fprintf(stderr, "Argomenti non validi\n");
-        return 1;
+    node_id= atoi(argv[1]); // identifica il nodo
+    num_nodes = atoi(argv[2]); // totale del numero di nodi nel sistema
+    num_miners = atoi(argv[3]); // numero totale di miners (serve per aprire le fifo verso i miner)
+
+
+    if (node_id < 0 || 
+        num_nodes <= 0 || 
+        num_miners <= 0 || 
+        node_id >= num_nodes){
+            fprintf(stderr, "NODE: argomenti non validi\n");
+            return INVALID_PARAMS;
     }
 
-    node_fifos = &argv[5];
-    snprintf(my_fifo, sizeof(my_fifo), "%s", node_fifos[node_id]);
+    char log_path[64]; // ogni processo deve avere il suo file di log
+    snprintf(log_path, 
+            sizeof(log_path),
+            "node-%d.log",
+            (int) getpid()); // usiamo il pid reale
 
-    char log_path[64];
-    snprintf(log_path, sizeof(log_path), "node-%d.log", (int)getpid());
-    log_file = fopen(log_path, "w");
+    log_file = fopen(log_path, "a");
     if (log_file == NULL) {
-        fprintf(stderr, "Impossibile aprire log file\n");
-        return 1;
+        fprintf(stderr, "NODE %d: impossibile aprire il log%s:%s\n", 
+            node_id, 
+            log_path, 
+            strerror(errno));
+        return -1;
     }
 
-    log_msg("Node avviato: id=%d num_nodes=%d", node_id, num_nodes);
-
+    /*Singal handler : se arriva sigterm o sigint, 
+    handle_signal mette runnin g = 0
+    In modo che il processo esca in modo sicuro
+    */ 
+    
     struct sigaction sa;
     sa.sa_handler = handle_signal;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
-    sigaction(SIGTERM, &sa, NULL);
-    sigaction(SIGINT,  &sa, NULL);
 
-    if (strlen(initial_csv) > 0) {
-        if (load_initial_state(initial_csv) != 0) {
-            log_msg("ERROR: caricamento stato iniziale fallito");
-            fclose(log_file);
-            return 1;
-        }
-    }
-
-    pthread_t socket_tid;
-    ListenerArgs largs = { server_fd };
-    if (pthread_create(&socket_tid, NULL, listener_thread, &largs) != 0) {
-        log_msg("ERROR: pthread_create fallita");
+    if(sigaction(SIGTERM, &sa, NULL) == -1 ||
+       sigaction(SIGINT, &sa, NULL) == -1) {
+        fprintf(stderr, "NODE %d: sigaction fallita: %s\n",
+            node_id,
+            strerror(errno));
         fclose(log_file);
-        return 1;
+        return -1;
+       }
+
+    log_msg("Avvio node");
+
+    /*
+    NodeStatus contiene lo stato logico del node
+    ovvero non possedendo i blocchi: conserva solo riferimenti e metadati
+    protetti da un mutex
+    */
+
+    status = nodeCreateStatus();
+    if(status == NULL) {
+        log_msg("ERROR: nodeCreateStatus fallita ");
+        fclose(log_file);
+        return -1;
+    }
+    
+    /*
+    ChildProcess descrive questo processo dal punto di vista logico
+    ovvero pid reale ma id logico e ruolo NODE
+    */
+
+    ChildProcess * cp = childProcessCreate();
+    if (cp == NULL) {
+        log_msg("ERROR: childProcessCreate fallita");
+        nodeDestroyStatus(status);
+        fclose(log_file);
+        return -1;
     }
 
-    log_msg("Thread listener avviato, in attesa di blocchi...");
+    if(childProcessInit(cp,getpid(),node_id,NODE) != 0){
+        log_msg("ERROR: childProcessInit fallita");
+        childProcessDestroy(cp);
+        nodeDestroyStatus(status);
+        fclose(log_file);
+        return INVALID_PARAMS;
+    }
 
-    pthread_join(socket_tid, NULL);
+    /*
+    Copio le informazioni del ChildProcess dentro NodeStatus
+    In modo che NodeStatus abbia una copia , e quindi possiamo distruggere cp
+    */
+
+    if (nodeInitStatus(status, cp, NODE_IDLE, 0) != 0) {
+        log_msg("ERROR: nodeInitStatus fallita");
+        childProcessDestroy(cp);
+        nodeDestroyStatus(status);
+        fclose(log_file);
+        return INVALID_PARAMS;
+    }
+
+    childProcessDestroy(cp);
+
+    /* 
+    Carico la blockchain iniziale dal CVS condiviso
+    Il bootstrap crea questo file prima di lanciare i node 
+    */
+
+     if (load_initial_state(CSV_FILE_NAME) != 0) {
+        log_msg("ERROR: load_initial_state fallita");
+        nodeDestroyStatus(status);
+        fclose(log_file);
+        return CSV_ERROR;
+    }
+
+    /*
+    Sincronizzazione di NodeStatus con lo stato caricato da CSV
+    l'ultimo blocco rimane comunque a node.c mentre
+    NodeStatus possiede il puntatore const
+    */
 
     pthread_mutex_lock(&chain_mutex);
-    if (last_block) blockDestroy(last_block);
+    const Block *loaded_last_block = last_block;
+    uint64_t loaded_chain_length = chain_length;
     pthread_mutex_unlock(&chain_mutex);
 
-    fclose(log_file);
-    log_msg("Node terminato");
+    if(loaded_last_block != NULL) {
+        nSSetLastBlock(status, loaded_last_block);
+    }
+    nSSetChainLength(status,loaded_chain_length);
+
+    /*
+    Creazione del canale di comunicazione node -> Miners    
+    */
+
+    if(createNodeFifos(num_miners) != 0){
+        log_msg("ERROR: createNodeFifos fallita");
+        nodeDestroyStatus(status);
+        if (last_block != NULL) blockDestroy(last_block);
+        fclose(log_file);
+        return FIFO_ERROR;
+    }
+
+    /*
+    Il thread di comunicazione resta in ascolto sul canale dei miner
+    */
+
+    pthread_t listener;
+    if(pthread_create(&listener, NULL, listener_thread, NULL) != 0){
+        log_msg("ERROR: pthread_create listener fallita");
+        destroyNodeFifos(num_miners);
+        nodeDestroyStatus(status);
+        if (last_block != NULL) blockDestroy(last_block);
+        fclose(log_file);
+        return -1;
+    }
+
+    log_msg("Node avviato correttamente");
+
+    /*
+    Il processo si ferma solo in caso di SIGTERM o SIGINT
+    */
+
+    while (running){
+        pause();
+    }
+
+    log_msg("Terminazione del blocco richiesto");
+
+    /*
+    Appena il thred di comunicazione termina , rilasciamo le risorse condivise
+    */
+
+    pthread_join(listener, NULL);
+
+    destroyNodeFifos(num_miners);
+
+    nodeDestroyStatus(status);
+
+    status = NULL;
+
+    if(last_block != NULL) {
+        blockDestroy(last_block);
+        last_block = NULL;
+    }
+
+    if(log_file != NULL) {
+        log_msg("Node terminato");
+        fclose(log_file);
+        log_file = NULL;
+    }
+
     return 0;
 }
