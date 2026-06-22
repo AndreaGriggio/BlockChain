@@ -154,6 +154,91 @@ static int copyInitialCsv(const char *src_path, const char *dst_path) {
 }
 
 /*
+ Verifica che il file CSV fornito come stato iniziale sia una catena valida:
+ header presente, almeno il blocco genesis (indice 0) e ogni blocco
+ successivo collegato al precedente (indice +1 e prev_hash corretto).
+ Serve a rifiutare l'avvio con un CSV corrotto/vuoto/solo-header 
+ Ritorna 0 se valido, altrimenti errore
+*/
+static int verify_csv_chain(const char *path) {
+    FILE *f = fopen(path, "r");
+    if (f == NULL) {
+        fprintf(stderr, "CSV iniziale non apribile: %s\n", path);
+        return CSV_ERROR;
+    }
+
+    char line[BLOCK_CSV_LINE_SIZE];
+
+    // Prima riga: deve esserci l'header
+    if (fgets(line, sizeof line, f) == NULL) {
+        fprintf(stderr, "CSV iniziale vuoto\n");
+        fclose(f);
+        return CSV_ERROR;
+    }
+
+    Block *prev = NULL;
+    int count = 0;   // numero di blocchi letti finora
+
+    while (fgets(line, sizeof line, f) != NULL) {
+        // Salto eventuali righe vuote finali
+        if (line[strspn(line, " \t\r\n")] == '\0') continue;
+
+        Block *b = blockCreate();
+        if (b == NULL) {
+            if (prev) blockDestroy(prev);
+            fclose(f);
+            return MEMORY_ERROR;
+        }
+
+        // Riga malformata: non si riesce a decodificare il blocco
+        if (blockFromCsv(b, line) != 0) {
+            fprintf(stderr, "CSV iniziale: blocco %d malformato\n", count);
+            blockDestroy(b);
+            if (prev) blockDestroy(prev);
+            fclose(f);
+            return INVALID_BLOCK;
+        }
+
+        uint64_t idx = 0;
+        blockGetIndex(b, &idx);
+
+        if (count == 0) {
+            // Genesis: deve avere indice 0
+            if (idx != 0) {
+                fprintf(stderr, "CSV iniziale: il primo blocco deve avere indice 0\n");
+                blockDestroy(b);
+                fclose(f);
+                return INVALID_BLOCK;
+            }
+        } else {
+            // Blocco successivo: collegato al precedente (indice +1 e prev_hash)
+            if (blockValidate(b, prev) != 0) {
+                fprintf(stderr, "CSV iniziale: blocco %llu non collegato al precedente\n",
+                        (unsigned long long)idx);
+                blockDestroy(b);
+                blockDestroy(prev);
+                fclose(f);
+                return CHAIN_MISMATCH;
+            }
+        }
+
+        if (prev) blockDestroy(prev);
+        prev = b;
+        count++;
+    }
+
+    fclose(f);
+    if (prev) blockDestroy(prev);
+
+    // Serve almeno il blocco genesis
+    if (count == 0) {
+        fprintf(stderr, "CSV iniziale senza blocchi (solo header)\n");
+        return CSV_ERROR;
+    }
+    return 0;
+}
+
+/*
 Crea il blocco genesis ovvero il primo blocco della blockchain e lo scrive nel file CSV specificato.
 Ritorna 0 se tutto ok, altrimenti un codice di errore. (error.h)
 Usato solo se l'utente non ha fornito un file CSV iniziale.
@@ -293,6 +378,14 @@ static volatile sig_atomic_t running = 1;
 static void handle_signal(int sig) {
     if (sig == SIGINT || sig == SIGTERM) running = 0;
 }
+/*
+ Raccoglie i figli terminati senza bloccare nulla:
+ evita che restino processi zombie in tabella tra un crash e lo shutdown. WNOHANG = non aspetta nessuno.
+*/
+static void handle_sigchld(int sig) {
+    (void)sig;
+    while (waitpid(-1, NULL, WNOHANG) > 0) { }
+}
 
 static pid_t spawn_child(char *const argv[]) {
     pid_t pid = fork();
@@ -366,6 +459,105 @@ static int submit_transaction(const char *tx) {
     return rc;
 }
 
+/*
+ Legge il CSV condiviso e stampa i blocchi richiesti
+ - what = "blockchain" o "block" 
+ - flag = NULL, "--index" o "--hash"
+ - val  = valore del filtro (indice in decimale, oppure hash) o NULL
+ Legge sotto il semaforo CSV_SEM_NAME per non leggere mentre un node scrive
+ Ritorna 0 se ok, altrimenti errore
+*/
+static int request_blocks(const char *what, const char *flag, const char *val) {
+    // Tipo di richiesta e filtro
+    int single   = (strcmp(what, "block") == 0);   // "block" -> un solo blocco
+    int by_index = (flag != NULL && strcmp(flag, "--index") == 0);
+    int by_hash  = (flag != NULL && strcmp(flag, "--hash")  == 0);
+
+    // Controllo
+    if (single && flag == NULL)                  return INVALID_PARAMS;
+    if (flag != NULL && !by_index && !by_hash)   return INVALID_PARAMS;
+    if ((by_index || by_hash) && val == NULL)    return INVALID_PARAMS;
+
+    uint64_t want_index = by_index ? strtoull(val, NULL, 10) : 0;
+
+    // Accedo a CS
+    sem_t *sem = sem_open(CSV_SEM_NAME, 0);
+    if (sem == SEM_FAILED) return SEM_ERROR;
+    sem_wait(sem);
+
+    FILE *f = fopen(BLOCKCHAIN_CSV_PATH, "r");
+    if (f == NULL) {
+        sem_post(sem);
+        sem_close(sem);
+        return CSV_ERROR;
+    }
+
+    char line[BLOCK_CSV_LINE_SIZE];
+    int header  = 1;   // la prima riga e' l'intestazione
+    int started = 0;   // per --hash sulla catena
+    int found   = 0;
+
+    while (fgets(line, sizeof line, f) != NULL) {
+        if (header) { header = 0; continue; }   // salto l'header
+
+        // Parso una copia interna (blockFromCsv non tocca 'line') per index/hash
+        Block *b = blockCreate();
+        if (b == NULL) break;
+        if (blockFromCsv(b, line) != 0) { blockDestroy(b); continue; }
+
+        uint64_t idx = 0;
+        char hash[HASH_HEX_SIZE + 1];
+        blockGetIndex(b, &idx);
+        blockGetHash(b, hash);
+        blockDestroy(b);
+
+        // Decido se la riga corrente rientra nella richiesta
+        int match = 0;
+        if (flag == NULL) {
+            match = 1;                                       // tutta la catena
+        } else if (by_index) {
+            match = single ? (idx == want_index) : (idx >= want_index);
+        } else { // by_hash
+            if (single) {
+                match = (strcmp(hash, val) == 0);
+            } else {
+                if (!started && strcmp(hash, val) == 0) started = 1;
+                match = started;                             // dal blocco con quell'hash in poi
+            }
+        }
+
+        if (match) {
+            fputs(line, stdout);   // la riga ha gia' il newline finale
+            found = 1;
+            if (single) break;     // un singolo blocco: mi fermo al primo match
+        }
+    }
+
+    fclose(f);
+    sem_post(sem);
+    sem_close(sem);
+
+    return found ? 0 : BLOCK_NOT_FOUND;
+}
+
+/*
+ Salva il CSV condiviso nel file richiesto, sotto il semaforo CSV_SEM_NAME
+ per non copiare mentre un node sta scrivendo un blocco.
+ Ritorna 0 se ok, altrimenti errore
+ */
+
+static int save_blockchain(const char *fname) {
+    sem_t *sem = sem_open(CSV_SEM_NAME, 0);
+    if (sem == SEM_FAILED) return SEM_ERROR;
+    sem_wait(sem);
+
+    // Copia vera e propria dentro la sezione critica
+    int rc = copyInitialCsv(BLOCKCHAIN_CSV_PATH, fname);
+
+    sem_post(sem);
+    sem_close(sem);
+    return rc;
+}
 
 int main(int argc, char *argv[]) {
 	BootstrapConfig cfg;
@@ -385,13 +577,20 @@ int main(int argc, char *argv[]) {
 			return rc2;
 		}
 			printf("Genesis block creato con successo in %s\n", BLOCKCHAIN_CSV_PATH);
-		}else{
-		int rc2 = copyInitialCsv(cfg.initial_csv, BLOCKCHAIN_CSV_PATH);
+		} else {
+			// Prima di accettare lo stato iniziale, ne verifichiamo l'integrita'
+			int rcv = verify_csv_chain(cfg.initial_csv);
+			if (rcv != 0) {
+				fprintf(stderr, "CSV iniziale non valido, avvio annullato\n");
+				return rcv;
+			}
+			int rc2 = copyInitialCsv(cfg.initial_csv, BLOCKCHAIN_CSV_PATH);
 			if (rc2 != 0) {
-			return rc2;
+				return rc2;
 			}
 			printf("File CSV iniziale copiato da %s a %s con successo\n", cfg.initial_csv, BLOCKCHAIN_CSV_PATH);
-			}
+		}
+
 	
 		if (ensureTmpDir() != 0) {
         return CSV_ERROR;
@@ -421,6 +620,17 @@ int main(int argc, char *argv[]) {
     sa.sa_flags = 0;
     sigaction(SIGINT,  &sa, NULL);
     sigaction(SIGTERM, &sa, NULL);
+
+    /* 
+    Reaper degli zombie: 
+    SA_RESTART per non interrompere la fgets del REPL,
+    SA_NOCLDSTOP per non scattare su pause/resume (SIGSTOP/SIGCONT). 
+    */
+    struct sigaction sc;
+    sc.sa_handler = handle_sigchld;
+    sigemptyset(&sc.sa_mask);
+    sc.sa_flags = SA_RESTART | SA_NOCLDSTOP;
+    sigaction(SIGCHLD, &sc, NULL);
 
     /* 
 	I parametri vanno passati ai figli via argv come stringhe:
@@ -469,7 +679,7 @@ int main(int argc, char *argv[]) {
     Se arriva SIGINT/SIGTERM mentre fgets e' bloccata, fgets ritorna NULL
     Ctrl-D (EOF) lo trattiamo come 'stop'.
     */
-    char line[512];
+        char line[512];
     printf("> ");
     fflush(stdout);
 
@@ -480,7 +690,7 @@ int main(int argc, char *argv[]) {
 
         // il primo token e' il comando
         char *cmd = strtok(line, " ");
-        if (cmd == NULL) {           
+        if (cmd == NULL) {
             printf("> ");
             fflush(stdout);
             continue;
@@ -495,7 +705,7 @@ int main(int argc, char *argv[]) {
             killpg(child_pgid, SIGCONT);
             printf("Sistema ripreso\n");
 
-		        } else if (strcmp(cmd, "submit") == 0) {
+        } else if (strcmp(cmd, "submit") == 0) {
             // Argomento dopo "submit"
             char *arg = strtok(NULL, "");
             if (arg == NULL) {
@@ -513,6 +723,36 @@ int main(int argc, char *argv[]) {
                     printf("Transazione rifiutata (malformata o invio fallito)\n");
             }
 
+        } else if (strcmp(cmd, "save") == 0) {
+            // Sotto-comando e nome file
+            char *what  = strtok(NULL, " ");
+            char *fname = strtok(NULL, " ");
+            if (what == NULL || strcmp(what, "blockchain") != 0 || fname == NULL) {
+                printf("Uso: save blockchain <filename>\n");
+            } else {
+                    if (save_blockchain(fname) == 0)
+                    printf("Blockchain salvata in %s\n", fname);
+                else
+                    printf("Salvataggio fallito\n");
+            }
+		} else if (strcmp(cmd, "request") == 0) {
+            // Sotto-comando + eventuale flag/valore
+            char *what = strtok(NULL, " ");
+            char *flag = strtok(NULL, " ");
+            char *val  = strtok(NULL, " ");
+            if (what == NULL ||
+                (strcmp(what, "blockchain") != 0 && strcmp(what, "block") != 0)) {
+                printf("Uso: request blockchain [--index <i> | --hash <h>]  |  request block --index <i> | --hash <h>\n");
+            } else {
+                int r = request_blocks(what, flag, val);
+                if (r == INVALID_PARAMS)
+                    printf("Uso: request blockchain [--index <i> | --hash <h>]  |  request block --index <i> | --hash <h>\n");
+                else if (r == BLOCK_NOT_FOUND)
+                    printf("Nessun blocco trovato\n");
+                else if (r != 0)
+                    printf("Errore nella request (codice %d)\n", r);
+            }
+
         } else if (strcmp(cmd, "stop") == 0) {
             // Uscita dal loop, poi terminazione
             running = 0;
@@ -522,10 +762,10 @@ int main(int argc, char *argv[]) {
             printf("Comando sconosciuto: %s\n", cmd);
         }
 
-
         printf("> ");
         fflush(stdout);
     }
+
 
     /* 
 	Shutdown : prima avviamo la terminazione ordinata (SIGTERM),
