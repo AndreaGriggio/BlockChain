@@ -9,7 +9,7 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-#include "childProcess.h"
+#include "../childProcess.h"
 typedef enum MinerState {
     MINER_IDLE        = 0,//Non fa mining funziona solo la comunicazione
     MINER_MINING      = 1,//Fa mining

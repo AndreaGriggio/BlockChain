@@ -24,7 +24,7 @@
 #include "minerThread.h"
 #include "minerCommunicationProtocol.h"
 #include "transactionPool.h"
-#include "utils.h"
+#include "../utils.h"
 
 
 static MinerStatus* status = NULL;

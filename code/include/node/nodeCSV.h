@@ -2,7 +2,7 @@
 #define NODECSV_H
 
 #include "nodeContext.h"
-#include "block.h"
+#include "../block.h"
 
 /*
  * Copia il CSV condiviso nella copia locale del node.

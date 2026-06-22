@@ -2,7 +2,7 @@
 #define NODE_VALIDATION_H
 
 #include "nodeContext.h"
-#include "block.h"
+#include "../block.h"
 
 /*
  * Valida il merkle root di un blocco ricalcolandolo dalle transazioni

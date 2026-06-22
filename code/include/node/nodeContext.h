@@ -9,7 +9,7 @@
 #include <signal.h>
 #include <pthread.h>
 
-#include "block.h"
+#include "../block.h"
 #include "nodeStatus.h"
 
 typedef struct NodeContext {

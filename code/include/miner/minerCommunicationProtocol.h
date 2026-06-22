@@ -10,8 +10,8 @@
 //
 
 
-#include "block.h"
-#include "transactionPool.h"
+#include "../block.h"
+#include "../communication/transactionPool.h"
 #include "minerStatus.h"
 
 

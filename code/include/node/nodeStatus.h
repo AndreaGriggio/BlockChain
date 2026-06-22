@@ -3,8 +3,8 @@
  
 #include <stdint.h>
 #include <pthread.h>
-#include "childProcess.h"
-#include "block.h"
+#include "../childProcess.h"
+#include "../block.h"
  
 typedef enum {
     NODE_IDLE,        //in ascolto, nessun blocco in elaborazione 

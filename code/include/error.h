@@ -28,4 +28,5 @@ typedef enum error {
     MEMORY_ERROR = 17,       // malloc/realloc fallita
     BLOCK_ALREADY_PRESENT = 18
 }error;
-#endif //ERROR_H
+#endif 
+

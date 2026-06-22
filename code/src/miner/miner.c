@@ -9,7 +9,7 @@
 
 #include "client.h"
 #include "minerStatus.h"
-#include "utils.h"
+#include "../utils.h"
 
 typedef struct Miner {
     

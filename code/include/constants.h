@@ -60,6 +60,5 @@
 
 //argoments constants
 #define MAX_NODE_COUNT 100
-#endif //PROGETTO_CONSTANTS_H
-
+#endif 
 

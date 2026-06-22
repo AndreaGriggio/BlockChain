@@ -2,7 +2,7 @@
 #define NODE_FIFO_H
 
 #include "nodeContext.h"
-#include "communicationProtocol.h"
+#include "../communication/communicationProtocol.h"
 
 /*
  * Crea e apre le FIFO di comunicazione bidirezionale tra il node e tutti i miner.

@@ -10,7 +10,7 @@
 #include "message.h"
 #include "minerStatus.h"
 #include "protocolSocket.h"
-#include "utils.h"
+#include "../utils.h"
 #include <stdlib.h>
 #include <string.h>
 

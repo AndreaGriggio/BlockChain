@@ -5,7 +5,7 @@
 #ifndef PROGETTO_MINER_H
 #define PROGETTO_MINER_H
 
-#include "message.h"
+#include "../communication/message.h"
 #include "minerStatus.h"
 typedef struct Miner Miner;
 
