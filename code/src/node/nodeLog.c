@@ -3,7 +3,11 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <time.h>
+<<<<<<< HEAD
 #include <unistd.h>
+=======
+#include <unistd.h>   // getpid()
+>>>>>>> 2683b2ba9f8ade9be39f6612cc76490a87443c71
 
 void log_msg(NodeContext *ctx, const char *fmt, ...) {
     if (ctx == NULL || ctx->log_file == NULL) return;

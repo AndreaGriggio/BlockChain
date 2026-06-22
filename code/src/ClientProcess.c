@@ -13,6 +13,8 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
+#include <stdarg.h>
+
 /* variabile :  static = definita e valida unicamente su questo file
                 volatile = dice al compilatore che il vaore potrebbe cambiare anche fuori il normale flusso di proramma
                 sig_atomic_t = tipo di variabile rende atomiche letture o scritte che non richiedono più operazioni
@@ -34,6 +36,32 @@ static void handle_signal(int sig) {
     }
 }
 
+static int   client_id = -1;
+static FILE *log_file  = NULL;
+
+// Log con timestamp su file client-<pid>.log (stesso formato del node)
+static void log_msg(const char *fmt, ...) {
+    if (log_file == NULL) return;
+
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    struct tm *tm_info = localtime(&ts.tv_sec);
+    char time_buf[32];
+    strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", tm_info);
+
+    fprintf(log_file, "[%s.%03ld] [CLIENT-%d|PID-%d] ",
+            time_buf, ts.tv_nsec / 1000000, client_id, (int)getpid());
+
+    va_list args;
+    va_start(args, fmt);
+    vfprintf(log_file, fmt, args);
+    va_end(args);
+
+    fprintf(log_file, "\n");
+    fflush(log_file);
+}
+
+
 int main(int argc, char* argv[]) {
     /*Argomenti da passare :
      *    1. frequenza di transazioni
@@ -54,6 +82,18 @@ int main(int argc, char* argv[]) {
         fprintf(stderr, "id non valido \n");
         return 1;
     }
+
+    // Apertura del file di log: client-<pid>.log
+    client_id = id;
+    char log_path[64];
+    snprintf(log_path, sizeof(log_path), "client-%d.log", (int)getpid());
+    log_file = fopen(log_path, "a");
+    if (log_file == NULL) {
+        fprintf(stderr, "CLIENT %d : impossibile aprire il log %s\n", id, log_path);
+        return 1;
+    }
+    log_msg("Avvio client (frequenza=%d)", transaction_frequency);
+
     srand ((unsigned int)(time(NULL) ^ getpid()));
 
     //installazione dell'handler del segnale all'interno del processo
@@ -109,53 +149,57 @@ int main(int argc, char* argv[]) {
     strncpy(addr.sun_path,
         MINERS_SOCKET,
           sizeof(addr.sun_path)-1);
-
+    
     while (running) {
 
         sleep(transaction_frequency);
-
         if (!running) break;
 
-        if ( clientGenerateTransaction(client) == 0) {
+        if (clientGenerateTransaction(client) == 0) {
 
             Message message;
             messageInit(&message);
-
-            messageSetType(&message,MSG_NEW_TX);
-            messageSetSender(&message,childProcess);
+            messageSetType(&message, MSG_NEW_TX);
+            messageSetSender(&message, childProcess);
 
             char transaction[MAX_TR_LENGHT+1];
-            if (clientGetTransaction(client,sizeof(transaction),transaction) != 0) {
-                fprintf(stderr, "Getting Transaction it's too difficult");
+            if (clientGetTransaction(client, sizeof(transaction), transaction) != 0) {
+                log_msg("Errore nel recupero della transazione generata");
                 continue;
             }
 
-            printf("[client %d] %s\n",id,transaction);
+            printf("[client %d] %s\n", id, transaction);
             fflush(stdout);
+            log_msg("Transazione generata: %s", transaction);
 
-            messageSetPayload(&message,transaction,strlen(transaction));
+            messageSetPayload(&message, transaction, strlen(transaction));
 
-            int fd = socket(AF_UNIX,SOCK_STREAM,0);
-
+            int fd = socket(AF_UNIX, SOCK_STREAM, 0);
             if (fd < 0) {
-                fprintf(stderr,"Socket Creation Error");
+                log_msg("Errore creazione socket");
                 continue;
             }
 
-            if ( connect(fd,(struct sockaddr *)&addr,sizeof(addr))< 0) {
-                fprintf(stderr, "Socket Connection Error");
+            if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+                log_msg("Errore connessione al socket dei miner");
                 close(fd);
                 continue;
             }
 
-            sendMessage(fd,&message);
+            if (sendMessage(fd, &message) == 0)
+                log_msg("Transazione inviata ai miner");
+            else
+                log_msg("Errore nell'invio della transazione");
 
             close(fd);
 
-        }else {
-            fprintf(stderr,"Client Generation Error");
+        } else {
+            log_msg("Errore nella generazione della transazione");
         }
     }
+
+    log_msg("Terminazione client");
+    if (log_file != NULL) fclose(log_file);
 
     free(client);
     free(childProcess);
