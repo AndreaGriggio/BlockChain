@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "utils.h"
 
@@ -21,6 +22,11 @@ void sha256_of_string(const unsigned char* input,const size_t input_size, char* 
         snprintf(output+i*2,3,"%02x",raw_hash[i]);//conversione binario -> esadecimale
     }
     output[HASH_HEX_SIZE]='\0';
+}
+uint64_t nowUnix(void){
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    return (uint64_t)ts.tv_sec;
 }
 int parse_uint64_hex(const char *str, uint64_t *out){
     if (str == NULL || out == NULL) {
