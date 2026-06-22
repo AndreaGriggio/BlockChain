@@ -32,7 +32,7 @@ void destroyNodeFifos(NodeContext *ctx, int num_miners);
  * @return 0 se tutto è andato bene, -1 in caso di errore
  */
 int notify_miner(NodeContext *ctx, int miner_idx,
-                 uint64_t block_index, BlockValidationResult result);
+                 uint64_t block_index, const char *block_hash, BlockValidationResult result);
 
 /*
  * Manda una BlockResponse a tutti i miner.
@@ -42,6 +42,6 @@ int notify_miner(NodeContext *ctx, int miner_idx,
  * @param result     BLOCK_VALID o BLOCK_INVALID
  */
 void notify_all_miners(NodeContext *ctx,
-                       uint64_t block_index, BlockValidationResult result);
+                       uint64_t block_index, const char *block_hash, BlockValidationResult result);
 
 #endif 

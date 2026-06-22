@@ -92,21 +92,37 @@ void *listener_thread(void *arg) {
                 continue;
             }
 
-            uint64_t block_index;
+            uint64_t block_index = 0;
+            char block_hash[HASH_HEX_SIZE + 1] = {0};
+
             blockGetIndex(new_block, &block_index);
+            blockGetHash(new_block, block_hash);
 
             int res = process_block(ctx, new_block);
 
             if (res == 0) {
                 log_msg(ctx, "Blocco dal miner %d accettato", i);
-                notify_all_miners(ctx, block_index, BLOCK_VALID);
+                notify_all_miners(ctx, block_index, block_hash, BLOCK_VALID);
             } else if (res == BLOCK_ALREADY_PRESENT) {
                 log_msg(ctx, "Blocco dal miner %d gia' presente", i);
                 blockDestroy(new_block);
             } else {
+                char last_hash[HASH_HEX_SIZE + 1] = {0};    //invio hash dell'ultimo blocco valido 
+                uint64_t last_index = 0;
+
+                pthread_mutex_lock(&ctx->chain_mutex);
+
+                if (ctx->last_block != NULL) {
+                    blockGetIndex(ctx->last_block, &last_index);
+                    blockGetHash(ctx->last_block, last_hash);
+                }
+
+                pthread_mutex_unlock(&ctx->chain_mutex);
+
                 log_msg(ctx, "Blocco dal miner %d rifiutato (codice %d)", i, res);
                 blockDestroy(new_block);
-                notify_miner(ctx, i, block_index, BLOCK_INVALID);
+
+                notify_miner(ctx, i, last_index, last_hash, BLOCK_INVALID);
             }
         }
     }

@@ -1,5 +1,3 @@
-#include "error.h" /* codici di errore comuni  */
-#include "block.h" // Block, TxList, blockCreate, blockInit, blockToCsv, blockDestroy
 #include <stdio.h>
 #include <time.h> // time() per il timestamp del blocco genesis
 #include <stdlib.h> // atoi()
@@ -11,13 +9,14 @@
 #include <sys/socket.h>  // socket, bind, listen
 #include <sys/un.h>      // struct sockaddr_un
 #include <sys/stat.h>    // mkdir
-#include "constants.h"   // MINERS_SOCKET
 #include <signal.h>     // sigaction
 #include <sys/wait.h>   // waitpid
-#include "message.h"        // Message, MSG_NEW_TX, sendMessage (protocolSocket.h/childProcess.h)
-#include "childProcess.h"   // ChildProcess per identificare il mittente
-#include "utils.h"          // validateTransaction 
-
+#include "../include/error.h" /* codici di errore comuni  */
+#include "../include/block.h" // Block, TxList, blockCreate, blockInit, blockToCsv, blockDestroy
+#include "../include/constants.h"   // MINERS_SOCKET
+#include "../include/childProcess.h"   // ChildProcess per identificare il mittente
+#include "../include/utils.h"          // validateTransaction 
+#include "../include/communication/message.h"        // Message, MSG_NEW_TX, sendMessage (protocolSocket.h/childProcess.h)
 
 /* 
 Path su cui viene scritto/mantenuto lo stato della catena,

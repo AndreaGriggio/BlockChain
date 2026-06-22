@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <time.h>
+#include <unistd.h>
 
 void log_msg(NodeContext *ctx, const char *fmt, ...) {
     if (ctx == NULL || ctx->log_file == NULL) return;

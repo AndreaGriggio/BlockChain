@@ -14,6 +14,7 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <limits.h>
+#include <string.h>
 
 int createNodeFifos(NodeContext *ctx, int num_miners) {
     ctx->to_miner   = (int *)malloc(sizeof(int) * num_miners);
@@ -127,31 +128,47 @@ void destroyNodeFifos(NodeContext *ctx, int num_miners) {
 }
 
 int notify_miner(NodeContext *ctx, int miner_idx,
-                 uint64_t block_index, BlockValidationResult result) {
+                 uint64_t block_index,
+                 const char *block_hash,
+                 BlockValidationResult result) {
+    if (ctx == NULL || ctx->to_miner == NULL) return -1;
+    if (miner_idx < 0 || miner_idx >= ctx->num_miners) return -1;
     if (ctx->to_miner[miner_idx] < 0) return -1;
 
     BlockResponse resp;
+    memset(&resp, 0, sizeof(resp));
+
     resp.block_index = block_index;
     resp.miner_id    = miner_idx;
     resp.result      = result;
 
+    if (block_hash != NULL) {
+        strncpy(resp.block_hash, block_hash, HASH_HEX_SIZE);
+        resp.block_hash[HASH_HEX_SIZE] = '\0';
+    }
+
     ssize_t written = write(ctx->to_miner[miner_idx],
                             &resp, sizeof(BlockResponse));
+
     if (written != sizeof(BlockResponse)) {
         log_msg(ctx, "ERROR: notify_miner %d fallita", miner_idx);
         return -1;
     }
 
-    log_msg(ctx, "Notificato miner %d: block_index=%llu result=%s",
+    log_msg(ctx, "Notificato miner %d: block_index=%llu hash=%s result=%s",
             miner_idx,
             (unsigned long long)block_index,
+            resp.block_hash,
             result == BLOCK_VALID ? "VALID" : "INVALID");
+
     return 0;
 }
 
 void notify_all_miners(NodeContext *ctx,
-                       uint64_t block_index, BlockValidationResult result) {
+                       uint64_t block_index,
+                       const char *block_hash,
+                       BlockValidationResult result) {
     for (int i = 0; i < ctx->num_miners; i++) {
-        notify_miner(ctx, i, block_index, result);
+        notify_miner(ctx, i, block_index, block_hash, result);
     }
 }
