@@ -23,13 +23,7 @@
 #include "minerFifo.h"
 #include "minerThread.h"
 #include "minerCommunicationProtocol.h"
-<<<<<<< HEAD:code/src/miner/minerCommunicationProcess.c
-#include "transactionPool.h"
-#include "../utils.h"
-=======
-
 #include "utils.h"
->>>>>>> Sviluppo-Processo-Miner:code/src/minerCommunicationProcess.c
 
 
 static MinerStatus* status = NULL;
@@ -135,7 +129,23 @@ static int init(Miner** miner,char prev_hash[HASH_HEX_SIZE+1],uint64_t prev_inde
 
     return 0;
 }
+static int receiveBlockFromNodes(Miner* miner,MinerStatus* status) {
 
+    for (int i = 0; i < num_nodes; i ++) {
+
+        int tries = 0;
+        int res = 0;
+
+        do {
+            res = receiveBlockFromNode(miner,status,channels.from_node[i]);
+            if ( res == INVALID_PARAMS) break;
+
+            tries ++;
+        }while (res != 0 && tries < MAX_CONNECTION_TRIES);
+    }
+
+    return 0;
+}
 /**
  * Invia il blocco corrente (previous_block) a tutti i nodi, ritentando l'invio
  * fino a MAX_CONNECTION_TRIES volte per ciascun nodo in caso di errore.
@@ -274,6 +284,8 @@ int main(int argc, char ** argv) {
                 minerThreadMine(status);               // ri-mino solo dopo aver consumato
             }
         }
+
+        receiveBlockFromNodes(miner,status);
     }
 
 

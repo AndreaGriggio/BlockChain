@@ -11,19 +11,13 @@
 #include <sys/stat.h>    // mkdir
 #include <signal.h>     // sigaction
 #include <sys/wait.h>   // waitpid
-<<<<<<< HEAD
 #include "../include/error.h" /* codici di errore comuni  */
 #include "../include/block.h" // Block, TxList, blockCreate, blockInit, blockToCsv, blockDestroy
 #include "../include/constants.h"   // MINERS_SOCKET
 #include "../include/childProcess.h"   // ChildProcess per identificare il mittente
-#include "../include/utils.h"          // validateTransaction 
+#include "../include/utils.h"          // validateTransaction
 #include "../include/communication/message.h"        // Message, MSG_NEW_TX, sendMessage (protocolSocket.h/childProcess.h)
-=======
-#include "message.h"        // Message, MSG_NEW_TX, sendMessage (protocolSocket.h/childProcess.h)
-#include "childProcess.h"   // ChildProcess per identificare il mittente
-#include "utils.h"          // validateTransaction 
-#include "repl.h"
->>>>>>> 2683b2ba9f8ade9be39f6612cc76490a87443c71
+#include "../include/repl.h"
 
 /* 
 Path su cui viene scritto/mantenuto lo stato della catena,

@@ -68,18 +68,20 @@ int sendBlockToNode(Block* block_ptr,MinerStatus* status, int fd) {
  * @return 0 se tutto è andato a buon fine
  * @note Implementazione ancora da completare.
  */
-int receiveBlockFromNode(Miner* miner, int fd) {
-    if ( miner == NULL || fd < 0 ) return INVALID_PARAMS;
+int receiveBlockFromNode(Miner* miner, MinerStatus* status, int fd) {
+    if ( miner == NULL || status == NULL || fd < 0 ) return INVALID_PARAMS;
+
     BlockResponse resp;
-    ssize_t red = read(fd,&resp,sizeof(BlockResponse));
+    ssize_t red = read(fd, &resp, sizeof(BlockResponse));
+    if (red != (ssize_t)sizeof(BlockResponse)) return FIFO_ERROR;
 
-    if (red != sizeof(BlockResponse)) { return FIFO_ERROR;}
+    /* result e' un enum: BLOCK_VALID == 0, quindi normalizzo a un booleano */
+    int valid = (resp.result == BLOCK_VALID);
 
-    uint64_t block_index = resp.block_index;
-    int      is_valid    = resp.result;
-    int      miner_id    = resp.miner_id;
-    //TODO: implementare la funzione per risolvere blocchi pendenti
-    return 0;
+    /* block_hash e' un buffer fisso dentro la struct: lo passo direttamente,
+     * niente malloc. Aggiorna pending pool + testa della catena. */
+    return minerCleanBlocksPool(miner, status, resp.block_hash, valid,
+                                resp.miner_id, resp.block_index);
 }
 /**
  * Riceve un messaggio MSG_NEW_TX dal client, ne estrae e valida la transazione e

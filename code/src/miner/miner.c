@@ -5,18 +5,14 @@
 #include <pthread.h>
 
 #include "error.h"
-#include "miner.h"
+#include "../include/miner/miner.h"
 
 
-#include "transactionPool.h"
+#include "../include/communication/transactionPool.h"
 #include "client.h"
-#include "minerStatus.h"
-<<<<<<< HEAD:code/src/miner/miner.c
-#include "../utils.h"
-=======
+#include "../include/miner/minerStatus.h"
 #include "utils.h"
 #include "blocksPool.h"
->>>>>>> Sviluppo-Processo-Miner:code/src/miner.c
 
 typedef struct Miner {
     BlocksPool* pending_pool;
@@ -325,6 +321,63 @@ int minerMiningLoop(Miner* miner, MinerStatus* status) {
         if (s == MINER_STOPPED) break;
 
     }
+
+    return 0;
+}
+
+/**
+ * Aggiorna la pending pool del miner in base alla risposta di un nodo e
+ * risincronizza la testa della catena.
+ * @param miner       Miner da aggiornare
+ * @param status      Stato condiviso (non modificato qui: il controllo del mining
+ *                    resta al processo di comunicazione)
+ * @param prev_hash   Hash della testa autorevole comunicata dal nodo (block_hash)
+ * @param valid       1 se il blocco e' stato accettato (BLOCK_VALID), 0 se rifiutato
+ * @param miner_id    Id del miner destinatario (informativo: la FIFO e' gia' per-miner)
+ * @param block_index Indice della testa di catena comunicata dal nodo
+ * @return 0 se tutto e' andato a buon fine, INVALID_PARAMS/MEMORY_ERROR altrimenti
+ */
+int minerCleanBlocksPool(Miner* miner,MinerStatus* status,const char* prev_hash,int valid,int miner_id,uint64_t block_index) {
+    if (miner == NULL || status == NULL || prev_hash == NULL) return INVALID_PARAMS;
+    (void)status;      /* il controllo dello stato di mining resta al comm process */
+    (void)miner_id;    /* il messaggio e' gia' destinato a questo miner (FIFO dedicata) */
+
+    Block* tmp = blockCreate();
+    if (tmp == NULL) return MEMORY_ERROR;
+
+    pthread_mutex_lock(&miner->lock);
+
+    /* Rimuovo dai pending i blocchi resi obsoleti dalla risposta del nodo.
+     * VALID  : il blocco a block_index e' entrato in catena -> tutto cio' che ha
+     *          index <= block_index e' ormai deciso e non va piu' tenuto.
+     * INVALID: il nostro blocco e' stato rifiutato e la testa reale e' block_index
+     *          -> scarto cio' che sta sopra la testa (index > block_index). */
+    size_t i = 0;
+    while (i < miner->pending_pool->count) {
+        BlockState st;
+        uint64_t idx = 0;
+        if (poolBlockGet(miner->pending_pool, tmp, &st, i) == 0
+            && blockGetIndex(tmp, &idx) == 0) {
+
+            int obsolete = valid ? (idx <= block_index) : (idx > block_index);
+            if (obsolete) {
+                poolBlockRemoveAt(miner->pending_pool, i);
+                continue;   /* non incremento: lo slot i ora contiene l'ultimo blocco spostato */
+            }
+        }
+        i++;
+    }
+
+    /* Allineo la testa della catena a quella autorevole del nodo: il prossimo
+     * blocco verra' minato su (prev_hash, block_index + 1). */
+    if (strlen(prev_hash) == HASH_HEX_SIZE) {
+        memcpy(miner->previous_hash, prev_hash, HASH_HEX_SIZE);
+        miner->previous_hash[HASH_HEX_SIZE] = '\0';
+        miner->previous_index = block_index;
+    }
+
+    pthread_mutex_unlock(&miner->lock);
+    blockDestroy(tmp);
 
     return 0;
 }
