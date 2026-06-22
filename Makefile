@@ -1,11 +1,14 @@
 CC := gcc
 CFLAGS := -std=gnu11 -Wall -Wextra -g -pthread
-INCLUDES := -Icode/include
+INCLUDES := -Icode/include -Icode/include/communication -Icode/include/miner -Icode/include/node
 LDLIBS := -lcrypto
 
 SRC := code/src
 OBJ := code/obj
 BIN := code/bin
+
+# I sorgenti ora stanno anche in sottocartelle: diciamo a make dove cercarli
+vpath %.c code/src code/src/communication code/src/miner code/src/node
 
 COMMON_OBJS := \
 	$(OBJ)/block.o \
@@ -21,7 +24,7 @@ build: dirs code/blockchain $(BIN)/miner $(BIN)/MinerLauncher $(BIN)/client $(BI
 dirs:
 	mkdir -p $(OBJ) $(BIN)
 
-code/blockchain: $(OBJ)/main.o $(COMMON_OBJS)
+code/blockchain: $(OBJ)/main.o $(OBJ)/repl.o $(COMMON_OBJS)
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^ $(LDLIBS)
 
 $(BIN)/miner: $(OBJ)/miner.o $(OBJ)/minerCommunicationProcess.o $(OBJ)/minerStatus.o $(OBJ)/transactionPool.o $(OBJ)/minerCommunicationProtocol.o $(OBJ)/minerFifo.o $(OBJ)/minerThread.o $(OBJ)/blocksPool.o $(COMMON_OBJS)
@@ -30,7 +33,7 @@ $(BIN)/miner: $(OBJ)/miner.o $(OBJ)/minerCommunicationProcess.o $(OBJ)/minerStat
 $(BIN)/client: $(OBJ)/ClientProcess.o $(OBJ)/client.o $(COMMON_OBJS)
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^ $(LDLIBS)
 
-$(BIN)/node: $(OBJ)/node.o $(OBJ)/nodeStatus.o $(COMMON_OBJS)
+$(BIN)/node: $(OBJ)/node.o $(OBJ)/nodeContext.o $(OBJ)/nodeLog.o $(OBJ)/nodeCSV.o $(OBJ)/nodeFIFO.o $(OBJ)/nodeListener.o $(OBJ)/nodeValidation.o $(OBJ)/nodeStatus.o $(COMMON_OBJS)
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^ $(LDLIBS)
 
 $(BIN)/ClientsLauncher: $(OBJ)/ClientsLauncher.o
@@ -39,7 +42,7 @@ $(BIN)/ClientsLauncher: $(OBJ)/ClientsLauncher.o
 $(BIN)/MinerLauncher: $(OBJ)/MinerLauncher.o
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^
 
-$(OBJ)/%.o: $(SRC)/%.c
+$(OBJ)/%.o: %.c
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
 clean:

@@ -2,6 +2,8 @@
 #include "nodeLog.h"
 #include "nodeCSV.h"
 #include "error.h"
+#include <string.h>   // strcmp
+
 
 #include <pthread.h>
 
