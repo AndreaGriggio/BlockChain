@@ -13,6 +13,7 @@
 #include <string.h>
 #include <sys/un.h>
 #include <sys/socket.h>
+#include <sys/select.h>
 
 #include "blocksPool.h"
 #include "childProcess.h"
@@ -61,7 +62,7 @@ static void handle_signal(int sig) {
 /**
  * Inizializza il processo miner: installa gli handler dei segnali, crea e
  * inizializza child process, status e miner, apre le FIFO verso i nodi, avvia il
- * thread di mining e stabilisce la connessione socket con il processo master.
+ * thread di mining e valida il descrittore della socket in ascolto ereditato dal padre.
  * @return 0 se tutto è andato a buon fine, valore non nullo (1 o SOCKET_ERROR) in
  *         caso di errore
  */
@@ -124,31 +125,13 @@ static int init(void) {
 
     minerThreadStart(&mining_thread,&args);
 
-    struct sockaddr_un addr;
-    addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path,
-        MINERS_SOCKET,
-          sizeof(addr.sun_path)-1);
-
-
-    int tries = 0;
-    int res = 0;
-
-    do {
-        fd_socket = socket(AF_UNIX,SOCK_STREAM,0);
-        tries ++;
-        usleep(10000);
-        if (tries > MAX_CONNECTION_TRIES) return SOCKET_ERROR;
-    }while (fd_socket < 0 );
-
-    tries = 0;
-
-    do {
-        res = connect (fd_socket,(struct sockaddr *) &addr,sizeof(addr));
-        tries ++;
-        usleep(10000);
-        if (tries > MAX_CONNECTION_TRIES) return SOCKET_ERROR;
-    }while (res < 0);
+    /* La socket dei client e' gia' stata creata dal padre (bind+listen) e il suo
+     * descrittore ci e' arrivato via argv[4] in fd_socket: qui faremo solo accept().
+     * Non creiamo ne' connettiamo alcuna socket. */
+    if (fd_socket < 0) {
+        fprintf(stderr,"MINER %d : descrittore socket in ascolto non valido\n",id);
+        return SOCKET_ERROR;
+    }
 
     return 0;
 }
@@ -184,14 +167,15 @@ static int sendBlockToNodes(void) {
  */
 int main(int argc, char ** argv) {
 
-    if (argc < 4) {
-        fprintf(stderr, "Utilizzo : %s <difficulty> <id>  \n",argv[0]);
+    if (argc < 5) {
+        fprintf(stderr, "Utilizzo : %s <difficulty> <id> <num_nodes> <listen_fd>\n",argv[0]);
         return 1;
     }
 
     difficulty = atoi(argv[1]);
     id = atoi(argv[2]);
     num_nodes = atoi(argv[3]);
+    fd_socket = atoi(argv[4]);
 
     if (id < 0) {
         fprintf(stderr,"ID non valida ex. id > 0\n");
@@ -205,6 +189,10 @@ int main(int argc, char ** argv) {
 
     if ( num_nodes < 0 ) {
         fprintf(stderr,"MINER %d : fd_count non valido ex. nodi_count > 0\n",id);
+        return 1;
+    }
+    if ( fd_socket < 0 ) {
+        fprintf(stderr, "MINER %d : fd_socket non valida ex. fd_socket > 0\n",id);
         return 1;
     }
 
@@ -232,7 +220,21 @@ int main(int argc, char ** argv) {
 
             while (running) {
 
-                receiveTransactionFromClient(fd_socket,trxs);
+                /* Una connessione = una transazione (il client fa connect->send->close).
+                 * select con timeout per restare responsivi verso mining e nodi. */
+                fd_set rfds;
+                FD_ZERO(&rfds);
+                FD_SET(fd_socket, &rfds);
+                struct timeval tv = { .tv_sec = 0, .tv_usec = 100000 };
+
+                if (select(fd_socket + 1, &rfds, NULL, NULL, &tv) > 0
+                    && FD_ISSET(fd_socket, &rfds)) {
+                    int conn_fd = accept(fd_socket, NULL, NULL);
+                    if (conn_fd >= 0) {
+                        receiveTransactionFromClient(conn_fd, trxs);
+                        close(conn_fd);
+                    }
+                }
 
                 minerThreadPause(status);
                 //prendo lo stato del miner
@@ -257,7 +259,7 @@ int main(int argc, char ** argv) {
                         const char* trx = poolRemoveLast(trxs);
 
                         memcpy(tx_list.strings[i],trx, sizeof(trx));
-
+                        i++;
                     }
                     blockInit(block,index + 1 ,nowUnix(),previous_block,difficulty,&tx_list);
                     compiled_block = 1;
