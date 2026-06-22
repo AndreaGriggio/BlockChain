@@ -136,3 +136,10 @@ int poolBlockRemoveLast(BlocksPool* pool,Block* block,BlockState* b_State) {
     return 0;
 
 }
+
+int poolBlockSetState(BlocksPool* pool,BlockState state) {
+    if (pool == NULL ) return INVALID_PARAMS;
+    pool->poolState = state;
+    return 1;
+}
+

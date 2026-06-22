@@ -4,18 +4,18 @@
 
 
 //system constants
-#define _GNU_SOURCE
+
 #include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <string.h>
+
 #include <sys/un.h>
 #include <sys/socket.h>
 #include <sys/select.h>
+#include <time.h>
 
-#include "blocksPool.h"
 #include "childProcess.h"
 #include "error.h"
 #include "miner.h"
@@ -23,12 +23,12 @@
 #include "minerFifo.h"
 #include "minerThread.h"
 #include "minerCommunicationProtocol.h"
-#include "transactionPool.h"
+
 #include "utils.h"
 
 
 static MinerStatus* status = NULL;
-static Miner* miner = NULL;
+
 
 static volatile sig_atomic_t running = 1;
 static volatile sig_atomic_t suspend = 1;
@@ -39,10 +39,6 @@ static int id;
 static int num_nodes;
 
 static NodeChannels channels = {0};
-static Block* previous_block = NULL;
-
-//static BlockList* pending_blocks = NULL;
-
 static int fd_socket = -1;
 
 static pthread_t mining_thread;
@@ -53,9 +49,13 @@ static pthread_t mining_thread;
  * @param sig segnale in ingresso
  *
  */
-static void handle_signal(int sig) {
-    if (sig == SIGTERM || sig == SIGINT) {
-        running = 0;
+static void handle_signal(const int sig) {
+    switch (sig) {
+        case SIGTERM :
+        case SIGINT  : running = 0; break;
+        case SIGUSR1 : suspend = 1; break;
+        case SIGUSR2 : suspend = 0; break;
+        default: break;
     }
 }
 
@@ -66,14 +66,16 @@ static void handle_signal(int sig) {
  * @return 0 se tutto è andato a buon fine, valore non nullo (1 o SOCKET_ERROR) in
  *         caso di errore
  */
-static int init(void) {
+static int init(Miner** miner,char prev_hash[HASH_HEX_SIZE+1],uint64_t prev_index) {
     struct sigaction sa ;
     sa.sa_handler = handle_signal;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
 
-    if (sigaction(SIGINT,  &sa, NULL) == -1) { perror("sigaction SIGINT"); return 1; }
-    if (sigaction(SIGTERM, &sa, NULL) == -1) { perror("sigaction SIGTERM");        return 1; }
+    if (sigaction(SIGINT,  &sa, NULL) == -1) { perror("sigaction SIGINT");  return 1; }
+    if (sigaction(SIGTERM, &sa, NULL) == -1) { perror("sigaction SIGTERM"); return 1; }
+    if (sigaction(SIGUSR1, &sa, NULL) == -1) { perror("sigaction SIGUSR1"); return 1; }
+    if (sigaction(SIGUSR2, &sa, NULL) == -1) { perror("sigaction SIGUSR2"); return 1; }
 
     ChildProcess* childProcess = childProcessCreate();
 
@@ -87,13 +89,14 @@ static int init(void) {
         free(childProcess);
         return 1;
     }
+
     status = minerCreateStatus();
 
     minerInitStatus(status,childProcess,MINER_IDLE,0,0);
 
     /* L'id del miner serve a comporre i path delle FIFO verso i nodi. */
-    int miner_id = -1;
-    getCpId(childProcess, &miner_id);
+    int miner_id = id;
+
     if (miner_id < 0) {
         fprintf(stderr,"MINER %d : id child process non valido\n",id);
         return 1;
@@ -104,23 +107,15 @@ static int init(void) {
         return 1;
     }
 
-    //creo la struttura dati per accogliere il blocco
-    miner = minerCreate();
-    if (miner == NULL) {
+    *miner = minerCreate(difficulty,prev_hash,prev_index);
+    if (*miner == NULL) {
         fprintf(stderr,"MINER %d : Error allocation miner",id);
         return 1;
     }
 
-    if (minerInit(miner, difficulty) != 0) {
-        fprintf(stderr,"MINER %d : Init error",id);
-        free(miner);
-        free(childProcess);
-        return 1;
-    };
-
     /* static: il thread di mining usa &args dopo che init() è ritornata. */
     static MiningThreadArgs args;
-    args.miner  = miner;
+    args.miner  = *miner;
     args.status = status;
 
     minerThreadStart(&mining_thread,&args);
@@ -141,7 +136,9 @@ static int init(void) {
  * fino a MAX_CONNECTION_TRIES volte per ciascun nodo in caso di errore.
  * @return 0 al termine del tentativo di invio verso tutti i nodi
  */
-static int sendBlockToNodes(void) {
+static int sendBlockToNodes(Block* block_to_send) {
+
+    if (block_to_send == NULL) return INVALID_PARAMS;
 
     for (int i = 0; i < num_nodes; i++) {
 
@@ -149,8 +146,9 @@ static int sendBlockToNodes(void) {
         int res = 0;
 
         do {
-             res = sendBlockToNode(previous_block,status,channels.to_node[i]);
+             res = sendBlockToNode(block_to_send,status,channels.to_node[i]);
             if ( res == INVALID_PARAMS) break;
+
             tries ++;
         }while (res != 0 && tries < MAX_CONNECTION_TRIES);
     }
@@ -172,10 +170,12 @@ int main(int argc, char ** argv) {
         return 1;
     }
 
-    difficulty = atoi(argv[1]);
-    id = atoi(argv[2]);
-    num_nodes = atoi(argv[3]);
-    fd_socket = atoi(argv[4]);
+    difficulty       = (int)strtol(argv[1],NULL,10);
+    id               = (int)strtol(argv[2],NULL,10);
+    num_nodes        = (int)strtol(argv[3],NULL,10);
+    fd_socket        = (int)strtol(argv[4],NULL,10);
+    char * prev_hash = argv[5];
+    const uint64_t prev_index = strtoull(argv[6],NULL,10);
 
     if (id < 0) {
         fprintf(stderr,"ID non valida ex. id > 0\n");
@@ -195,92 +195,83 @@ int main(int argc, char ** argv) {
         fprintf(stderr, "MINER %d : fd_socket non valida ex. fd_socket > 0\n",id);
         return 1;
     }
+    if (prev_hash == NULL) {
+        fprintf(stderr,"MINER %d : prev_hash non valido \n ",id);
+        return 1;
+    }
 
-    if (init() != 0) {
+    Miner* miner = NULL;
+    if (init(&miner,prev_hash,prev_index) != 0) {
         fprintf(stderr,"MINER %d : init fallita\n",id);
         return 1;
     }
 
-
-    //Strutture dati per gestire un blocco
-
-    TransactionPool* trxs= createTransactionPool();
-    MinerState current_state = MINER_IDLE;
-    BlocksPool* readyPool = createBlocksPool();
-    readyPool->poolState = BLOCK_WAITING;
-
-    BlocksPool* confirmedPool = createBlocksPool();
-    confirmedPool->poolState = BLOCK_CONFIRMED;
-
-    int compiled_block = 0;
+    MinerBlockState current_block_state = MINER_BLOCK_NOT_FOUND;
+    Block* block = NULL;
 
 
-    while (1) {
-        if (suspend == 0) break;
-
-            while (running) {
-
-                /* Una connessione = una transazione (il client fa connect->send->close).
-                 * select con timeout per restare responsivi verso mining e nodi. */
-                fd_set rfds;
-                FD_ZERO(&rfds);
-                FD_SET(fd_socket, &rfds);
-                struct timeval tv = { .tv_sec = 0, .tv_usec = 100000 };
-
-                if (select(fd_socket + 1, &rfds, NULL, NULL, &tv) > 0
-                    && FD_ISSET(fd_socket, &rfds)) {
-                    int conn_fd = accept(fd_socket, NULL, NULL);
-                    if (conn_fd >= 0) {
-                        receiveTransactionFromClient(conn_fd, trxs);
-                        close(conn_fd);
-                    }
-                }
-
-                minerThreadPause(status);
-                //prendo lo stato del miner
-                mSGetState(status,&current_state);
+    msSignal(status, MINER_MINING);
 
 
-                //condizioni necessarie per compilare un blocco prima dell'invio
-                if ( trxs->count != 0 && current_state == MINER_BLOCK_FOUND) {
-                    uint64_t i = 0;
+    while (running) {
 
-                    Block* block;//prendiamo un nuovo blocco
-                    u_int64_t index;
-                    minerGetBlock(miner,block);
-                    TxList tx_list;
+        /* ---- PAUSA: SIGUSR1 imposta suspend=1, SIGUSR2 lo riazzera ---- */
+        if (suspend) {
+            minerThreadPause(status);                 // fermo il mining (MINER_IDLE)
 
-
-                    if ( block == NULL ) { break;}
-                    blockGetIndex(previous_block,&index);
-
-
-                    while (trxs->count != 0 &&  i < MAX_TX_PER_BLOCK) {
-                        const char* trx = poolRemoveLast(trxs);
-
-                        memcpy(tx_list.strings[i],trx, sizeof(trx));
-                        i++;
-                    }
-                    blockInit(block,index + 1 ,nowUnix(),previous_block,difficulty,&tx_list);
-                    compiled_block = 1;
-                    mSSetTransactionCount(status,i);
-
-
-
-                }
-
-                minerThreadMine(status);
-
-                if (compiled_block == 1) {
-                    if (sendBlockToNodes() == 0 ) {
-                        compiled_block = 0;
-                    }
-                }
-
+            /* attendo senza busy-wait finché non mi riprendono o mi terminano */
+            while (suspend && running) {
+                struct timespec ts = { .tv_sec = 0, .tv_nsec = 100000000 }; // 100 ms
+                nanosleep(&ts, NULL);
             }
+            if (!running) break;                      // SIGTERM ricevuto in pausa
 
-        if ( suspend == 0) break;
+            msSignal(status, MINER_MINING);           // ripresa: rilancio il mining
+            continue;
+        }
+
+        /* ---- lavoro normale ----
+         * Una connessione = una transazione (il client fa connect->send->close).
+         * select con timeout per restare responsivi verso mining e nodi. */
+        fd_set rfds;
+        FD_ZERO(&rfds);
+        FD_SET(fd_socket, &rfds);
+        struct timeval tv = { .tv_sec = 0, .tv_usec = 100000 };
+
+        if (select(fd_socket + 1, &rfds, NULL, NULL, &tv) > 0
+            && FD_ISSET(fd_socket, &rfds)) {
+            int conn_fd = accept(fd_socket, NULL, NULL);
+
+            if (conn_fd >= 0) {
+                receiveTransactionFromClient(conn_fd, miner);
+                close(conn_fd);
+            }
+        }
+
+        //prendo lo stato del miner
+        msGetBlockState(status, &current_block_state);
+
+        //condizioni necessarie per compilare un blocco prima dell'invio
+        if (current_block_state == MINER_BLOCK_FOUND) {
+            if (minerPopMinedBlock(miner, &block) == 0 && block != NULL) {
+
+                /* aggiorno la testa della catena con il blocco appena minato */
+                char new_hash[HASH_HEX_SIZE + 1];
+                uint64_t new_index = 0;
+                blockGetHash(block, new_hash);
+                blockGetIndex(block, &new_index);
+                minerUpdatePrevious(miner, new_hash, new_index);
+
+                sendBlockToNodes(block);
+                minerAddBlockToPending(miner, block);  // fa blockCopy + blockDestroy(block)
+                block = NULL;                          // evito use-after-free
+
+                minerThreadMine(status);               // ri-mino solo dopo aver consumato
+            }
+        }
     }
+
+
 
     close(fd_socket);
     minerThreadStop(status,&mining_thread);

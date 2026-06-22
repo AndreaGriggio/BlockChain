@@ -285,6 +285,41 @@ static int createGenesisBlock(const char *csv_path) {
 }
 
 /*
+Legge l'ultimo blocco (la coda della catena) dal CSV e ne ricava hash e indice,
+da passare ai miner come riferimento del blocco precedente. Funziona sia col
+genesis appena creato sia con un CSV iniziale fornito dall'utente.
+Ritorna 0 se ok, altrimenti un codice di errore (error.h).
+*/
+static int getTailBlockRef(const char *csv_path, char out_hash[HASH_HEX_SIZE + 1], uint64_t *out_index) {
+	FILE *f = fopen(csv_path, "r");
+	if (f == NULL) return CSV_ERROR;
+
+	char line[BLOCK_CSV_LINE_SIZE];
+	char last[BLOCK_CSV_LINE_SIZE];
+	int header   = 1;   // la prima riga e' l'intestazione
+	int have_last = 0;
+
+	while (fgets(line, sizeof line, f) != NULL) {
+		if (header) { header = 0; continue; }          // salto l'header
+		if (line[0] == '\n' || line[0] == '\0') continue; // salto righe vuote
+		memcpy(last, line, sizeof last);               // tengo solo l'ultima riga valida
+		have_last = 1;
+	}
+	fclose(f);
+
+	if (!have_last) return BLOCK_NOT_FOUND;
+
+	Block *b = blockCreate();
+	if (b == NULL) return MEMORY_ERROR;
+	if (blockFromCsv(b, last) != 0) { blockDestroy(b); return INVALID_BLOCK; }
+
+	blockGetIndex(b, out_index);
+	const int res = blockGetHash(b, out_hash);
+	blockDestroy(b);
+	return res;
+}
+
+/*
 Crea (da zero) il semaforo POSIX condiviso usato da tutti i node
 per serializzare l'accesso al file CSV della blockchain (CSV_SEM_NAME).
 Deve esistere PRIMA di fare fork() di qualunque node, perchè node.c lo apre con sem_open
@@ -644,7 +679,20 @@ int main(int argc, char *argv[]) {
     snprintf(freqbuf, sizeof freqbuf, "%d", cfg.transactions_frequency);
     snprintf(fdbuf,   sizeof fdbuf,   "%d", miners_fd);
 
-    /* 
+    /*
+    Hash e indice dell'ultimo blocco della catena: i miner li ricevono per
+    agganciare il primo blocco minato alla coda corrente. Identici per tutti.
+    */
+    char prevhash[HASH_HEX_SIZE + 1];
+    char previdx[21];
+    uint64_t tail_index = 0;
+    if (getTailBlockRef(BLOCKCHAIN_CSV_PATH, prevhash, &tail_index) != 0) {
+        fprintf(stderr, "Impossibile leggere l'ultimo blocco dal CSV\n");
+        return INVALID_BLOCK;
+    }
+    snprintf(previdx, sizeof previdx, "%llu", (unsigned long long)tail_index);
+
+    /*
 	I Miner creano le FIFO che i node poi aprono in lettura
     Ogni miner riceve difficolta', il proprio id, il numero di nodi e
     l'fd del socket in ascolto (da ereditare per fare accept)
@@ -652,7 +700,7 @@ int main(int argc, char *argv[]) {
 
     for (int i = 0; i < cfg.num_miners; i++) {
         snprintf(idbuf, sizeof idbuf, "%d", i);
-        char *argv_m[] = { "./code/bin/miner", diffbuf, idbuf, nnodes, fdbuf, NULL };
+        char *argv_m[] = { "./code/bin/miner", diffbuf, idbuf, nnodes, fdbuf, prevhash, previdx, NULL };
         spawn_child(argv_m);
     }
     /* 

@@ -10,6 +10,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "blocksPool.h"
+
 TransactionPool* createTransactionPool(void) {
     TransactionPool* pool = malloc(sizeof(TransactionPool));
     if (pool == NULL) return NULL;
@@ -101,7 +103,7 @@ const char* poolGet(const TransactionPool* pool, size_t index) {
     return copy;
 }
 
-const char* poolRemoveLast(TransactionPool* pool) {
+char* poolRemoveLast(TransactionPool* pool) {
     if (pool == NULL) return NULL;
     if (pool->count == 0) return NULL;
     size_t len = strlen(pool->items[pool->count - 1]);
@@ -120,4 +122,26 @@ int destroyTransactionPool(TransactionPool* pool) {
     free(pool->items);
     free(pool);
     return 0;
+}
+
+TxList* poolTrxCreateList(TransactionPool* pool) {
+    if (pool == NULL) return NULL;
+    TxList* list = malloc(sizeof(TxList));
+    if (list == NULL) return NULL;
+
+    list->count = 0;
+
+    while (list->count < MAX_TX_PER_BLOCK && pool->count > 0) {
+        char* tx = poolRemoveLast(pool);   // copia malloc'ata,
+
+        if (tx == NULL) break;//qualcosa è andato storto con malloc
+
+        strncpy(list->strings[list->count], tx, MAX_TX_SIZE - 1);
+        list->strings[list->count][MAX_TX_SIZE - 1] = '\0';
+        list->count ++;
+        free(tx);                          // libera la copia
+    }
+
+
+    return list;
 }

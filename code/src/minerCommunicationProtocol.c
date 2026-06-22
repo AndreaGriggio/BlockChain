@@ -13,6 +13,9 @@
 #include "utils.h"
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+
+#include "communicationProtocol.h"
 
 /**
  * Serializza un blocco in formato CSV, lo incapsula in un messaggio MSG_BLOCK_MINED
@@ -33,7 +36,10 @@ int sendBlockToNode(Block* block_ptr,MinerStatus* status, int fd) {
     if (blockToCsv(block_ptr,payload,BLOCK_CSV_LINE_SIZE) != 0 )return INVALID_PARAMS;
 
     Message* m = messageCreate();
+    if (m == NULL) return MEMORY_ERROR;
+
     ChildProcess* cp = childProcessCreate();
+    if (cp == NULL) { free(m); return MEMORY_ERROR; }
 
     mSGetCPChildProcess(status,cp);
 
@@ -45,7 +51,7 @@ int sendBlockToNode(Block* block_ptr,MinerStatus* status, int fd) {
 
     messageSetPayload(m, payload, (uint32_t)payload_size);
 
-    if (sendMessage(fd, m) != 0) return FIFO_ERROR;
+    if (sendMessage(fd, m) != 0) {childProcessDestroy(cp);free(m);return FIFO_ERROR;}
 
 
     childProcessDestroy(cp);
@@ -56,24 +62,35 @@ int sendBlockToNode(Block* block_ptr,MinerStatus* status, int fd) {
 
 
 /**
- * Riceve un blocco da un nodo tramite il file descriptor indicato.
- * @param block_ptr Buffer di output in cui salvare il blocco ricevuto
+ * Prende Hash Code id miner_id di un blocco e li utilizza per aggiornare la pendingpool
+ * @param miner miner incaricato di rispondere
  * @param fd File descriptor da cui leggere
  * @return 0 se tutto è andato a buon fine
  * @note Implementazione ancora da completare.
  */
-int receiveBlockFromNode(Block* block_ptr, int fd) {
-return 0;}
+int receiveBlockFromNode(Miner* miner, int fd) {
+    if ( miner == NULL || fd < 0 ) return INVALID_PARAMS;
+    BlockResponse resp;
+    ssize_t red = read(fd,&resp,sizeof(BlockResponse));
+
+    if (red != sizeof(BlockResponse)) { return FIFO_ERROR;}
+
+    uint64_t block_index = resp.block_index;
+    int      is_valid    = resp.result;
+    int      miner_id    = resp.miner_id;
+    //TODO: implementare la funzione per risolvere blocchi pendenti
+    return 0;
+}
 /**
  * Riceve un messaggio MSG_NEW_TX dal client, ne estrae e valida la transazione e
  * la inserisce nella transaction pool.
  * @param fd File descriptor da cui ricevere il messaggio
- * @param pool Transaction pool in cui inserire la transazione ricevuta
+ * @param miner miner struttura dati che si occupera di prendere transazioni
  * @return 0 se tutto è andato a buon fine, SOCKET_ERROR per errori di socket,
  *         INVALID_PARAMS se il messaggio non è valido o non è di tipo MSG_NEW_TX,
  *         INVALID_TRANSACTION se la transazione non supera la validazione
  */
-int receiveTransactionFromClient(int fd,TransactionPool* pool){
+int receiveTransactionFromClient(int fd,Miner* miner){
     if (fd < 0) return SOCKET_ERROR;
     char * tr = NULL;
 
@@ -98,13 +115,14 @@ int receiveTransactionFromClient(int fd,TransactionPool* pool){
     messageGetSize(m, &payload_size);
 
     tr = malloc(sizeof(char)*(payload_size+1));
+    if (tr == NULL) { free(m); return MEMORY_ERROR; }
 
     result = messageGetPayload(m, tr, (size_t)(payload_size + 1));
-    if ( result != 0 ) return SOCKET_ERROR;
+    if ( result != 0 ) { free(tr); free(m);return SOCKET_ERROR;}
 
-    if (validateTransaction(tr)!= 0) return INVALID_TRANSACTION;
+    if (validateTransaction(tr)!= 0) { free(tr); free(m);return INVALID_TRANSACTION;}
 
-    result = poolPush(pool,tr);
+    result = minerPushTransaction(miner,tr);
     free(tr);
     free(m);
     return result;

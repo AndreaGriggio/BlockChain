@@ -28,35 +28,29 @@ Block* blockCreate() {
  * @param block_ptr Puntatore alla zona di memoria del blocco
  * @param index Indice del blocco presunto corretto
  * @param timestamp Tempo al quale è stato minato il blocco
- * @param prev Blocco precedente
+ * @param prev_hash hashcode blocco precedente
  * @param nonce
  * @param txs
  * @return
  */
-int blockInit(Block *block_ptr,const u_int64_t index, const u_int64_t timestamp, const Block *prev, const u_int64_t nonce,const TxList *txs){
+int blockInit(Block *block_ptr,const u_int64_t index, const u_int64_t timestamp, const char prev_hash[HASH_HEX_SIZE+1], const u_int64_t nonce,const TxList *txs){
     //chiamate a tutte le altre funzioni per ottenere i campi necessari
     if (block_ptr == NULL) return INVALID_BLOCK;
 
     block_ptr -> index = index;
     block_ptr -> timestamp = timestamp;
-
-    if (prev == NULL){
-        memset(block_ptr -> prev_hash,'0',HASH_HEX_SIZE);
-        block_ptr->prev_hash[HASH_HEX_SIZE]= '\0';
-    }
-    else {
-        const int res = blockGetHash(prev,block_ptr->prev_hash);
-    if ( res == INVALID_HASH) return INVALID_BLOCK;
-    }
-
     block_ptr -> nonce = nonce;
 
-    if (txs == NULL){ block_ptr-> transactions[0] = '\0';
-                      block_ptr -> merkle_root[0] = '\0';
-    }// inzializziamo il discorso se non sono state passate transazioni da inserire
-    else pack_transactions(block_ptr,txs);// mettiamo dentro al blocco le transazioni
+    if (strlen(prev_hash) != HASH_HEX_SIZE){
+        memset(block_ptr -> prev_hash,'0',HASH_HEX_SIZE);
+        block_ptr->prev_hash[HASH_HEX_SIZE]= '\0';
+        return INVALID_BLOCK;
+    }
+    if (strcpy(block_ptr -> prev_hash,prev_hash) != 0 )         return INVALID_BLOCK;
+    if (pack_transactions(block_ptr, txs) != 0)                 return INVALID_BLOCK;
+    if (blockGetmerkle(block_ptr, block_ptr->merkle_root) != 0) return INVALID_BLOCK;
 
-    blockGetmerkle(block_ptr,block_ptr->merkle_root);
+    return 0;
 
 
     return 0;
