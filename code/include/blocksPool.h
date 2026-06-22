@@ -32,13 +32,13 @@ int initBlocksPool(BlocksPool* pool);
 
 int poolPushBlock(BlocksPool* pool, Block* block);
 
-int poolRemoveAt(BlocksPool* pool,size_t index);
+int poolBlockRemoveAt(BlocksPool* pool,size_t index);
 
 int clearBlocksPool(BlocksPool* pool);
 
 int poolBlockGetCount(const BlocksPool* pool,size_t count);
 
-int poolGet(const BlocksPool* pool,Block* block,BlockState* b_State,size_t index);
+int poolBlockGet(const BlocksPool* pool,Block* block,BlockState* b_State,size_t index);
 
 int destroyBlocksPool(BlocksPool* pool);
 

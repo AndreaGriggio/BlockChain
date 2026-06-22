@@ -24,7 +24,7 @@ dirs:
 code/blockchain: $(OBJ)/main.o $(COMMON_OBJS)
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^ $(LDLIBS)
 
-$(BIN)/miner: $(OBJ)/miner.o $(OBJ)/minerCommunicationProcess.o $(OBJ)/minerStatus.o $(OBJ)/transactionPool.o $(OBJ)/minerCommunicationProtocol.o $(OBJ)/minerFifo.o $(OBJ)/minerThread.o $(COMMON_OBJS)
+$(BIN)/miner: $(OBJ)/miner.o $(OBJ)/minerCommunicationProcess.o $(OBJ)/minerStatus.o $(OBJ)/transactionPool.o $(OBJ)/minerCommunicationProtocol.o $(OBJ)/minerFifo.o $(OBJ)/minerThread.o $(OBJ)/blocksPool.o $(COMMON_OBJS)
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^ $(LDLIBS)
 
 $(BIN)/client: $(OBJ)/ClientProcess.o $(OBJ)/client.o $(COMMON_OBJS)
