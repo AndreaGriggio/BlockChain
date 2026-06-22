@@ -96,7 +96,7 @@ int minerValidateTransactions(Miner* miner_ptr,
         }
     }
     miner_ptr->transactions_count = write_idx;
-    return write_idx;   // numero di transazioni valide rimaste nell'array
+    return (int)write_idx;   // numero di transazioni valide rimaste nell'array
 }
 /**
  * Valida la singola transazione del miner all'indice indicato (controlla indice,
@@ -170,7 +170,7 @@ int minerGetTransactionsFromMessage(Miner* miner, const Message *message_ptr){
  * @return 0 se tutto è andato a buon fine, INVALID_PARAMS se i parametri sono
  *         nulli o se non esiste un blocco minato
  */
-int minerGetBlock(Miner* miner,Block* block_ptr) {
+int minerGetBlock(Miner* miner,const Block* block_ptr) {
     if (miner == NULL || block_ptr == NULL) return INVALID_PARAMS;
     if (miner->mined_block == NULL) return INVALID_PARAMS;
     block_ptr = miner->mined_block;
@@ -185,7 +185,7 @@ int minerGetBlock(Miner* miner,Block* block_ptr) {
  * @return 1 se il tentativo ha avuto successo, 0 altrimenti
  */
 static int minerMiningAttempt(const uint difficulty) {
-    uint num = NUM_MIN_MAX(0,difficulty-1);
+    const uint num = NUM_MIN_MAX(0,difficulty-1);
     return num == 0 ? 1 : 0;
 }
 

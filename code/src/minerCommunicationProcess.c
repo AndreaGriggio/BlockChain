@@ -14,6 +14,7 @@
 #include <sys/un.h>
 #include <sys/socket.h>
 
+#include "blocksPool.h"
 #include "childProcess.h"
 #include "error.h"
 #include "miner.h"
@@ -22,6 +23,7 @@
 #include "minerThread.h"
 #include "minerCommunicationProtocol.h"
 #include "transactionPool.h"
+#include "utils.h"
 
 
 static MinerStatus* status = NULL;
@@ -216,6 +218,13 @@ int main(int argc, char ** argv) {
 
     TransactionPool* trxs= createTransactionPool();
     MinerState current_state = MINER_IDLE;
+    BlocksPool* readyPool = createBlocksPool();
+    readyPool->poolState = BLOCK_WAITING;
+
+    BlocksPool* confirmedPool = createBlocksPool();
+    confirmedPool->poolState = BLOCK_CONFIRMED;
+
+    int compiled_block = 0;
 
 
     while (1) {
@@ -229,25 +238,42 @@ int main(int argc, char ** argv) {
                 //prendo lo stato del miner
                 mSGetState(status,&current_state);
 
+
+                //condizioni necessarie per compilare un blocco prima dell'invio
                 if ( trxs->count != 0 && current_state == MINER_BLOCK_FOUND) {
                     uint64_t i = 0;
-                    mSGetTransactionCount(status,&i);
-                    while (trxs->count != 0 &&  i < MAX_TX_PER_BLOCK){
-                        minerGetBlock(miner,previous_block);
 
-                        blockAddTransaction(previous_block,poolRemoveLast(trxs));
-                        i++;
+                    Block* block;//prendiamo un nuovo blocco
+                    u_int64_t index;
+                    minerGetBlock(miner,block);
+                    TxList tx_list;
+
+
+                    if ( block == NULL ) { break;}
+                    blockGetIndex(previous_block,&index);
+
+
+                    while (trxs->count != 0 &&  i < MAX_TX_PER_BLOCK) {
+                        const char* trx = poolRemoveLast(trxs);
+
+                        memcpy(tx_list.strings[i],trx, sizeof(trx));
+
                     }
+                    blockInit(block,index + 1 ,nowUnix(),previous_block,difficulty,&tx_list);
+                    compiled_block = 1;
                     mSSetTransactionCount(status,i);
+
+
+
                 }
 
                 minerThreadMine(status);
 
-
-                if (sendBlockToNodes() == 0 ) {
-
+                if (compiled_block == 1) {
+                    if (sendBlockToNodes() == 0 ) {
+                        compiled_block = 0;
+                    }
                 }
-
 
             }
 

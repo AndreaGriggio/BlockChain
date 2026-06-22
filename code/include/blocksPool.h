@@ -10,6 +10,7 @@ typedef enum BlockState {
     BLOCK_WAITING = 2,
     BLOCK_DISCARDED = 3,
     UNUSED_POOL = 4,
+    BLOCKS_FOUND_NOT_FILLED = 5,
 }BlockState;
 
 typedef struct BlockHandlingHelper {

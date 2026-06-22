@@ -64,6 +64,15 @@ int validateTransaction(const char transaction[MAX_TX_SIZE+1]);
 int validateName(const char *name);
 
 /**
+ * Restituisce il timestamp corrente (secondi dall'epoch Unix) come intero a 64 bit.
+ * Usa clock_gettime(CLOCK_REALTIME) che legge l'istante in un'unica chiamata
+ * coerente: il valore restituito non è mai "spezzato" e la funzione è
+ * thread-safe (nessuno stato condiviso, ogni chiamante riceve la propria copia).
+ * @return secondi trascorsi dall'epoch Unix
+ */
+uint64_t nowUnix(void);
+
+/**
  * Intervallo di valori [min,max] \in \mathbb{N}
  * @param min Numero minimo da generare
  * @param max Numero max da generare
