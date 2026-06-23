@@ -44,6 +44,6 @@ int destroyBlocksPool(BlocksPool* pool);
 
 int poolBlockRemoveLast(BlocksPool* pool,Block* block,BlockState* b_State);
 
-int poolBlockSetState(BlocksPool* pool,BlockState state);
+int poolBlocksSetState(BlocksPool* pool,BlockState state);
 
 #endif //BLOCKSPOOL_H

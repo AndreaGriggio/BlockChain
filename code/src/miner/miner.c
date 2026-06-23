@@ -113,7 +113,7 @@ int minerInit(Miner* miner,uint miner_difficulty){
         return -1;
     }
 
-    poolBlockSetState(miner->pending_pool,BLOCK_WAITING);
+    poolBlocksSetState(miner->pending_pool,BLOCK_WAITING);
 
     miner->difficulty = miner_difficulty;
 
