@@ -367,6 +367,7 @@ int minerCleanBlocksPool(Miner* miner,MinerStatus* status,const char* prev_hash,
 
     /* Allineo la testa della catena a quella autorevole del nodo: il prossimo
      * blocco verra' minato su (prev_hash, block_index + 1). */
+
     if (strlen(prev_hash) == HASH_HEX_SIZE) {
         memcpy(miner->previous_hash, prev_hash, HASH_HEX_SIZE);
         miner->previous_hash[HASH_HEX_SIZE] = '\0';

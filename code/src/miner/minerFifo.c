@@ -40,7 +40,7 @@ int nodeChannelsOpen(NodeChannels *ch, const int num_nodes, const int miner_id) 
     for (int i = 0; i < num_nodes; i++) {
         char path_to[64];
 
-        snprintf(path_to  , sizeof(path_to)   ,"%s%d%d"  ,MINER_NODE_FIFO ,miner_id ,i);
+        snprintf(path_to  , sizeof(path_to)   ,"%s%d_%d"  ,MINER_NODE_FIFO ,miner_id ,i);
 
         mkfifo(path_to,0666);
 

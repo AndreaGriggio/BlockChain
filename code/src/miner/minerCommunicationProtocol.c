@@ -15,6 +15,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <errno.h>
 
 #include "communicationProtocol.h"
 
@@ -75,6 +76,11 @@ int receiveBlockFromNode(Miner* miner, MinerStatus* status, int fd) {
 
     BlockResponse resp;
     ssize_t red = read(fd, &resp, sizeof(BlockResponse));
+
+    if (red == 0 ){return FIFO_CLOSED;}
+    if (red < 0 ) {
+        if (errno == EAGAIN || errno == EWOULDBLOCK) return FIFO_EMPTY;
+    }
     if (red != (ssize_t)sizeof(BlockResponse)) return FIFO_ERROR;
 
     /* result e' un enum: BLOCK_VALID == 0, quindi normalizzo a un booleano */

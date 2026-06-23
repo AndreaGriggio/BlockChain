@@ -8,7 +8,7 @@ code/blockchain
 code/bin/*
 !code/bin/qui_salvare_exe.txt
 code/src/output/
-
+report.md
 # Runtime
 *.log
 blockchain.csv
