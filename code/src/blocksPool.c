@@ -88,15 +88,15 @@ int clearBlocksPool(BlocksPool* pool) {
     return 0;
 }
 
-int poolBlockGetCount(const BlocksPool* pool,size_t count) {
+int poolBlockGetCount(const BlocksPool* pool,size_t* count) {
     if (pool == NULL ) return INVALID_PARAMS;
 
-    count = pool->count;
+    *count = pool->count;
 
-    return count;
+    return 0;
 }
 
-int poolBlockGet(const BlocksPool* pool,Block* block,BlockState* b_State,size_t index) {
+int poolGetState(const BlocksPool* pool,Block* block,BlockState* b_State,size_t index) {
     if ( pool == NULL )         return INVALID_PARAMS;
     if ( index >= pool->count ) return INVALID_PARAMS;
 
@@ -140,6 +140,6 @@ int poolBlockRemoveLast(BlocksPool* pool,Block* block,BlockState* b_State) {
 int poolBlockSetState(BlocksPool* pool,BlockState state) {
     if (pool == NULL ) return INVALID_PARAMS;
     pool->poolState = state;
-    return 1;
+    return 0;
 }
 

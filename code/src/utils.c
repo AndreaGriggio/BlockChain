@@ -59,16 +59,3 @@ int validateTransaction(const char transaction[MAX_TX_SIZE+1]) {
 
     return (ret == 0) ? 0 : INVALID_TRANSACTION;
 }
-int validateName(const char *name) {
-    if (name == NULL) return -1;
-
-    regex_t re;
-    // solo lettere maiuscole, minuscole e cifre — esattamente come clientGenRandomName
-    int ret = regcomp(&re, "^[A-Za-z0-9]+$", REG_EXTENDED);
-    if (ret != 0) return -1;
-
-    ret = regexec(&re, name, 0, NULL, 0);
-    regfree(&re);
-
-    return (ret == 0) ? 0 : -1;  // 0 = match, REG_NOMATCH = fallimento
-}

@@ -174,7 +174,7 @@ static int receiveBlockFromNodes(Miner* miner,MinerStatus* status) {
 static int sendBlockToNodes(Block* block_to_send) {
 
     if (block_to_send == NULL) return INVALID_PARAMS;
-    int valid_operations[num_nodes];
+
     for (int i = 0; i < num_nodes; i++) {
 
         int tries = 0;

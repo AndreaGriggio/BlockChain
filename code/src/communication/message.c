@@ -109,20 +109,6 @@ int messageSetType(Message *message_ptr, MessageType type) {
     return 0;
 }
 
-int messageSetSize(Message *message_ptr, uint32_t payload_size) {
-    if (message_ptr == NULL) {
-        return INVALID_PARAMS;
-    }
-
-    if (payload_size > MAX_BLOCK_TXS_BUF) {
-        return BUFFER_TOO_SMALL;
-    }
-
-    message_ptr->payload_size = payload_size;
-
-    return 0;
-}
-
 int messageSetSender(Message *message_ptr, const ChildProcess *cp_ptr) {
     if (message_ptr == NULL || cp_ptr == NULL) {
         return INVALID_PARAMS;

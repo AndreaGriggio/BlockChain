@@ -56,12 +56,6 @@ int parse_uint64_hex(const char *str, uint64_t *out);
  */
 int validateTransaction(const char transaction[MAX_TX_SIZE+1]);
 
-/**
- * Utilizza regex per controllare il formato del nome secondo specifica di progetto
- * @param name nome da validare
- * @return 0 se tutto va bene
- */
-int validateName(const char *name);
 
 /**
  * Restituisce il timestamp corrente (secondi dall'epoch Unix) come intero a 64 bit.
@@ -78,5 +72,4 @@ uint64_t nowUnix(void);
  * @param max Numero max da generare
  */
 #define NUM_MIN_MAX(min, max) ((rand() % ((max) - (min) + 1)) + (min))
-#define NUM_MAX(max) (rand()%(max+1))
 #endif //PROG_UTILS_H

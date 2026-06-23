@@ -66,13 +66,13 @@ int clientGenerateTransactionInPlace(const uint32_t output_size, char output[MAX
     clientGenRandomName(receiver_lenght,receiver);
 
     const int written = snprintf(output,output_size,
-                                "%s %s %s %lu %s",
+                                "%s %s %s %zu %s",
                                        sender,
                                        "pays",
                                        receiver,
                                        coins,
                                        "coins");
-    if (written < 0 || written >= output_size) return BUFFER_TOO_SMALL;
+    if (written < 0 || written >= (int)output_size) return BUFFER_TOO_SMALL;
 
     return 0;
 }

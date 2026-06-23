@@ -86,7 +86,6 @@ int messageGetPayload(
 );
 
 int messageSetType(Message *message_ptr, MessageType type);
-int messageSetSize(Message *message_ptr, uint32_t payload_size);
 int messageSetSender(Message *message_ptr, const ChildProcess *cp_ptr);
 int messageSetPayload(Message *message_ptr, const char *payload_ptr, uint32_t payload_size);
 typedef struct MessageHeader {

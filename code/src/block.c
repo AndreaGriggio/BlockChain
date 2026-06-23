@@ -55,10 +55,6 @@ int blockInit(Block *block_ptr,const u_int64_t index, const u_int64_t timestamp,
     if (blockGetmerkle(block_ptr, block_ptr->merkle_root) != 0) return INVALID_BLOCK;
 
     return 0;
-
-
-
-    return 0;
 }
 int blockGetmerkle(
     const Block* block_ptr,
@@ -174,9 +170,7 @@ int calcMerkle(char hashes[][HASH_HEX_SIZE+1],const size_t count,char output_mer
     }
     //Sezione per aggiungere all'array copiato di  di hashcodes
     //L'hashcode di una stringa vuota
-    /**FIXME : questa sezione potrebbe essere spostata sopra quando si calcola la dimensione del
-    * FIXME : numero di elementi da copiare
-    */
+
     if (count % 2 != 0) {
         sha256_of_string(
             (const unsigned char *)"",
@@ -226,7 +220,7 @@ int blockGetHash(const Block *block_ptr, char out_hash[HASH_HEX_SIZE + 1]) {
                     input_sha256,
                     size);
 
-    if (res<0 || (size_t)res >= size+1 ){return INVALID_HASH;}
+    if (res<0 || (size_t)res >= size ){return INVALID_HASH;}
 
     sha256_of_string(
         (const unsigned char *)input_sha256
@@ -286,19 +280,19 @@ int blockFromCsv(Block *block_ptr, const char *line) {
 
     char *saveptr = NULL;
 
-    const char *index_str = strtok_r(buffer, ",", &saveptr);
-    const char *timestamp_str = strtok_r(NULL, ",", &saveptr);
-    const char *prev_hash_str = strtok_r(NULL, ",", &saveptr);
-    const char *merkle_root_str = strtok_r(NULL, ",", &saveptr);
-    const char *nonce_str = strtok_r(NULL, ",", &saveptr);
-    const char *transactions_str = strtok_r(NULL, "", &saveptr);
+    const char *index_str        = strtok_r(buffer, ",", &saveptr);
+    const char *timestamp_str    = strtok_r(NULL  , ",", &saveptr);
+    const char *prev_hash_str    = strtok_r(NULL  , ",", &saveptr);
+    const char *merkle_root_str  = strtok_r(NULL  , ",", &saveptr);
+    const char *nonce_str        = strtok_r(NULL  , ",", &saveptr);
+    const char *transactions_str = strtok_r(NULL  , "" , &saveptr);
 
-    if (index_str == NULL ||
-        timestamp_str == NULL ||
-        prev_hash_str == NULL ||
-        merkle_root_str == NULL ||
-        nonce_str == NULL ||
-        transactions_str == NULL) {
+    if (index_str        == NULL ||
+        timestamp_str    == NULL ||
+        prev_hash_str    == NULL ||
+        merkle_root_str  == NULL ||
+        nonce_str        == NULL ||
+        transactions_str == NULL   ) {
         return INVALID_BLOCK;
         }
 

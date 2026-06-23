@@ -36,9 +36,9 @@ int poolBlockRemoveAt(BlocksPool* pool,size_t index);
 
 int clearBlocksPool(BlocksPool* pool);
 
-int poolBlockGetCount(const BlocksPool* pool,size_t count);
+int poolBlockGetCount(const BlocksPool* pool,size_t* count);
 
-int poolBlockGet(const BlocksPool* pool,Block* block,BlockState* b_State,size_t index);
+int poolGetState(const BlocksPool* pool,Block* block,BlockState* b_State,size_t index);
 
 int destroyBlocksPool(BlocksPool* pool);
 
