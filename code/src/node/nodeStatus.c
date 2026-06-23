@@ -96,23 +96,6 @@ int nSGetChainLength(NodeStatus *s, uint64_t *out) {
     return 0;
 }
 
-
-int nSGetLastBlock(NodeStatus *s,const Block **out) {
-    if (s == NULL || out == NULL) return INVALID_PARAMS;
-
-    pthread_mutex_lock(&s->mutex);
-
-    if (s->last_block == NULL) {
-        pthread_mutex_unlock(&s->mutex);
-        return BLOCK_NOT_FOUND;
-    }
-
-    *out = s->last_block;
-
-    pthread_mutex_unlock(&s->mutex);
-    return 0;
-}
-
 int nSGetCPChildProcess(NodeStatus *s, ChildProcess *out) {
     if (s == NULL || out == NULL) return INVALID_PARAMS;
     if (s->cp == NULL)            return INVALID_PARAMS;

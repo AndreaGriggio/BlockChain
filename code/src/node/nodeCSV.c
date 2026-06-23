@@ -200,12 +200,11 @@ out:
     if (f != NULL)       fclose(f);
     if (csv_tail != NULL) blockDestroy(csv_tail);
 
-    sem_post(sem);
-
     if (rc == 0 || rc == CHAIN_MISMATCH || rc == BLOCK_ALREADY_PRESENT) {
         mirror_shared_to_local(ctx);
     }
 
+    sem_post(sem);
     sem_close(sem);
     return rc;
 }

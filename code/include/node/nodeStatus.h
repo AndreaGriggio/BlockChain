@@ -42,8 +42,6 @@ int nodeInitStatus(NodeStatus        *s,
 int nSGetState(NodeStatus *s, NodeState *out);
 int nSGetChainLength(NodeStatus *s, uint64_t *out);
 
-// restituisce il puntatore all'ultimo blocco conosciuto dal node
-int nSGetLastBlock(NodeStatus *s, const Block **out); 
 int nSGetCPChildProcess(NodeStatus *s, ChildProcess *out);
  
 int nSSetState(NodeStatus *s, NodeState state);

@@ -61,6 +61,8 @@ void *listener_thread(void *arg) {
             }
             if (r != 0) {
                 log_msg(ctx, "ERROR: receiveMessage dal miner %d fallita: %d", i, r);
+                close(ctx->from_miner[i]);
+                ctx->from_miner[i] = -1;
                 continue;
             }
 
