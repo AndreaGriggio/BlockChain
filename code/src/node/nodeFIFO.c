@@ -63,7 +63,7 @@ int createNodeFifos(NodeContext *ctx, int num_miners) {
         }
 
         do {
-            ctx->to_miner[i] = open(path_to, O_WRONLY | O_NONBLOCK);
+            ctx->to_miner[i] = open(path_to, O_RDWR);
             if (ctx->to_miner[i] < 0 && errno != ENXIO) {
                 fprintf(stderr, "NODE %d: open %s fallita: %s\n",
                         id, path_to, strerror(errno));

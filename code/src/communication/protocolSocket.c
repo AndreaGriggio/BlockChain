@@ -4,6 +4,7 @@
 #include "protocolSocket.h"
 #include "error.h"
 #include <errno.h>
+#include <unistd.h>
 
 int sendAll(int fd, const void* buffer, size_t size) {
     if (fd < 0 || buffer == NULL) return INVALID_PARAMS;
@@ -12,7 +13,7 @@ int sendAll(int fd, const void* buffer, size_t size) {
     size_t sent = 0;
 
     while (sent < size) {
-        ssize_t n = send(fd, ptr + sent, size - sent, 0);//manda byte partendo dalla base = ptr sommando offest = sent, i byte rimanenti size -sent
+        ssize_t n = write(fd, ptr + sent, size - sent);
         if (n < 0) {
             if (errno == EINTR)continue;// se interrotto da un segnale mandato allora continua
             return SOCKET_ERROR;
@@ -33,8 +34,8 @@ int recvAll(int fd, void* buffer, size_t size){
     size_t received = 0;
 
     while (received < size) {
-        ssize_t n = recv(fd, ptr + received, size - received, 0);
-
+        ssize_t n = read(fd, ptr + received, size - received);
+        
         if (n < 0) {
             if (errno == EINTR) {// se interrotto da un segnale mandato allora continua
                 continue;

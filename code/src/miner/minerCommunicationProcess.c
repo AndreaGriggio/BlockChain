@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <stdarg.h>
 
 #include <sys/un.h>
 #include <sys/socket.h>
@@ -26,11 +27,13 @@
 #include "utils.h"
 
 
+
+
 static MinerStatus* status = NULL;
 
 
 static volatile sig_atomic_t running = 1;
-static volatile sig_atomic_t suspend = 1;
+static volatile sig_atomic_t suspend = 0;
 
 
 static int difficulty;
@@ -41,6 +44,31 @@ static NodeChannels channels = {0};
 static int fd_socket = -1;
 
 static pthread_t mining_thread;
+
+static FILE* miner_log = NULL;
+
+/* Log su file miner-<pid>.log con timestamp */
+static void mlog(const char* fmt, ...) {
+
+    if (miner_log == NULL) return;
+
+    struct timespec ts;
+
+    clock_gettime(CLOCK_REALTIME, &ts);
+
+    char tb[32];
+    strftime(tb, sizeof tb, "%Y-%m-%d %H:%M:%S", localtime(&ts.tv_sec));
+    fprintf(miner_log, "[%s] [MINER-%d|PID-%d] ", tb, id, getpid());
+
+    va_list ap;
+
+    va_start(ap, fmt);
+    vfprintf(miner_log, fmt, ap);
+    va_end(ap);
+
+    fputc('\n', miner_log);
+    fflush(miner_log);
+}
 
 /**
  *
@@ -215,6 +243,15 @@ int main(int argc, char ** argv) {
         return 1;
     }
 
+    char logname[64];
+    snprintf(logname, sizeof logname, "miner-%d.log", getpid());
+    miner_log = fopen(logname, "w");
+    mlog("Miner avviato: difficulty=%d num_nodes=%d prev_index=%llu",
+        difficulty,
+        num_nodes,
+        (unsigned long long)prev_index);
+
+
     Miner* miner = NULL;
     if (init(&miner,prev_hash,prev_index) != 0) {
         fprintf(stderr,"MINER %d : init fallita\n",id);
@@ -257,10 +294,12 @@ int main(int argc, char ** argv) {
             && FD_ISSET(fd_socket, &rfds)) {
             int conn_fd = accept(fd_socket, NULL, NULL);
 
-            if (conn_fd >= 0) {
-                receiveTransactionFromClient(conn_fd, miner);
-                close(conn_fd);
+                if (conn_fd >= 0) {
+                    int rtx = receiveTransactionFromClient(conn_fd, miner);
+                    mlog("Transazione ricevuta dal client (res=%d)", rtx);
+                    close(conn_fd);
             }
+
         }
 
         //prendo lo stato del miner
@@ -278,6 +317,8 @@ int main(int argc, char ** argv) {
                 minerUpdatePrevious(miner, new_hash, new_index);
 
                 sendBlockToNodes(block);
+                mlog("Blocco index=%llu inviato ai %d nodi",
+                    (unsigned long long)new_index,num_nodes);
                 minerAddBlockToPending(miner, block);  // fa blockCopy + blockDestroy(block)
                 block = NULL;                          // evito use-after-free
 

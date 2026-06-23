@@ -296,23 +296,20 @@ int minerMiningLoop(Miner* miner, MinerStatus* status) {
         size_t attempts = 0;
         Block * new = NULL;
 
-
-        while (!trovato && s != MINER_IDLE ){
+            while (!trovato && s != MINER_IDLE ){
             sleep(sleeping_time);
 
-            // check abort — il comm thread ha chiamato msSignal(RESTART)?
             mSGetState(status, &s);
             if (s == MINER_RESTART || s == MINER_STOPPED) break;
 
             if (minerMiningAttempt(miner->difficulty,nonce)) {
-                if (minerCreateBlock(miner, &new,nonce) == 0 ) {
-                    /* set di found + park in un'unica sezione critica: il comm
-                     * thread non può vedere BLOCK_FOUND con stato ancora MINING. */
+                int cb = minerCreateBlock(miner, &new, nonce);
+                if (cb == 0) {
+                    /* set di found + park in un'unica sezione critica */
                     msSetBlockFoundAndIdle(status);
                     trovato = 1;
                 }
             } else {
-
                 mSGetAttempts(status, &attempts);
                 mSSetAttempts(status, attempts + 1);
             }

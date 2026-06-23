@@ -41,16 +41,21 @@ int blockInit(Block *block_ptr,const u_int64_t index, const u_int64_t timestamp,
     block_ptr -> timestamp = timestamp;
     block_ptr -> nonce = nonce;
 
-    if (strlen(prev_hash) != HASH_HEX_SIZE){
-        memset(block_ptr -> prev_hash,'0',HASH_HEX_SIZE);
-        block_ptr->prev_hash[HASH_HEX_SIZE]= '\0';
+    // Genesis: prev_hash NULL => tutti zeri (nessun blocco precedente)
+    if (prev_hash == NULL) {
+        memset(block_ptr->prev_hash, '0', HASH_HEX_SIZE);
+        block_ptr->prev_hash[HASH_HEX_SIZE] = '\0';
+    } else if (strlen(prev_hash) != HASH_HEX_SIZE) {
         return INVALID_BLOCK;
+    } else {
+        strcpy(block_ptr->prev_hash, prev_hash);
     }
-    if (strcpy(block_ptr -> prev_hash,prev_hash) != 0 )         return INVALID_BLOCK;
+
     if (pack_transactions(block_ptr, txs) != 0)                 return INVALID_BLOCK;
     if (blockGetmerkle(block_ptr, block_ptr->merkle_root) != 0) return INVALID_BLOCK;
 
     return 0;
+
 
 
     return 0;

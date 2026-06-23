@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdio.h>
 
 #include "communicationProtocol.h"
 
@@ -51,7 +52,8 @@ int sendBlockToNode(Block* block_ptr,MinerStatus* status, int fd) {
 
     messageSetPayload(m, payload, (uint32_t)payload_size);
 
-    if (sendMessage(fd, m) != 0) {childProcessDestroy(cp);free(m);return FIFO_ERROR;}
+    int sm = sendMessage(fd, m);
+    if (sm != 0) {childProcessDestroy(cp);free(m);return FIFO_ERROR;}
 
 
     childProcessDestroy(cp);

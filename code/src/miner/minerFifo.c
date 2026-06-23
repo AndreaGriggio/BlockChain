@@ -45,7 +45,7 @@ int nodeChannelsOpen(NodeChannels *ch, const int num_nodes, const int miner_id) 
         mkfifo(path_to,0666);
 
         do {
-            ch->to_node[i]   = open(path_to, O_WRONLY | O_NONBLOCK);
+            ch->to_node[i]   = open(path_to, O_RDWR);
             if (ch->to_node[i] < 0 && errno != ENXIO) {
                 fprintf(stderr,"open path_to");
                 return FIFO_ERROR;
@@ -61,7 +61,7 @@ int nodeChannelsOpen(NodeChannels *ch, const int num_nodes, const int miner_id) 
 
         snprintf(path_from, sizeof(path_from) ,"%s%d%d"  ,NODE_MINER_FIFO ,i  ,miner_id);
         do {
-            ch->from_node[i] = open(path_from, O_RDONLY);
+            ch->from_node[i] = open(path_from, O_RDONLY | O_NONBLOCK);
             if (ch->from_node[i] < 0 && errno != ENXIO && errno != ENOENT) {
                 perror("open path_from");
                 return FIFO_ERROR; // errore fatale, non retry
