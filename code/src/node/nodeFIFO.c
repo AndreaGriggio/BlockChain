@@ -28,7 +28,7 @@ int createNodeFifos(NodeContext *ctx, int num_miners) {
         ctx->from_miner = NULL;
         return -1;
     }
-    
+
     for (int i = 0; i < num_miners; i++) {
         ctx->to_miner[i]   = -1;
         ctx->from_miner[i] = -1;
@@ -77,9 +77,6 @@ int createNodeFifos(NodeContext *ctx, int num_miners) {
                     id, i, strerror(errno));
             return -1;
         }
-
-        fprintf(stderr, "NODE %d: to_miner[%d] aperto (fd=%d path=%s)\n",
-                id, i, ctx->to_miner[i], path_to);
     }
 
     for (int i = 0; i < num_miners; i++) {
@@ -101,13 +98,11 @@ int createNodeFifos(NodeContext *ctx, int num_miners) {
                     id, i, strerror(errno));
             return -1;
         }
-
-        fprintf(stderr, "NODE %d: from_miner[%d] aperto (fd=%d path=%s)\n",
-                id, i, ctx->from_miner[i], path_from);
     }
 
     return 0;
 }
+
 
 void destroyNodeFifos(NodeContext *ctx, int num_miners) {
     if (ctx->to_miner != NULL) {

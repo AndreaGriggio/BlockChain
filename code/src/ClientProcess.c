@@ -168,8 +168,6 @@ int main(int argc, char* argv[]) {
                 continue;
             }
 
-            printf("[client %d] %s\n", id, transaction);
-            fflush(stdout);
             log_msg("Transazione generata: %s", transaction);
 
             messageSetPayload(&message, transaction, strlen(transaction));

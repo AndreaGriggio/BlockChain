@@ -248,7 +248,7 @@ int blockValidate(const Block *block_ptr, const Block *prev) {
     if (block_ptr == NULL || prev == NULL ) return INVALID_BLOCK;
 
     char prev_hash[HASH_HEX_SIZE+1];
-    blockGetHash(prev,prev_hash);
+    if (blockGetHash(prev, prev_hash) != 0) return INVALID_BLOCK;
 
     if (block_ptr->index == prev->index+1 && strcmp(prev_hash, block_ptr->prev_hash) == 0) {return 0;}
     return INVALID_BLOCK;
