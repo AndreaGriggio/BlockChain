@@ -7,26 +7,27 @@
 typedef enum error {
     //teniamo lo zero utile per conferamare che qualcosa è avvenuto con successo
     //errori definiti da consegna
-    CHAIN_MISMATCH = 1,
-    INVALID_TRANSACTION = 2,
-    BLOCK_NOT_FOUND = 3,
-    INVALID_BLOCK = 4,
+    CHAIN_MISMATCH        = 1,
+    INVALID_TRANSACTION   = 2,
+    BLOCK_NOT_FOUND       = 3,
+    INVALID_BLOCK         = 4,
     //errori che possiamo aggiungere noi se ci fa comodo
-    INVALID_HASH = 5,
-    INVALID_PARAMS = 6,
-    BUFFER_TOO_SMALL = 7,
-    SOCKET_ERROR = 8,
-    SOCKET_CLOSED = 9,
+    INVALID_HASH          = 5,
+    INVALID_PARAMS        = 6,
+    BUFFER_TOO_SMALL      = 7,
+    SOCKET_ERROR          = 8,
+    SOCKET_CLOSED         = 9,
     //errori aggiunti in node
-    INVALID_MERKLE = 10,      // merkle root non coincide con quello ricalcolato
-    BLOCK_TOO_FAR = 11,       // blocco con index troppo avanti, mancano intermedi
-    CSV_ERROR = 12,           // errore lettura/scrittura file CSV
-    SEM_ERROR = 13,           // errore apertura/uso semaforo
-    GENESIS_ERROR = 14,        // errore sul blocco genesis
-    FIFO_ERROR = 15,
-    FIFO_CLOSED = 16,
-    MEMORY_ERROR = 17,       // malloc/realloc fallita
-    BLOCK_ALREADY_PRESENT = 18
+    INVALID_MERKLE        = 10,      // merkle root non coincide con quello ricalcolato
+    BLOCK_TOO_FAR         = 11,      // blocco con index troppo avanti, mancano intermedi
+    CSV_ERROR             = 12,      // errore lettura/scrittura file CSV
+    SEM_ERROR             = 13,      // errore apertura/uso semaforo
+    GENESIS_ERROR         = 14,      // errore sul blocco genesis
+    FIFO_EMPTY            = 15,
+    FIFO_ERROR            = 16,
+    FIFO_CLOSED           = 17,
+    MEMORY_ERROR          = 18,       // malloc/realloc fallita
+    BLOCK_ALREADY_PRESENT = 19
 }error;
 #endif 
 

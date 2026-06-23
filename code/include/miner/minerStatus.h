@@ -65,14 +65,6 @@ int msWaitForWork(MinerStatus *status);
  * @return 0 se tutto va bene
  */
 int msSignal(MinerStatus *status, MinerState new_state);
-/**
- *Fa una copia dell'intera struttura MinerStatus
- *@param minerStatus puntator al miner in cui verrano copiate le informazioni
- * @param minerCPStatus Puntatore al miner status dove verrano inseire informazioni
- * @return 0 se tutto va bene
- */
-int mSGetCPStatus(const MinerStatus* minerStatus,MinerStatus* minerCPStatus);
-
 
 /**
  *
@@ -101,14 +93,6 @@ int mSGetAttempts(MinerStatus *status, size_t *out);
 
 int mSGetTransactionCount(MinerStatus *status, uint64_t *out);
 
-
-/**
- *
- * @param status Status a cui accedere per prelevare
- * @param out transaction count su cui verra scritto il valore della struct
- * @return 0 se tuttto va bene
- */
-int minerGetTransactionCount(MinerStatus *status, uint64_t *out);
 /**
  * Serve per settare il ChildProcess all'interno della struttura MinerStatus
  * @param minerStatus Puntatore Miner status all'interno del quale settare il nuovo cp

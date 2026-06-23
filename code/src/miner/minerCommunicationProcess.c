@@ -25,15 +25,13 @@
 #include "minerThread.h"
 #include "minerCommunicationProtocol.h"
 #include "utils.h"
-
-
+#include "../../include/error.h"
 
 
 static MinerStatus* status = NULL;
 
 
 static volatile sig_atomic_t running = 1;
-static volatile sig_atomic_t suspend = 0;
 
 
 static int difficulty;
@@ -80,8 +78,6 @@ static void handle_signal(const int sig) {
     switch (sig) {
         case SIGTERM :
         case SIGINT  : running = 0; break;
-        case SIGUSR1 : suspend = 1; break;
-        case SIGUSR2 : suspend = 0; break;
         default: break;
     }
 }
@@ -101,8 +97,6 @@ static int init(Miner** miner,char prev_hash[HASH_HEX_SIZE+1],uint64_t prev_inde
 
     if (sigaction(SIGINT,  &sa, NULL) == -1) { perror("sigaction SIGINT");  return 1; }
     if (sigaction(SIGTERM, &sa, NULL) == -1) { perror("sigaction SIGTERM"); return 1; }
-    if (sigaction(SIGUSR1, &sa, NULL) == -1) { perror("sigaction SIGUSR1"); return 1; }
-    if (sigaction(SIGUSR2, &sa, NULL) == -1) { perror("sigaction SIGUSR2"); return 1; }
 
     ChildProcess* childProcess = childProcessCreate();
 
@@ -160,16 +154,10 @@ static int init(Miner** miner,char prev_hash[HASH_HEX_SIZE+1],uint64_t prev_inde
 static int receiveBlockFromNodes(Miner* miner,MinerStatus* status) {
 
     for (int i = 0; i < num_nodes; i ++) {
-
-        int tries = 0;
         int res = 0;
-
-        do {
-            res = receiveBlockFromNode(miner,status,channels.from_node[i]);
-            if ( res == INVALID_PARAMS) break;
-
-            tries ++;
-        }while (res != 0 && tries < MAX_CONNECTION_TRIES);
+        res = receiveBlockFromNode(miner,status,channels.from_node[i]);
+        if (res == INVALID_PARAMS ) {break;}
+        if (res == FIFO_EMPTY || res == FIFO_ERROR || res == FIFO_CLOSED){continue;}
     }
 
     return 0;
@@ -208,8 +196,8 @@ static int sendBlockToNodes(Block* block_to_send) {
  */
 int main(int argc, char ** argv) {
 
-    if (argc < 5) {
-        fprintf(stderr, "Utilizzo : %s <difficulty> <id> <num_nodes> <listen_fd>\n",argv[0]);
+    if (argc < 7) {
+        fprintf(stderr, "Utilizzo : %s <difficulty> <id> <num_nodes> <listen_fd> <prev_hash> <prev_index>\n",argv[0]);
         return 1;
     }
 
@@ -243,6 +231,11 @@ int main(int argc, char ** argv) {
         return 1;
     }
 
+    /* Seeding del RNG: senza questo tutti i miner condividono la stessa sequenza
+     * rand() (sleep deterministico, nonce identici, miner sincronizzati). Si mescola
+     * il PID col tempo per garantire indipendenza tra processi avviati nello stesso istante. */
+    srand((unsigned int)(time(NULL) ^ getpid()));
+
     char logname[64];
     snprintf(logname, sizeof logname, "miner-%d.log", getpid());
     miner_log = fopen(logname, "w");
@@ -267,20 +260,9 @@ int main(int argc, char ** argv) {
 
     while (running) {
 
-        /* ---- PAUSA: SIGUSR1 imposta suspend=1, SIGUSR2 lo riazzera ---- */
-        if (suspend) {
-            minerThreadPause(status);                 // fermo il mining (MINER_IDLE)
-
-            /* attendo senza busy-wait finché non mi riprendono o mi terminano */
-            while (suspend && running) {
-                struct timespec ts = { .tv_sec = 0, .tv_nsec = 100000000 }; // 100 ms
-                nanosleep(&ts, NULL);
-            }
-            if (!running) break;                      // SIGTERM ricevuto in pausa
-
-            msSignal(status, MINER_MINING);           // ripresa: rilancio il mining
-            continue;
-        }
+        /* La pausa/ripresa del sistema avviene via SIGSTOP/SIGCONT mandati al
+         * process group dalla REPL: sono gestiti dal kernel (non intercettabili),
+         * quindi qui non serve alcuna logica applicativa di sospensione. */
 
         /* ---- lavoro normale ----
          * Una connessione = una transazione (il client fa connect->send->close).
