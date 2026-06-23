@@ -54,7 +54,7 @@ int createNodeFifos(NodeContext *ctx, int num_miners) {
 
     for (int i = 0; i < num_miners; i++) {
         char path_to[64];
-        snprintf(path_to, sizeof(path_to), "%s%d%d", NODE_MINER_FIFO, id, i);
+        snprintf(path_to, sizeof(path_to), "%s%d_%d", NODE_MINER_FIFO, id, i);
 
         if (mkfifo(path_to, 0666) < 0 && errno != EEXIST) {
             fprintf(stderr, "NODE %d: mkfifo %s fallita: %s\n",
@@ -81,7 +81,7 @@ int createNodeFifos(NodeContext *ctx, int num_miners) {
 
     for (int i = 0; i < num_miners; i++) {
         char path_from[64];
-        snprintf(path_from, sizeof(path_from), "%s%d%d", MINER_NODE_FIFO, i, id);
+        snprintf(path_from, sizeof(path_from), "%s%d_%d", MINER_NODE_FIFO, i, id);
 
         do {
             ctx->from_miner[i] = open(path_from, O_RDONLY);

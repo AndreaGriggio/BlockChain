@@ -59,7 +59,7 @@ int nodeChannelsOpen(NodeChannels *ch, const int num_nodes, const int miner_id) 
     for (int i = 0; i < num_nodes; i++) {
         char  path_from [64];
 
-        snprintf(path_from, sizeof(path_from) ,"%s%d%d"  ,NODE_MINER_FIFO ,i  ,miner_id);
+        snprintf(path_from, sizeof(path_from) ,"%s%d_%d"  ,NODE_MINER_FIFO ,i  ,miner_id);
         do {
             ch->from_node[i] = open(path_from, O_RDONLY | O_NONBLOCK);
             if (ch->from_node[i] < 0 && errno != ENXIO && errno != ENOENT) {
