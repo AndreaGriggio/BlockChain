@@ -288,6 +288,8 @@ int minerMiningLoop(Miner* miner, MinerStatus* status) {
         mSGetState(status, &s);
         mSSetBlockState(status, MINER_BLOCK_NOT_FOUND);
         if (s == MINER_STOPPED) break;
+        if (s == MINER_RESTART) { msSignal(status, MINER_MINING); s = MINER_MINING; }
+
 
 
         int trovato = 0;
