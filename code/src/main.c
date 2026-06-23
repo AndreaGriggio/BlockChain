@@ -597,8 +597,8 @@ int main(int argc, char *argv[]) {
     for (int m = 0; m < cfg.num_miners; m++) {
         for (int n = 0; n < cfg.num_nodes; n++) {
             char p[64];
-            snprintf(p, sizeof p, "%s%d%d", MINER_NODE_FIFO, m, n); unlink(p);
-            snprintf(p, sizeof p, "%s%d%d", NODE_MINER_FIFO, n, m); unlink(p);
+            snprintf(p, sizeof p, "%s%d_%d", MINER_NODE_FIFO, m, n); unlink(p);
+            snprintf(p, sizeof p, "%s%d_%d", NODE_MINER_FIFO, n, m); unlink(p);
         }
     }
     sem_unlink(CSV_SEM_NAME);

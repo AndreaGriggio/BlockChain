@@ -79,7 +79,7 @@ int clearBlocksPool(BlocksPool* pool) {
 
     for (size_t i = 0; i < pool->count; i++ ) {
 
-        free(pool->items[i]);
+        blockDestroy(pool->items[i]);
         pool->items[i] = NULL;
 
     }
@@ -127,7 +127,7 @@ int poolBlockRemoveLast(BlocksPool* pool,Block* block,BlockState* b_State) {
     }
     blockCopy(block,pool->items[pool->count - 1]);//copio l'ultimo blocco
 
-    free(pool->items[pool->count - 1]);//rilascio memoria
+    blockDestroy(pool->items[pool->count - 1]);    //rilascio memoria
     pool->items[pool->count - 1] = NULL;//metto a terra il puntatore dell'ultimo elemento
 
     pool->count --;//decremento il numero corrente di blocchi
