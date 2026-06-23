@@ -16,7 +16,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <errno.h>
-
+#include <sys/select.h>
 #include "communicationProtocol.h"
 
 /**
@@ -136,4 +136,21 @@ int receiveTransactionFromClient(int fd,Miner* miner){
     free(tr);
     free(m);
     return result;
+}
+int pollClientTransaction(int listen_fd, Miner* miner, int timeout_ms) {
+    fd_set rfds;
+    FD_ZERO(&rfds);
+    FD_SET(listen_fd, &rfds);
+    struct timeval tv = { .tv_sec = timeout_ms / 1000,
+                          .tv_usec = (timeout_ms % 1000)*1000};
+
+    int s = select(listen_fd + 1, &rfds, NULL, NULL, &tv);
+    if (s <= 0 || !FD_ISSET(listen_fd, &rfds)) return 0;   // timeout o EINTR
+
+    int conn_fd = accept(listen_fd, NULL, NULL);
+    if (conn_fd < 0) return SOCKET_ERROR;
+
+    int rtx = receiveTransactionFromClient(conn_fd, miner);
+    close(conn_fd);
+    return (rtx == 0) ? 1 : rtx;
 }

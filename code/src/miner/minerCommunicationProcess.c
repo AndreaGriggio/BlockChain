@@ -271,22 +271,8 @@ int main(int argc, char ** argv) {
         /* ---- lavoro normale ----
          * Una connessione = una transazione (il client fa connect->send->close).
          * select con timeout per restare responsivi verso mining e nodi. */
-        fd_set rfds;
-        FD_ZERO(&rfds);
-        FD_SET(fd_socket, &rfds);
-        struct timeval tv = { .tv_sec = 0, .tv_usec = 100000 };
-
-        if (select(fd_socket + 1, &rfds, NULL, NULL, &tv) > 0
-            && FD_ISSET(fd_socket, &rfds)) {
-            int conn_fd = accept(fd_socket, NULL, NULL);
-
-                if (conn_fd >= 0) {
-                    int rtx = receiveTransactionFromClient(conn_fd, miner);
-                    mlog("Transazione ricevuta dal client (res=%d)", rtx);
-                    close(conn_fd);
-            }
-
-        }
+        int rtx = pollClientTransaction(fd_socket,miner,100);
+        if (rtx != 0) mlog("Transazione del client (res=%d)",rtx);
 
         //prendo lo stato del miner
         msGetBlockState(status, &current_block_state);
