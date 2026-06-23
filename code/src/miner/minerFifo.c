@@ -84,7 +84,7 @@ void nodeChannelsClose(NodeChannels *ch) {
 
             if (ch->miner_id >= 0) {
                 char path_to[64];
-                snprintf(path_to, sizeof(path_to), "%s%d%d", MINER_NODE_FIFO, ch->miner_id, i);
+                snprintf(path_to, sizeof(path_to), "%s%d_%d", MINER_NODE_FIFO, ch->miner_id, i);
                 unlink(path_to);
             }
         }

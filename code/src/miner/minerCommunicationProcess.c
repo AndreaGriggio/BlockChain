@@ -153,14 +153,18 @@ static int init(Miner** miner,char prev_hash[HASH_HEX_SIZE+1],uint64_t prev_inde
 }
 static int receiveBlockFromNodes(Miner* miner,MinerStatus* status) {
 
+    int res[num_nodes];
+    int one_block_returned = 0;
     for (int i = 0; i < num_nodes; i ++) {
-        int res = 0;
-        res = receiveBlockFromNode(miner,status,channels.from_node[i]);
-        if (res == INVALID_PARAMS ) {break;}
-        if (res == FIFO_EMPTY || res == FIFO_ERROR || res == FIFO_CLOSED){continue;}
+
+        res[i] = receiveBlockFromNode(miner,status,channels.from_node[i]);
+        if (res[i] == INVALID_PARAMS ) { return INVALID_PARAMS;}// viene terminato il processo di invio se uno è sbagliato lo sono tutti
+        if (res[i] == 0 ) one_block_returned = 1;
+        if (res[i] == FIFO_EMPTY || res[i] == FIFO_ERROR || res[i] == FIFO_CLOSED){continue;}
+
     }
 
-    return 0;
+    return one_block_returned;
 }
 /**
  * Invia il blocco corrente (previous_block) a tutti i nodi, ritentando l'invio
@@ -170,11 +174,11 @@ static int receiveBlockFromNodes(Miner* miner,MinerStatus* status) {
 static int sendBlockToNodes(Block* block_to_send) {
 
     if (block_to_send == NULL) return INVALID_PARAMS;
-
+    int valid_operations[num_nodes];
     for (int i = 0; i < num_nodes; i++) {
 
         int tries = 0;
-        int res = 0;
+        int res = 1;
 
         do {
              res = sendBlockToNode(block_to_send,status,channels.to_node[i]);
@@ -308,7 +312,7 @@ int main(int argc, char ** argv) {
             }
         }
 
-        receiveBlockFromNodes(miner,status);
+        if ( receiveBlockFromNodes(miner,status) == 1) minerThreadRestart(status);// ha ricevuto qualcosa dai nodi quindi restart mining
     }
 
 
