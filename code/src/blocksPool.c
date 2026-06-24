@@ -71,16 +71,15 @@ int poolBlockRemoveAt(BlocksPool* pool,size_t index) {
     blockDestroy(pool->items[index]);
 
     pool->items[index] = pool->items[pool->count -1];//L'ultimo elemento sostituisce quello rimosso
+    pool->items[pool->count - 1] = NULL;
 
-    if (pool->count == 0 ) {
-        pool->poolState = UNUSED_POOL;
-    }else {
-        pool->count--;//il numero degli elementi viene aggiornato
-    }
+    pool->count--;//il numero degli elementi viene aggiornato
+    if (pool->count == 0) pool->poolState = UNUSED_POOL;
 
     return 0;
 
 }
+
 
 int clearBlocksPool(BlocksPool* pool) {
     if (pool == NULL ) return INVALID_PARAMS;
@@ -104,28 +103,17 @@ int poolBlockGetCount(const BlocksPool* pool,size_t* count) {
     return 0;
 }
 
-int poolGetState(const BlocksPool* pool,Block* block,BlockState* b_State,size_t index) {
-    if ( pool == NULL )         return INVALID_PARAMS;
-    if ( index >= pool->count ) return INVALID_PARAMS;
-
-    blockCopy(block,pool->items[index]);
-    *b_State = pool->poolState;
-
-    if ( block == NULL ) return MEMORY_ERROR;
-
-    return 0;
-
-}
-
 int destroyBlocksPool(BlocksPool* pool) {
 
     if (pool == NULL ) return INVALID_PARAMS;
 
     clearBlocksPool(pool);
+    free(pool->items);
     free(pool);
     return 0;
 
 }
+
 
 int poolBlockRemoveLast(BlocksPool* pool,Block* block,BlockState* b_State) {
     if ( pool == NULL || block == NULL  || b_State == NULL) return INVALID_PARAMS;
@@ -151,3 +139,8 @@ int poolBlocksSetState(BlocksPool* pool,BlockState state) {
     return 0;
 }
 
+int poolBlocksGetState(BlocksPool* pool,BlockState* state) {
+    if (pool == NULL || state == NULL) return INVALID_PARAMS;
+    *state = pool->poolState;
+    return 0;
+}

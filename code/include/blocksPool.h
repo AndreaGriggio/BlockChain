@@ -40,12 +40,13 @@ int clearBlocksPool(BlocksPool* pool);
 
 int poolBlockGetCount(const BlocksPool* pool,size_t* count);
 
-int poolGetState(const BlocksPool* pool,Block* block,BlockState* b_State,size_t index);
-
 int destroyBlocksPool(BlocksPool* pool);
 
 int poolBlockRemoveLast(BlocksPool* pool,Block* block,BlockState* b_State);
 
 int poolBlocksSetState(BlocksPool* pool,BlockState state);
+
+int poolBlocksGetState(BlocksPool* pool,BlockState* state);
+
 
 #endif //BLOCKSPOOL_H
