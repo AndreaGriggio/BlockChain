@@ -25,15 +25,6 @@ int clientDestroy(Client* c_ptr);
  * @return 0 se tutto è andato a buon fine
  */
 int clientGenerateTransaction(Client* c_ptr);
-
-/**
- *
- * @param output_size dimensione del buffer di output
- * @param output buffer di output dove viene inserita la transazione
- * @return 0 se tutto bene
- */
-int clientGenerateTransactionInPlace(const uint32_t output_size, char output[MAX_TR_LENGHT+1]);
-
 /**
  * Genera un nome come specificato dalla consegna
  * 1. Nomi casuali
@@ -46,14 +37,6 @@ int clientGenerateTransactionInPlace(const uint32_t output_size, char output[MAX
  * @return 0 se tutto è andato a buon fine
  */
 int clientGenRandomName(const size_t size, char name[MAX_NAME_SIZE+1]);
-
-/**
- *
- * @param c_ptr Cliente da cui sapere quanto è lunga la transazione
- * @param len puntatore alla lunghezza della transazione
- * @return 0 se tutto è andato a buon fine
- */
-int clientGetTrLen(const Client* c_ptr, uint32_t *len);
 
 /**
  * Prende e copia la transazione all'interno dell'output se il buffer è sufficientemente grande

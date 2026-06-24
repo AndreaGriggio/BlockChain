@@ -52,30 +52,7 @@ int clientGenerateTransaction(Client* c_ptr) {
 
     return 0;
 }
-int clientGenerateTransactionInPlace(const uint32_t output_size, char output[MAX_TR_LENGHT+1]) {
-    if ( output_size == 0 || output == NULL){return INVALID_PARAMS;}
 
-    char sender[MAX_NAME_SIZE+1];
-    char receiver[MAX_NAME_SIZE+1];
-
-    const size_t sender_lenght = NUM_MIN_MAX(MIN_NAME_SIZE,MAX_NAME_SIZE);
-    const size_t receiver_lenght = NUM_MIN_MAX(MIN_NAME_SIZE,MAX_NAME_SIZE);
-    const size_t coins = NUM_MIN_MAX(MIN_COINS,MAX_COINS);
-
-    clientGenRandomName(sender_lenght,sender);
-    clientGenRandomName(receiver_lenght,receiver);
-
-    const int written = snprintf(output,output_size,
-                                "%s %s %s %zu %s",
-                                       sender,
-                                       "pays",
-                                       receiver,
-                                       coins,
-                                       "coins");
-    if (written < 0 || written >= (int)output_size) return BUFFER_TOO_SMALL;
-
-    return 0;
-}
 
 int clientGenRandomName(const size_t size,char name[MAX_NAME_SIZE+1]) {
     if (name == NULL || size == 0 || size > MAX_NAME_SIZE) {
@@ -96,11 +73,6 @@ int clientGenRandomName(const size_t size,char name[MAX_NAME_SIZE+1]) {
 
     name[size] = '\0';
 
-    return 0;
-}
-int clientGetTrLen(const Client* c_ptr, uint32_t *len) {
-    if (c_ptr == NULL || len == NULL){return INVALID_PARAMS;}
-    *len = c_ptr->trLen;
     return 0;
 }
 
