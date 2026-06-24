@@ -92,16 +92,7 @@ size_t poolCount(const TransactionPool* pool) {
     return pool->count;
 }
 
-const char* poolGet(const TransactionPool* pool, size_t index) {
-    if (pool == NULL || index >= pool->count) return NULL;
-    size_t len = strlen(pool->items[index]);
 
-    char* copy = malloc(len + 1);
-    if (copy == NULL) return NULL;
-
-    memcpy(copy, pool->items[index], len + 1);
-    return copy;
-}
 
 char* poolRemoveLast(TransactionPool* pool) {
     if (pool == NULL) return NULL;
