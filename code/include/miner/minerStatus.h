@@ -91,7 +91,6 @@ int msGetBlockState(MinerStatus* s, MinerBlockState* out);
 int mSGetAttempts(MinerStatus *status, size_t *out);
 
 
-int mSGetTransactionCount(MinerStatus *status, uint64_t *out);
 
 /**
  * Serve per settare il ChildProcess all'interno della struttura MinerStatus
@@ -128,11 +127,5 @@ int msSetBlockFoundAndIdle(MinerStatus *s);
  * @return 0 se tutto va bene
  */
 int mSSetAttempts(MinerStatus *status, size_t attempts);
-/**
- * Serve per settare il numero di transazioni contenute all'interno del miner
- * @param status Puntatore dove settare il nuovo transaction count
- * @param count transaction count da settare
- * @return 0 se tutto va bene
- */
-int mSSetTransactionCount(MinerStatus *status, uint64_t count);
+
 #endif //MINERSTATUS_H

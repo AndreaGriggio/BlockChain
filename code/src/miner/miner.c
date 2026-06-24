@@ -354,11 +354,12 @@ int minerCleanBlocksPool(Miner* miner,MinerStatus* status,const char* prev_hash,
     size_t i = 0;
     BlockState st;
     poolBlocksGetState(miner->pending_pool, &st);
+    
     if (st != BLOCK_WAITING) {  // pending pool in stato non valido per essere aggiornata
         pthread_mutex_unlock(&miner->lock);
         blockDestroy(tmp);
         return INVALID_PARAMS;
-      } 
+    } 
     while (i < miner->pending_pool->count) {
         uint64_t idx = 0;
         if (poolBlockGet(miner->pending_pool, tmp, i) == 0

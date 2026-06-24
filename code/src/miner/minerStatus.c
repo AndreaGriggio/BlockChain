@@ -187,21 +187,6 @@ int mSGetAttempts(MinerStatus *s, size_t *out) {
     return 0;
 }
 
-/**
- * Legge in modo thread-safe il numero di transazioni accumulate.
- * @param s Stato del miner da leggere
- * @param out Buffer di output in cui scrivere il conteggio delle transazioni
- * @return 0 se tutto è andato a buon fine, INVALID_PARAMS per parametri nulli
- */
-int mSGetTransactionCount(MinerStatus *s, uint64_t *out) {
-    if (s == NULL || out == NULL) return INVALID_PARAMS;
-
-    pthread_mutex_lock(&s->mutex);
-    *out = s->transaction_count;
-    pthread_mutex_unlock(&s->mutex);
-
-    return 0;
-}
 
 /**
  * Copia in modo thread-safe il child process associato allo stato nel buffer
@@ -280,21 +265,6 @@ int mSSetAttempts(MinerStatus *s, size_t attempts) {
     return 0;
 }
 
-/**
- * Imposta in modo thread-safe il numero di transazioni accumulate.
- * @param s Stato del miner da aggiornare
- * @param count Nuovo conteggio delle transazioni
- * @return 0 se tutto è andato a buon fine, INVALID_PARAMS se s è NULL
- */
-int mSSetTransactionCount(MinerStatus *s, uint64_t count) {
-    if (s == NULL) return INVALID_PARAMS;
-
-    pthread_mutex_lock(&s->mutex);
-    s->transaction_count = count;
-    pthread_mutex_unlock(&s->mutex);
-
-    return 0;
-}
 
 /**
  * Copia in modo thread-safe il child process fornito dentro lo stato del miner.

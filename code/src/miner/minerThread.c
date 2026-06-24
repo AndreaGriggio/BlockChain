@@ -40,12 +40,6 @@ int minerThreadStop(MinerStatus *status, const pthread_t *thread) {
     return 0;
 }
 
-int minerThreadPause(MinerStatus *status) {
-    if (status == NULL) return INVALID_PARAMS;
-
-    msSignal(status, MINER_IDLE);
-    return 0;
-}
 
 int minerThreadRestart(MinerStatus *status) {
     if (status == NULL) return INVALID_PARAMS;

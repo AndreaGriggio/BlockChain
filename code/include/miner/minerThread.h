@@ -37,13 +37,6 @@ int minerThreadStart(pthread_t *thread, MiningThreadArgs *args);
 int minerThreadStop(MinerStatus *status, const pthread_t *thread);
 
 /**
- * Mette in pausa il mining portando lo stato a MINER_IDLE.
- * @param status Stato condiviso da aggiornare
- * @return 0 se tutto è andato a buon fine, INVALID_PARAMS se status è NULL
- */
-int minerThreadPause(MinerStatus *status);
-
-/**
  * Richiede il riavvio del ciclo di mining portando lo stato a MINER_RESTART.
  * @param status Stato condiviso da aggiornare
  * @return 0 se tutto è andato a buon fine, INVALID_PARAMS se status è NULL
