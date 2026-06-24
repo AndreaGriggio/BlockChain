@@ -15,7 +15,7 @@
 //teniamo costanti pulite +1 vanno dopo altrimenti cambiamo nome della costante
     //64 caratteri hex
 #define MERKLE_ROOT_HEX_SIZE HASH_HEX_SIZE
-#define MAX_BLOCK_TXS_BUF 4098  // dimensione massima buffer transazioni
+#define MAX_BLOCK_TXS_BUF 3895  // dimensione massima buffer transazioni massimo teorico fisicamente il buffer transazioni max è 129*25 (dim transazioni) + 24*2(caratteri seperatori) 
 #define MAX_TX_PER_BLOCK 25    // Numero massimo di transazioni per blocco
 #define MAX_TX_SIZE 128         // Dimensione massima di una singola transazione
 

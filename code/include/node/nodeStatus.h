@@ -39,14 +39,12 @@ int nodeInitStatus(NodeStatus        *s,
                    NodeState           state,
                    uint64_t            chain_length);
  
-int nSGetState(NodeStatus *s, NodeState *out);
-int nSGetChainLength(NodeStatus *s, uint64_t *out);
+
 
 int nSGetCPChildProcess(NodeStatus *s, ChildProcess *out);
  
 int nSSetState(NodeStatus *s, NodeState state);
 int nSSetChainLength(NodeStatus *s, uint64_t length);
 int nSSetLastBlock(NodeStatus *s, const Block *block);
-int nSSetCP(NodeStatus *s, const ChildProcess *cp);
- 
+
 #endif // NODE_STATUS_H

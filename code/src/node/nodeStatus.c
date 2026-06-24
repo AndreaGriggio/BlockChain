@@ -76,25 +76,6 @@ int nodeInitStatus(NodeStatus        *s,
 }
 
 
-int nSGetState(NodeStatus *s, NodeState *out) {
-    if (s == NULL || out == NULL) return INVALID_PARAMS;
-
-    pthread_mutex_lock(&s->mutex);
-    *out = s->state;
-    pthread_mutex_unlock(&s->mutex);
-
-    return 0;
-}
-
-int nSGetChainLength(NodeStatus *s, uint64_t *out) {
-    if (s == NULL || out == NULL) return INVALID_PARAMS;
-
-    pthread_mutex_lock(&s->mutex);
-    *out = s->chain_length;
-    pthread_mutex_unlock(&s->mutex);
-
-    return 0;
-}
 
 int nSGetCPChildProcess(NodeStatus *s, ChildProcess *out) {
     if (s == NULL || out == NULL) return INVALID_PARAMS;
@@ -137,13 +118,3 @@ int nSSetLastBlock(NodeStatus *s, const Block *block) {
     return 0;
 }
 
-int nSSetCP(NodeStatus *s, const ChildProcess *cp) {
-    if (s == NULL || cp == NULL) return INVALID_PARAMS;
-    if (s->cp == NULL)           return INVALID_PARAMS;
-
-    pthread_mutex_lock(&s->mutex);
-    int ret = copyCp(cp, s->cp);
-    pthread_mutex_unlock(&s->mutex);
-
-    return ret;
-}
