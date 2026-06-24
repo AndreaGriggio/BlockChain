@@ -19,7 +19,7 @@ COMMON_OBJS := \
 
 .PHONY: build clean run dirs
 
-build: dirs code/blockchain $(BIN)/miner $(BIN)/MinerLauncher $(BIN)/client $(BIN)/node $(BIN)/ClientsLauncher
+build: dirs code/blockchain $(BIN)/miner $(BIN)/client $(BIN)/node
 
 dirs:
 	mkdir -p $(OBJ) $(BIN)
@@ -36,19 +36,13 @@ $(BIN)/client: $(OBJ)/ClientProcess.o $(OBJ)/client.o $(COMMON_OBJS)
 $(BIN)/node: $(OBJ)/node.o $(OBJ)/nodeContext.o $(OBJ)/nodeLog.o $(OBJ)/nodeCSV.o $(OBJ)/nodeFIFO.o $(OBJ)/nodeListener.o $(OBJ)/nodeValidation.o $(OBJ)/nodeStatus.o $(COMMON_OBJS)
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^ $(LDLIBS)
 
-$(BIN)/ClientsLauncher: $(OBJ)/ClientsLauncher.o
-	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^
-
-$(BIN)/MinerLauncher: $(OBJ)/MinerLauncher.o
-	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^
-
 $(OBJ)/%.o: %.c
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
 clean:
 	rm -f $(OBJ)/*.o
 	rm -f code/blockchain
-	rm -f $(BIN)/miner $(BIN)/client $(BIN)/node $(BIN)/ClientsLauncher $(BIN)/MinerLauncher
+	rm -f $(BIN)/miner $(BIN)/client $(BIN)/node
 	rm -f *.log
 	rm -f ./tmp/*
 	rm -f /dev/shm/sem.blockchain_csv

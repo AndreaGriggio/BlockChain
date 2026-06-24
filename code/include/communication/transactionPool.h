@@ -70,16 +70,6 @@ int clearTransactionPool(TransactionPool* pool);
  */
 size_t poolCount(const TransactionPool* pool);
 
-/**
- * Copia la transazione in posizione index nel buffer fornito dal chiamante.
- * Il pool resta UNICO proprietario della propria memoria: il puntatore interno
- * non viene mai esposto, cosi' nessuno puo' liberarlo per sbaglio.
- * @param pool     pool da interrogare
- * @param index    indice richiesto
- * @return 0 se ok, INVALID_PARAMS se argomenti nulli o index fuori range,
- *         BUFFER_TOO_SMALL se out non e' abbastanza grande
- */
-const char* poolGet(const TransactionPool* pool, size_t index);
 
 /**
  * Libera tutte le transazioni, l'array interno e la struttura stessa.
