@@ -94,14 +94,6 @@ int clearBlocksPool(BlocksPool* pool) {
     return 0;
 }
 
-int poolBlockGetCount(const BlocksPool* pool,size_t* count) {
-    if (pool == NULL ) return INVALID_PARAMS;
-
-    *count = pool->count;
-
-    return 0;
-}
-
 int destroyBlocksPool(BlocksPool* pool) {
 
     if (pool == NULL ) return INVALID_PARAMS;
@@ -109,22 +101,6 @@ int destroyBlocksPool(BlocksPool* pool) {
     clearBlocksPool(pool);
     free(pool->items);
     free(pool);
-    return 0;
-
-}
-
-
-int poolBlockRemoveLast(BlocksPool* pool,Block* block,BlockState* b_State) {
-    if ( pool == NULL || block == NULL  || b_State == NULL) return INVALID_PARAMS;
-    if ( pool->count == 0 ) return -1;
-    blockCopy(block,pool->items[pool->count - 1]);//copio l'ultimo blocco
-
-    blockDestroy(pool->items[pool->count - 1]);    //rilascio memoria
-    pool->items[pool->count - 1] = NULL;//metto a terra il puntatore dell'ultimo elemento
-
-    pool->count --;//decremento il numero corrente di blocchi
-    *b_State = pool->poolState;
-
     return 0;
 
 }

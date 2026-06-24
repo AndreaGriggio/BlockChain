@@ -44,6 +44,7 @@
 //fifo constants
 #define MINER_NODE_FIFO  "./tmp/miner_node_"
 #define NODE_MINER_FIFO  "./tmp/node_miner_"
+#define FIFO_WAIT_MS 100
 
 
 //miner constants

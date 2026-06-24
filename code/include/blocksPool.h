@@ -34,11 +34,7 @@ int poolPushBlock(BlocksPool* pool, Block* block);
 
 int poolBlockGet(BlocksPool* pool,Block* block,size_t index);
 
-int poolBlockRemoveAt(BlocksPool* pool,size_t index);
-
 int clearBlocksPool(BlocksPool* pool);
-
-int poolBlockGetCount(const BlocksPool* pool,size_t* count);
 
 int destroyBlocksPool(BlocksPool* pool);
 
@@ -47,6 +43,5 @@ int poolBlockRemoveLast(BlocksPool* pool,Block* block,BlockState* b_State);
 int poolBlocksSetState(BlocksPool* pool,BlockState state);
 
 int poolBlocksGetState(BlocksPool* pool,BlockState* state);
-
 
 #endif //BLOCKSPOOL_H

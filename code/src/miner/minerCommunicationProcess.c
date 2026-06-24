@@ -271,7 +271,7 @@ int main(int argc, char ** argv) {
         /* ---- lavoro normale ----
          * Una connessione = una transazione (il client fa connect->send->close).
          * select con timeout per restare responsivi verso mining e nodi. */
-        int rtx = pollClientTransaction(fd_socket,miner,100);
+        int rtx = pollClientTransaction(fd_socket,miner,FIFO_WAIT_MS);
         if (rtx != 0) mlog("Transazione del client (res=%d)",rtx);
 
         //prendo lo stato del miner

@@ -63,18 +63,7 @@ int poolPush(TransactionPool* pool, const char* tx) {
     return 0;
 }
 
-int poolRemoveAt(TransactionPool* pool, size_t index) {
-    if (pool == NULL ) return INVALID_PARAMS;
-    if (index >= pool->count) return INVALID_PARAMS;
 
-    free(pool->items[index]);
-
-    // L'ultimo elemento prende il posto del rimosso (rimozione O(1), ordine non garantito)
-    pool->items[index] = pool->items[pool->count - 1];
-    pool->items[pool->count - 1] = NULL;
-    pool->count--;
-    return 0;
-}
 
 int clearTransactionPool(TransactionPool* pool) {
     if (pool == NULL) return INVALID_PARAMS;
@@ -97,13 +86,14 @@ size_t poolCount(const TransactionPool* pool) {
 char* poolRemoveLast(TransactionPool* pool) {
     if (pool == NULL) return NULL;
     if (pool->count == 0) return NULL;
-    size_t len = strlen(pool->items[pool->count - 1]);
-
-    char* copy = malloc(len + 1);
-    if (copy == NULL) return NULL;
-    memcpy(copy, pool->items[pool->count - 1], len + 1);
+    
     pool->count--;
-    return copy;
+
+    char * tx = pool->items[pool->count];
+
+    pool->items[pool->count] = NULL; // rimuovo il puntatore dal pool
+
+    return tx;
 }
 
 int destroyTransactionPool(TransactionPool* pool) {

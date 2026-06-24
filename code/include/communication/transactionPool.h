@@ -46,14 +46,6 @@ int initTransactionPool(TransactionPool* pool);
  */
 int poolPush(TransactionPool* pool, const char* tx);
 
-/**
- * Rimuove la transazione in posizione index. L'ordine NON viene preservato
- * (l'ultimo elemento prende il posto del rimosso): rimozione in O(1).
- * @param pool  pool da cui rimuovere
- * @param index indice della transazione da rimuovere
- * @return 0 se ok, INVALID_PARAMS se pool nullo o index fuori range
- */
-int poolRemoveAt(TransactionPool* pool, size_t index);
 
 /**
  * Libera tutte le transazioni e riporta count a 0, mantenendo pero' la
