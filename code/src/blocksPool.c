@@ -55,6 +55,14 @@ int poolPushBlock(BlocksPool* pool, Block* block) {
 
     return 0;
 }
+int poolBlockGet(BlocksPool* pool,Block* block,size_t index){
+    if ( pool == NULL || block == NULL) return INVALID_PARAMS;
+    if ( index >= pool->count ) return INVALID_PARAMS;
+
+    blockCopy(block,pool->items[index]);
+
+    return 0;
+}
 
 int poolBlockRemoveAt(BlocksPool* pool,size_t index) {
     if (pool == NULL )         return INVALID_PARAMS;

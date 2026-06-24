@@ -352,10 +352,12 @@ int minerCleanBlocksPool(Miner* miner,MinerStatus* status,const char* prev_hash,
      * INVALID: il nostro blocco e' stato rifiutato e la testa reale e' block_index
      *          -> scarto cio' che sta sopra la testa (index > block_index). */
     size_t i = 0;
+    BlockState st;
+    poolBlocksGetState(miner->pending_pool, &st);
+    if (st != BLOCK_WAITING) return INVALID_PARAMS;  /* pending pool in stato non valido per essere aggiornata*/
     while (i < miner->pending_pool->count) {
-        BlockState st;
         uint64_t idx = 0;
-        if (poolBlockGet(miner->pending_pool, tmp, &st, i) == 0
+        if (poolBlockGet(miner->pending_pool, tmp, i) == 0
             && blockGetIndex(tmp, &idx) == 0) {
 
             int obsolete = valid ? (idx <= block_index) : (idx > block_index);

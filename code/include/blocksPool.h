@@ -32,6 +32,8 @@ int initBlocksPool(BlocksPool* pool);
 
 int poolPushBlock(BlocksPool* pool, Block* block);
 
+int poolBlockGet(BlocksPool* pool,Block* block,size_t index);
+
 int poolBlockRemoveAt(BlocksPool* pool,size_t index);
 
 int clearBlocksPool(BlocksPool* pool);
