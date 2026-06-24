@@ -251,7 +251,6 @@ int blockValidate(const Block *block_ptr, const Block *prev) {
 
 int blockToCsv(const Block *block_ptr, char *buffer,const size_t size) {
     if (size == 0 || block_ptr == NULL || buffer == NULL ) return INVALID_BLOCK;
-
     const int written = snprintf(buffer,size,
                             "%016" PRIx64 "," "%016" PRIx64 "," "%s,%s," "%016" PRIx64 ",%s",
                             block_ptr->index,
@@ -286,6 +285,10 @@ int blockFromCsv(Block *block_ptr, const char *line) {
     const char *merkle_root_str  = strtok_r(NULL  , ",", &saveptr);
     const char *nonce_str        = strtok_r(NULL  , ",", &saveptr);
     const char *transactions_str = strtok_r(NULL  , "" , &saveptr);
+
+    // Controllo sui campi :
+    // Nessun blocco precedentemente caricato con formato CSV DEVE avere tutti  i campi compilati
+    // Se uno dei campi è NULL, significa che il CSV era malformato
 
     if (index_str        == NULL ||
         timestamp_str    == NULL ||
@@ -413,8 +416,8 @@ int unpack_transactions(const Block *b, TxList *list) {
         size_t len = (size_t)(found - ptr);
         if (len > 0) {
             if (list->count >= MAX_TX_PER_BLOCK) return -1;
-            strncpy(list->strings[(int)list->count], ptr, len);
-            list->strings[(int)list->count][len] = '\0';
+            strncpy(list->strings[list->count], ptr, len);
+            list->strings[list->count][len] = '\0';
             list->count++;
         }
         ptr = found + 2;
@@ -423,8 +426,8 @@ int unpack_transactions(const Block *b, TxList *list) {
     // ultima transazione dopo l'ultimo ::
     if (strlen(ptr) > 0) {
         if (list->count >= MAX_TX_PER_BLOCK) return -1;
-        strncpy(list->strings[(int)list->count], ptr, MAX_TX_SIZE - 1);
-        list->strings[(int)list->count][MAX_TX_SIZE - 1] = '\0';
+        strncpy(list->strings[list->count], ptr, MAX_TX_SIZE - 1);
+        list->strings[list->count][MAX_TX_SIZE - 1] = '\0';
         list->count++;
     }
 
