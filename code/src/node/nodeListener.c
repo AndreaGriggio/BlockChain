@@ -5,6 +5,7 @@
 #include "error.h"
 #include "message.h"
 #include "block.h"
+#include "broker.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,9 +13,18 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/select.h>
+#include <semaphore.h>
+#include <fcntl.h>
 
 void *listener_thread(void *arg) {
     NodeContext *ctx = (NodeContext *)arg;
+
+    /* maschera SIGUSR1 in questo thread: il segnale deve essere
+    * consegnato solo al main thread che è in pause() */
+    sigset_t mask;
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGUSR1);
+    pthread_sigmask(SIG_BLOCK, &mask, NULL);
 
     log_msg(ctx, "Listener thread avviato, ascolto su %d miner", ctx->num_miners);
 
@@ -94,38 +104,69 @@ void *listener_thread(void *arg) {
                 continue;
             }
 
-            uint64_t block_index = 0;
-            char block_hash[HASH_HEX_SIZE + 1] = {0};
-
-            blockGetIndex(new_block, &block_index);
-            blockGetHash(new_block, block_hash);
-
-            int res = process_block(ctx, new_block);
-
-            if (res == 0) {
-                log_msg(ctx, "Blocco dal miner %d accettato", i);
-                notify_all_miners(ctx, block_index, block_hash, BLOCK_VALID);
-            } else if (res == BLOCK_ALREADY_PRESENT) {
-                log_msg(ctx, "Blocco dal miner %d gia' presente", i);
+            if (validate_merkle(ctx, new_block) != 0) {
+                log_msg(ctx, "Blocco miner %d: Merkle non valido, scarto", i);
                 blockDestroy(new_block);
-            } else {
-                char last_hash[HASH_HEX_SIZE + 1] = {0};    //invio hash dell'ultimo blocco valido 
-                uint64_t last_index = 0;
-
-                pthread_mutex_lock(&ctx->chain_mutex);
-
-                if (ctx->last_block != NULL) {
-                    blockGetIndex(ctx->last_block, &last_index);
-                    blockGetHash(ctx->last_block, last_hash);
-                }
-
-                pthread_mutex_unlock(&ctx->chain_mutex);
-
-                log_msg(ctx, "Blocco dal miner %d rifiutato (codice %d)", i, res);
-                blockDestroy(new_block);
-
-                notify_miner(ctx, i, last_index, last_hash, BLOCK_INVALID);
+                continue;
             }
+
+            int chain_ok;
+            pthread_mutex_lock(&ctx->chain_mutex);
+
+            if (ctx->last_block == NULL) {
+                chain_ok = 1;
+            } else {
+                int validation_result = blockValidate(new_block, ctx->last_block);
+                chain_ok = (validation_result == 0);
+            }
+
+            pthread_mutex_unlock(&ctx->chain_mutex);
+
+            if (!chain_ok) {
+                log_msg(ctx, "Blocco miner %d non collegabile alla catena, scarto", i);
+                blockDestroy(new_block);
+                continue;
+            }
+
+            blockDestroy(new_block);
+
+            sem_t *sem = sem_open(BROKER_SEM_NAME, 0);
+            if (sem == SEM_FAILED) {
+                log_msg(ctx, "ERROR: sem_open(%s) fallita: %s",
+                        BROKER_SEM_NAME, strerror(errno));
+                continue;
+            }
+
+            int wait_result;
+            do {
+                wait_result = sem_wait(sem);
+            } while (wait_result == -1 && errno == EINTR);
+
+            if (wait_result == -1) {
+                log_msg(ctx, "ERROR: sem_wait broker fallita: %s", strerror(errno));
+                sem_close(sem);
+                continue;
+            }
+
+            BrokerMessage bmsg;
+            memset(&bmsg, 0, sizeof(bmsg));
+            bmsg.msg_type   = BROKER_MSG_BLOCK;
+            bmsg.node_id    = ctx->node_id;
+            bmsg.miner_id   = i; 
+            bmsg.sender_pid = getpid();
+            strncpy(bmsg.csv_line, csv_line, BLOCK_CSV_LINE_SIZE - 1);
+            bmsg.csv_line[BLOCK_CSV_LINE_SIZE - 1] = '\0';
+
+            ssize_t wr = write(ctx->fd_to_broker, &bmsg, sizeof(BrokerMessage));
+            if (wr != (ssize_t)sizeof(BrokerMessage)) {
+                log_msg(ctx, "ERROR: write al broker fallita (%zd/%zu bytes)",
+                        wr, sizeof(BrokerMessage));
+            } else {
+                log_msg(ctx, "Blocco inviato al broker (miner %d)", i);
+            }
+
+            sem_post(sem);
+            sem_close(sem);
         }
     }
 

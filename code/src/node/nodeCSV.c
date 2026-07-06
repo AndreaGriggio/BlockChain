@@ -6,207 +6,102 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 #include <errno.h>
-#include <semaphore.h>
 
-int mirror_shared_to_local(NodeContext *ctx) {
-    char local_path[64];
-    snprintf(local_path, sizeof(local_path),
-             "node_%d_blockchain.csv", ctx->node_id);
-
-    FILE *src = fopen(CSV_FILE_NAME, "r");
-    if (src == NULL) {
-        log_msg(ctx, "ERROR: apertura CSV condiviso per mirror fallita: %s",
-                strerror(errno));
-        return CSV_ERROR;
-    }
-
-    FILE *dst = fopen(local_path, "w");
-    if (dst == NULL) {
-        log_msg(ctx, "ERROR: apertura copia locale fallita: %s",
-                strerror(errno));
-        fclose(src);
-        return CSV_ERROR;
-    }
-
-    char buf[4096];
-    size_t n;
-    while ((n = fread(buf, 1, sizeof(buf), src)) > 0) {
-        if (fwrite(buf, 1, n, dst) != n) {
-            log_msg(ctx, "ERROR: scrittura copia locale fallita");
-            fclose(src);
-            fclose(dst);
-            return CSV_ERROR;
-        }
-    }
-
-    int read_err = ferror(src);
-    fclose(src);
-    fclose(dst);
-
-    if (read_err) {
-        log_msg(ctx, "ERROR: lettura CSV condiviso per mirror fallita");
-        return CSV_ERROR;
-    }
-
-    return 0;
+/*
+ * Restituisce il path del CSV locale del nodo.
+ * Funzione statica di supporto, usata solo in questo file.
+ */
+static void local_csv_path(int node_id, char *out, size_t out_size) {
+    snprintf(out, out_size, "node_%d_blockchain.csv", node_id);
 }
 
-int commit_block_to_shared_csv(NodeContext *ctx, Block *new_block) {
-    sem_t *sem = sem_open(CSV_SEM_NAME, 0);
-    if (sem == SEM_FAILED) {
-        log_msg(ctx, "ERROR: sem_open fallito: %s", strerror(errno));
-        return SEM_ERROR;
+
+
+int commit_block_to_local_csv(NodeContext *ctx, Block *new_block) {
+    if (ctx == NULL || new_block == NULL) return INVALID_PARAMS;
+
+    char new_hash[HASH_HEX_SIZE + 1];
+    blockGetHash(new_block, new_hash);
+
+    pthread_mutex_lock(&ctx->chain_mutex);
+
+    if (ctx->last_block != NULL) {
+        char stored_hash[HASH_HEX_SIZE + 1];
+        blockGetHash(ctx->last_block, stored_hash);
+
+        if (strcmp(stored_hash, new_hash) == 0) {
+            pthread_mutex_unlock(&ctx->chain_mutex);
+            log_msg(ctx, "Blocco dal broker gia' presente (hash=%.16s...), scarto",
+                    new_hash);
+            return BLOCK_ALREADY_PRESENT;
+        }
+
+        if (blockValidate(new_block, ctx->last_block) != 0) {
+            pthread_mutex_unlock(&ctx->chain_mutex);
+            log_msg(ctx, "Blocco dal broker non collegabile alla catena "
+                    "(hash=%.16s...), scarto", new_hash);
+            return CHAIN_MISMATCH;
+        }
     }
 
-    if (sem_wait(sem) == -1) {
-        log_msg(ctx, "ERROR: sem_wait fallito: %s", strerror(errno));
-        sem_close(sem);
-        return SEM_ERROR;
-    }
+    pthread_mutex_unlock(&ctx->chain_mutex);
 
-    int rc = 0;
-    FILE *f = NULL;
-    Block *csv_tail = NULL;
-    int found = 0;
-    uint64_t tail_index = 0;
-    uint64_t new_index  = 0;
-    char line[BLOCK_CSV_LINE_SIZE];
-    char last_line[BLOCK_CSV_LINE_SIZE];
     char out_line[BLOCK_CSV_LINE_SIZE];
-
-    f = fopen(CSV_FILE_NAME, "r");
-    if (f == NULL) {
-        log_msg(ctx, "ERROR: apertura CSV condiviso in lettura fallita: %s",
-                strerror(errno));
-        rc = CSV_ERROR;
-        goto out;
-    }
-
-    while (fgets(line, sizeof(line), f) != NULL) {
-        line[strcspn(line, "\n")] = '\0';
-        if (line[0] == '\0' || strncmp(line, "index,", 6) == 0) continue;
-        strncpy(last_line, line, sizeof(last_line) - 1);
-        last_line[sizeof(last_line) - 1] = '\0';
-        found = 1;
-    }
-
-    if (ferror(f)) {
-        log_msg(ctx, "ERROR: lettura CSV condiviso fallita");
-        rc = CSV_ERROR;
-        goto out;
-    }
-    fclose(f);
-    f = NULL;
-
-    if (!found) {
-        log_msg(ctx, "Chain vuota, accetto blocco genesis");
-
-        if (blockToCsv(new_block, out_line, sizeof(out_line)) != 0) {
-            log_msg(ctx, "ERROR: blockToCsv fallito sul genesis");
-            rc = CSV_ERROR;
-            goto out;
-        }
-
-        f = fopen(CSV_FILE_NAME, "a");
-        if (f == NULL) {
-            log_msg(ctx, "ERROR: apertura CSV per genesis fallita: %s",
-                    strerror(errno));
-            rc = CSV_ERROR;
-            goto out;
-        }
-
-        if (fprintf(f, "%s\n", out_line) < 0) {
-            log_msg(ctx, "ERROR: scrittura genesis sul CSV fallita");
-            rc = CSV_ERROR;
-            goto out;
-        }
-
-        fclose(f);
-        f = NULL;
-
-        blockGetIndex(new_block, &new_index);
-        if (ctx->last_block != NULL) blockDestroy(ctx->last_block);
-        ctx->last_block   = new_block;
-        ctx->chain_length = new_index + 1;
-        goto out;
-    }
-
-    csv_tail = blockCreate();
-    if (csv_tail == NULL) {
-        log_msg(ctx, "ERROR: blockCreate per csv_tail fallita");
-        rc = -1;
-        goto out;
-    }
-
-    if (blockFromCsv(csv_tail, last_line) != 0) {
-        log_msg(ctx, "ERROR: coda del CSV non valida");
-        rc = INVALID_BLOCK;
-        goto out;
-    }
-
-    if (blockValidate(new_block, csv_tail) != 0) {
-        char tail_hash[HASH_HEX_SIZE + 1];
-        char new_hash[HASH_HEX_SIZE + 1];
-        int same = (blockGetHash(csv_tail, tail_hash) == 0 &&
-                    blockGetHash(new_block, new_hash) == 0 &&
-                    strcmp(tail_hash, new_hash) == 0);
-
-        blockGetIndex(csv_tail, &tail_index);
-        if (ctx->last_block != NULL) blockDestroy(ctx->last_block);
-        ctx->last_block   = csv_tail;
-        csv_tail          = NULL;
-        ctx->chain_length = tail_index + 1;
-
-        if (same) {
-            log_msg(ctx, "Blocco già presente nel CSV, copia locale aggiornata");
-            rc = BLOCK_ALREADY_PRESENT;
-        } else {
-            log_msg(ctx, "Blocco perdente rifiutato, chain ri-sincronizzata");
-            rc = CHAIN_MISMATCH;
-        }
-        goto out;
-    }
-
     if (blockToCsv(new_block, out_line, sizeof(out_line)) != 0) {
-        log_msg(ctx, "ERROR: blockToCsv fallito");
-        rc = CSV_ERROR;
-        goto out;
+        log_msg(ctx, "ERROR: blockToCsv fallito (hash=%.16s...)", new_hash);
+        return CSV_ERROR;
     }
 
-    f = fopen(CSV_FILE_NAME, "a");
+    char local_path[64];
+    local_csv_path(ctx->node_id, local_path, sizeof(local_path));
+
+    FILE *f = fopen(local_path, "a");
     if (f == NULL) {
-        log_msg(ctx, "ERROR: apertura CSV per append fallita: %s",
-                strerror(errno));
-        rc = CSV_ERROR;
-        goto out;
+        log_msg(ctx, "ERROR: apertura %s fallita: %s",
+                local_path, strerror(errno));
+        return CSV_ERROR;
+    }
+
+    fseek(f, 0, SEEK_END);
+    if (ftell(f) == 0) {
+        fprintf(f, "index,timestamp,prev_hash,merkle_root,nonce,transactions\n");
     }
 
     if (fprintf(f, "%s\n", out_line) < 0) {
-        log_msg(ctx, "ERROR: scrittura sul CSV fallita");
-        rc = CSV_ERROR;
-        goto out;
+        log_msg(ctx, "ERROR: scrittura su %s fallita", local_path);
+        fclose(f);
+        return CSV_ERROR;
     }
-
+    fflush(f);
     fclose(f);
-    f = NULL;
 
-    blockGetIndex(new_block, &new_index);
-    if (ctx->last_block != NULL) blockDestroy(ctx->last_block);
-    ctx->last_block   = new_block;
-    ctx->chain_length = new_index + 1;
-
-out:
-    if (f != NULL)       fclose(f);
-    if (csv_tail != NULL) blockDestroy(csv_tail);
-
-    if (rc == 0 || rc == CHAIN_MISMATCH || rc == BLOCK_ALREADY_PRESENT) {
-        mirror_shared_to_local(ctx);
+    Block *copy = blockCreate();
+    if (copy == NULL) {
+        log_msg(ctx, "ERROR: blockCreate per copia last_block fallita");
+        return MEMORY_ERROR;
     }
 
-    sem_post(sem);
-    sem_close(sem);
-    return rc;
+    if (blockCopy(copy, new_block) != 0) {
+        log_msg(ctx, "ERROR: blockCopy fallita");
+        blockDestroy(copy);
+        return MEMORY_ERROR;
+    }
+
+    uint64_t new_index = 0;
+    blockGetIndex(new_block, &new_index);
+
+    pthread_mutex_lock(&ctx->chain_mutex);
+    if (ctx->last_block != NULL) blockDestroy(ctx->last_block);
+    ctx->last_block   = copy;
+    ctx->chain_length = new_index + 1;
+    pthread_mutex_unlock(&ctx->chain_mutex);
+
+    log_msg(ctx, "Blocco index=%llu scritto su %s (hash=%.16s...)",
+            (unsigned long long)new_index, local_path, new_hash);
+
+    return 0;
 }
 
 int load_initial_state(NodeContext *ctx, const char *csv_path) {
@@ -274,5 +169,30 @@ int load_initial_state(NodeContext *ctx, const char *csv_path) {
 
     log_msg(ctx, "Stato iniziale caricato: %llu blocchi",
             (unsigned long long)ctx->chain_length);
+
+    /* copia il CSV iniziale nel file locale del nodo se non esiste ancora */
+    char local_path[64];
+    local_csv_path(ctx->node_id, local_path, sizeof(local_path));
+
+    FILE *existing = fopen(local_path, "r");
+    if (existing != NULL) {
+        fclose(existing);
+        log_msg(ctx, "CSV locale %s gia' esistente, skip copia", local_path);
+    } else {
+        FILE *src = fopen(csv_path, "r");
+        FILE *dst = fopen(local_path, "w");
+        if (src != NULL && dst != NULL) {
+            char buf[4096];
+            size_t n;
+            while ((n = fread(buf, 1, sizeof(buf), src)) > 0)
+                fwrite(buf, 1, n, dst);
+            log_msg(ctx, "CSV locale %s creato da %s", local_path, csv_path);
+        } else {
+            log_msg(ctx, "ERROR: impossibile creare CSV locale %s", local_path);
+        }
+        if (src) fclose(src);
+        if (dst) fclose(dst);
+    }
+
     return 0;
 }

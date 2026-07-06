@@ -49,7 +49,7 @@ int minerInitStatus(MinerStatus* minerStatus,
                     const ChildProcess* cp,
                     MinerState minerstate,
                     size_t nonce_attempts,
-                    size_t transaction_count);
+                    uint64_t transaction_count);
 
 /**
  * Chiamata bloccante mette il thread in uno stato di waiting fino al prossimo segnale

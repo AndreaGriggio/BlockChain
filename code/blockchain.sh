@@ -104,8 +104,8 @@ cmd_verify() {
     fi
 
     if (( ${#lines[@]} == 0 )); then
-        echo "Catena vuota: nessun blocco da verificare"
-        return 0
+        echo "Errore: catena vuota, nessun blocco da verificare" >&2
+        return "$E_CSV_ERROR"
     fi
 
     local errors=0

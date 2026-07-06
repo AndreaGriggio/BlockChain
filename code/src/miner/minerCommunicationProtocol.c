@@ -83,6 +83,10 @@ int receiveBlockFromNode(Miner* miner, MinerStatus* status, int fd) {
     }
     if (red != (ssize_t)sizeof(BlockResponse)) return FIFO_ERROR;
 
+    if (resp.result == BLOCK_RECOVER_TXS) {
+        return minerRecoverTransactions(miner, resp.block_hash, resp.block_index);
+    }
+
     /* result e' un enum: BLOCK_VALID == 0, quindi normalizzo a un booleano */
     int valid = (resp.result == BLOCK_VALID);
 

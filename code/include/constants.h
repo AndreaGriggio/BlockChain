@@ -59,6 +59,11 @@
 #define CSV_SEM_NAME  "/blockchain_csv"
 #define CSV_FILE_NAME "./blockchain.csv"
 
+// fifo broker <-> node
+#define NODE_BROKER_FIFO  "./tmp/node_broker_"
+#define BROKER_NODE_FIFO  "./tmp/broker_node_"
+#define BROKER_SEM_NAME   "/blockchain_broker"
+
 //argoments constants
 #define MAX_NODE_COUNT 100
 #endif 

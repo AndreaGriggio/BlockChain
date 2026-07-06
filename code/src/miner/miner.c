@@ -389,5 +389,44 @@ int minerCleanBlocksPool(Miner* miner,MinerStatus* status,const char* prev_hash,
     return 0;
 }
 
+int minerRecoverTransactions(Miner* miner, const char* block_hash, uint64_t    block_index) {
+    if (miner == NULL || block_hash == NULL) return INVALID_PARAMS;
+
+    Block* tmp = blockCreate();
+    if (tmp == NULL) return MEMORY_ERROR;
+
+    pthread_mutex_lock(&miner->lock);
+
+    int found = 0;
+    for (size_t i = 0; i < miner->pending_pool->count; i++) {
+        if (poolBlockGet(miner->pending_pool, tmp, i) != 0) continue;
+
+        char hash[HASH_HEX_SIZE + 1];
+        uint64_t idx = 0;
+        blockGetHash(tmp, hash);
+        blockGetIndex(tmp, &idx);
+
+        if (idx == block_index && strcmp(hash, block_hash) == 0) {
+            found = 1;
+
+            TxList list;
+            if (unpack_transactions(tmp, &list) == 0) {
+                for (size_t t = 0; t < list.count; t++) {
+                    poolPush(miner->transaction_pool, list.strings[t]);
+                }
+            }
+
+            poolBlockRemoveAt(miner->pending_pool, i);
+            break;
+        }
+    }
+
+    pthread_mutex_unlock(&miner->lock);
+    blockDestroy(tmp);
+
+    if (!found) return BLOCK_NOT_FOUND;
+    return 0;
+}
+
 
 

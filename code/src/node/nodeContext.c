@@ -9,6 +9,10 @@ NodeContext *nodeContextCreate(void) {
     ctx->num_nodes  = 0;
     ctx->num_miners = 0;
 
+    ctx->fd_to_broker   = -1;
+    ctx->fd_from_broker = -1;
+    ctx->pending_broker = 0;
+
     ctx->last_block   = NULL;
     ctx->chain_length = 0;
     pthread_mutex_init(&ctx->chain_mutex, NULL);

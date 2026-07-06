@@ -45,7 +45,7 @@ int process_block(NodeContext *ctx, Block *new_block) {
 
     pthread_mutex_lock(&ctx->chain_mutex);
 
-    int rc = commit_block_to_shared_csv(ctx, new_block);
+    int rc = commit_block_to_local_csv(ctx, new_block);
 
     if (rc != 0) {
         pthread_mutex_unlock(&ctx->chain_mutex);

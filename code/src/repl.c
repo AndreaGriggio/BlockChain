@@ -18,6 +18,11 @@
 #include "childProcess.h"
 #include "utils.h"         // validateTransaction
 
+
+/* Con la nuova architettura broker ogni nodo ha il proprio CSV locale.
+ * La REPL legge per convenzione quello del nodo 0. */
+#define REPL_CSV_PATH "node_0_blockchain.csv"
+
 // Invia una transazione ai miner su MINERS_SOCKET (come fa il client) 
 static int submit_transaction(const char *tx) {
     if (tx == NULL || strlen(tx) > MAX_TX_SIZE) return INVALID_TRANSACTION;
@@ -58,24 +63,20 @@ static int submit_transaction(const char *tx) {
     return rc;
 }
 
-// Legge il CSV condiviso (sotto semaforo) e stampa i blocchi richiesti 
+// Legge il CSV del nodo 0 e stampa i blocchi richiesti 
 static int request_blocks(const char *what, const char *flag, const char *val) {
     int single   = (strcmp(what, "block") == 0);
     int by_index = (flag != NULL && strcmp(flag, "--index") == 0);
     int by_hash  = (flag != NULL && strcmp(flag, "--hash")  == 0);
 
-    if (single && flag == NULL)                  return INVALID_PARAMS;
-    if (flag != NULL && !by_index && !by_hash)   return INVALID_PARAMS;
-    if ((by_index || by_hash) && val == NULL)    return INVALID_PARAMS;
+    if (single && flag == NULL)                return INVALID_PARAMS;
+    if (flag != NULL && !by_index && !by_hash) return INVALID_PARAMS;
+    if ((by_index || by_hash) && val == NULL)  return INVALID_PARAMS;
 
     uint64_t want_index = by_index ? strtoull(val, NULL, 10) : 0;
 
-    sem_t *sem = sem_open(CSV_SEM_NAME, 0);
-    if (sem == SEM_FAILED) return SEM_ERROR;
-    sem_wait(sem);
-
-    FILE *f = fopen(CSV_FILE_NAME, "r");
-    if (f == NULL) { sem_post(sem); sem_close(sem); return CSV_ERROR; }
+    FILE *f = fopen(REPL_CSV_PATH, "r");
+    if (f == NULL) return CSV_ERROR;
 
     char line[BLOCK_CSV_LINE_SIZE];
     int header = 1, started = 0, found = 0;
@@ -107,35 +108,34 @@ static int request_blocks(const char *what, const char *flag, const char *val) {
     }
 
     fclose(f);
-    sem_post(sem);
-    sem_close(sem);
     return found ? 0 : BLOCK_NOT_FOUND;
 }
 
-// Copia il CSV condiviso nel file richiesto, sotto semaforo (save)
+// Copia il CSV del nodo 0 nel file richiesto
 static int save_blockchain(const char *dst) {
-    sem_t *sem = sem_open(CSV_SEM_NAME, 0);
-    if (sem == SEM_FAILED) return SEM_ERROR;
-    sem_wait(sem);
+    FILE *src = fopen(REPL_CSV_PATH, "r");
+    if (src == NULL) return CSV_ERROR;
 
+    FILE *out = fopen(dst, "w");
+    if (out == NULL) { fclose(src); return CSV_ERROR; }
+
+    /* copia header */
+    fprintf(out, "index,timestamp,prev_hash,merkle_root,nonce,transactions\n");
+
+    char buffer[4096];
+    size_t n;
     int rc = 0;
-    FILE *src = fopen(CSV_FILE_NAME, "r");
-    FILE *out = (src != NULL) ? fopen(dst, "w") : NULL;
-    if (src == NULL || out == NULL) {
-        rc = CSV_ERROR;
-    } else {
-        char buffer[4096];
-        size_t n;
-        while ((n = fread(buffer, 1, sizeof buffer, src)) > 0) {
-            if (fwrite(buffer, 1, n, out) != n) { rc = CSV_ERROR; break; }
-        }
-        if (ferror(src)) rc = CSV_ERROR;
-    }
-    if (src) fclose(src);
-    if (out) fclose(out);
 
-    sem_post(sem);
-    sem_close(sem);
+    /* salta l'header del sorgente */
+    fgets(buffer, sizeof buffer, src);
+
+    while ((n = fread(buffer, 1, sizeof buffer, src)) > 0) {
+        if (fwrite(buffer, 1, n, out) != n) { rc = CSV_ERROR; break; }
+    }
+    if (ferror(src)) rc = CSV_ERROR;
+
+    fclose(src);
+    fclose(out);
     return rc;
 }
 

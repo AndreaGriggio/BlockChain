@@ -24,6 +24,11 @@ typedef struct NodeContext {
     int *to_miner;                  /* fd di scrittura node→miner (uno per miner) */
     int *from_miner;                /* fd di lettura  miner→node  (uno per miner) */
 
+    /* canali broker-node */
+    int   fd_to_broker;
+    int   fd_from_broker;
+    volatile sig_atomic_t pending_broker;
+    
     NodeStatus *status;             /* stato condiviso con NodeStatus              */
 
     FILE *log_file;                 /* file di log del processo                    */

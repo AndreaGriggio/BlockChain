@@ -14,7 +14,7 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <limits.h>
-#include <string.h>
+#include <string.h>   
 
 int createNodeFifos(NodeContext *ctx, int num_miners) {
     ctx->to_miner   = (int *)malloc(sizeof(int) * num_miners);
@@ -72,11 +72,13 @@ int createNodeFifos(NodeContext *ctx, int num_miners) {
             if (ctx->to_miner[i] < 0) usleep(10000);
         } while (ctx->to_miner[i] < 0);
 
+        /*
         if (fcntl(ctx->to_miner[i], F_SETPIPE_SZ, PIPE_BUF) < 0) {
             fprintf(stderr, "NODE %d: fcntl to_miner[%d] fallita: %s\n",
                     id, i, strerror(errno));
             return -1;
         }
+        */
     }
 
     for (int i = 0; i < num_miners; i++) {
@@ -93,11 +95,13 @@ int createNodeFifos(NodeContext *ctx, int num_miners) {
             if (ctx->from_miner[i] < 0) usleep(10000);
         } while (ctx->from_miner[i] < 0);
 
+        /*
         if (fcntl(ctx->from_miner[i], F_SETPIPE_SZ, PIPE_BUF) < 0) {
             fprintf(stderr, "NODE %d: fcntl from_miner[%d] fallita: %s\n",
                     id, i, strerror(errno));
             return -1;
         }
+        */
     }
 
     return 0;
@@ -165,5 +169,60 @@ void notify_all_miners(NodeContext *ctx,
                        BlockValidationResult result) {
     for (int i = 0; i < ctx->num_miners; i++) {
         notify_miner(ctx, i, block_index, block_hash, result);
+    }
+}
+
+
+
+int openBrokerFifos(NodeContext *ctx) {
+    if (ctx == NULL) return INVALID_PARAMS;
+
+    int id = ctx->node_id;
+    char path_from_broker[64];
+    snprintf(path_from_broker, sizeof(path_from_broker),
+             "%s%d", BROKER_NODE_FIFO, id);
+
+    do {
+        ctx->fd_from_broker = open(path_from_broker, O_RDWR);
+        if (ctx->fd_from_broker < 0 && errno != ENXIO && errno != ENOENT) {
+            fprintf(stderr, "NODE %d: open %s fallita: %s\n",
+                    id, path_from_broker, strerror(errno));
+            return FIFO_ERROR;
+        }
+        if (ctx->fd_from_broker < 0) usleep(10000);
+    } while (ctx->fd_from_broker < 0);
+
+    log_msg(ctx, "Aperta FIFO broker->node: %s", path_from_broker);
+
+    char path_to_broker[64];
+    snprintf(path_to_broker, sizeof(path_to_broker),
+             "%s%d", NODE_BROKER_FIFO, id);
+
+    do {
+        ctx->fd_to_broker = open(path_to_broker, O_RDWR);
+        if (ctx->fd_to_broker < 0 && errno != ENXIO && errno != ENOENT) {
+            fprintf(stderr, "NODE %d: open %s fallita: %s\n",
+                    id, path_to_broker, strerror(errno));
+            close(ctx->fd_from_broker);
+            ctx->fd_from_broker = -1;
+            return FIFO_ERROR;
+        }
+        if (ctx->fd_to_broker < 0) usleep(10000);
+    } while (ctx->fd_to_broker < 0);
+
+    log_msg(ctx, "Aperta FIFO node->broker: %s", path_to_broker);
+    return 0;
+}
+
+void closeBrokerFifos(NodeContext *ctx) {
+    if (ctx == NULL) return;
+
+    if (ctx->fd_to_broker >= 0) {
+        close(ctx->fd_to_broker);
+        ctx->fd_to_broker = -1;
+    }
+    if (ctx->fd_from_broker >= 0) {
+        close(ctx->fd_from_broker);
+        ctx->fd_from_broker = -1;
     }
 }

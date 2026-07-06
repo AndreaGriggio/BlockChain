@@ -18,6 +18,7 @@
 #include "../include/utils.h"          // validateTransaction
 #include "../include/communication/message.h"        // Message, MSG_NEW_TX, sendMessage (protocolSocket.h/childProcess.h)
 #include "../include/repl.h"
+#include "broker.h"
 
 /* 
 Path su cui viene scritto/mantenuto lo stato della catena,
@@ -29,8 +30,6 @@ e i nodi non riuscirebbero a validare i blocchi nuovi
 */
 
 #define BLOCKCHAIN_CSV_PATH "./blockchain.csv" 
-
-#define CSV_SEM_NAME "/blockchain_csv" // deve combaciare con CSV_SEM_NAME in node.c per sincronizzare l'accesso al file CSV tra main.c e node.c
 
 #define MAX_CHILDREN 512
 
@@ -320,51 +319,43 @@ static int getTailBlockRef(const char *csv_path, char out_hash[HASH_HEX_SIZE + 1
 }
 
 /*
-Crea (da zero) il semaforo POSIX condiviso usato da tutti i node
-per serializzare l'accesso al file CSV della blockchain (CSV_SEM_NAME).
-Deve esistere PRIMA di fare fork() di qualunque node, perchè node.c lo apre con sem_open
-senza O_CREAT: se non esiste già, sem_open fallisce e i nodes non partono.
-*/
-
-static int createCsvSemaphore(void) {
-
-	/*
-	Rimuoviamo un eventuale semaforo con lo stesso nome 
-	rimasto da un esecuzione precedente 
-	che non è stata chiusa correttamente
-	*/
-	sem_unlink(CSV_SEM_NAME);
-
-	/*
-	O_EXCL garantisce che siamo noi a creare il semaforo 
-	Valore iniziale 1: si comporta come un mutex, un solo node alla volta
-	può scrivere sul CSV 
-	- sem_wait -> lo decrementa a 0
-	- sem_post -> lo riporta ad 1 
-	*/
-	sem_t *sem = sem_open(CSV_SEM_NAME, O_CREAT | O_EXCL, 0644, 1);
-	if (sem == SEM_FAILED) {
-		fprintf(stderr, "Errore nella creazione del semaforo %s: %s\n", CSV_SEM_NAME, strerror(errno));
-		return SEM_ERROR;
-	}
-
-	/*
-	Chiudiamo l'handel:
-	il semaforo resta vivo,
-	ogni node lo riaprirà per conto proprio 
-	*/
-
-	sem_close(sem);
-	return 0;
-}
-
-/*
 La cartella ./tmp/ deve esistere prima di creare socket e FIFO
 */
 static int ensureTmpDir(void) {
     if (mkdir("tmp", 0755) < 0 && errno != EEXIST) {
         fprintf(stderr, "Errore creazione cartella tmp: %s\n", strerror(errno));
         return CSV_ERROR;
+    }
+    return 0;
+}
+
+static int createBrokerSemaphore(void) {
+    sem_unlink(BROKER_SEM_NAME);
+    sem_t *sem = sem_open(BROKER_SEM_NAME, O_CREAT | O_EXCL, 0644, 1);
+    if (sem == SEM_FAILED) {
+        fprintf(stderr, "Errore creazione semaforo broker %s: %s\n",
+                BROKER_SEM_NAME, strerror(errno));
+        return SEM_ERROR;
+    }
+    sem_close(sem);
+    return 0;
+}
+
+static int createBrokerFifos(int num_nodes) {
+    for (int i = 0; i < num_nodes; i++) {
+        char path[64];
+
+        snprintf(path, sizeof(path), "%s%d", NODE_BROKER_FIFO, i);
+        if (mkfifo(path, 0666) < 0 && errno != EEXIST) {
+            fprintf(stderr, "Errore mkfifo %s: %s\n", path, strerror(errno));
+            return FIFO_ERROR;
+        }
+
+        snprintf(path, sizeof(path), "%s%d", BROKER_NODE_FIFO, i);
+        if (mkfifo(path, 0666) < 0 && errno != EEXIST) {
+            fprintf(stderr, "Errore mkfifo %s: %s\n", path, strerror(errno));
+            return FIFO_ERROR;
+        }
     }
     return 0;
 }
@@ -482,11 +473,15 @@ int main(int argc, char *argv[]) {
     }
     printf("Socket dei miner creato su %s (fd=%d)\n", MINERS_SOCKET, miners_fd);
 
-	int rc3 = createCsvSemaphore();
-	if (rc3 != 0){
-		return rc3;
+	if (createBrokerFifos(cfg.num_nodes) != 0) {
+    return FIFO_ERROR;
 	}
-	printf("Semaforo %s creato con successo\n", CSV_SEM_NAME);
+	printf("FIFO broker create per %d nodi\n", cfg.num_nodes);
+
+	if (createBrokerSemaphore() != 0) {
+		return SEM_ERROR;
+	}
+	printf("Semaforo broker %s creato\n", BROKER_SEM_NAME);
 	
 	/* 
 	Handler per SIGINT/SIGTERM: lo shutdown del sistema parte da qui,
@@ -541,6 +536,13 @@ int main(int argc, char *argv[]) {
     Ogni miner riceve difficolta', il proprio id, il numero di nodi e
     l'fd del socket in ascolto (da ereditare per fare accept)
 	*/
+
+	/* il broker deve partire prima di nodi e miner
+	 * perché apre le FIFO che gli altri useranno */
+
+	char *argv_b[] = { "./code/bin/broker", nnodes, NULL };
+	spawn_child(argv_b);
+	printf("Broker avviato\n");
 
     for (int i = 0; i < cfg.num_miners; i++) {
         snprintf(idbuf, sizeof idbuf, "%d", i);
@@ -601,8 +603,14 @@ int main(int argc, char *argv[]) {
             snprintf(p, sizeof p, "%s%d_%d", NODE_MINER_FIFO, n, m); unlink(p);
         }
     }
-    sem_unlink(CSV_SEM_NAME);
-    return 0;
+    
+	for (int i = 0; i < cfg.num_nodes; i++) {
+		char p[64];
+		snprintf(p, sizeof p, "%s%d", NODE_BROKER_FIFO, i); unlink(p);
+		snprintf(p, sizeof p, "%s%d", BROKER_NODE_FIFO, i); unlink(p);
+	}
+	sem_unlink(BROKER_SEM_NAME);
+	return 0;
 }
 
 	

@@ -10,6 +10,7 @@
 #include "childProcess.h"
 #include "error.h"
 #include "constants.h"
+#include "broker.h"
  
 
 #include <stdio.h>
@@ -30,6 +31,10 @@ static void handle_signal(int sig) {
     }
 }
 
+static void handle_sigusr1(int sig) {
+    (void)sig;
+    if (g_ctx != NULL) g_ctx->pending_broker = 1;
+}
 
 int main (int argc, char* argv[]){
 
@@ -80,6 +85,9 @@ int main (int argc, char* argv[]){
     ctx->num_nodes  = num_nodes;
     ctx->num_miners = num_miners;
     ctx->log_file   = log_file;
+    ctx->fd_to_broker   = -1;
+    ctx->fd_from_broker = -1;
+    ctx->pending_broker = 0;
  
     g_ctx = ctx;
 
@@ -93,14 +101,24 @@ int main (int argc, char* argv[]){
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
 
-    if(sigaction(SIGTERM, &sa, NULL) == -1 ||
-       sigaction(SIGINT, &sa, NULL) == -1) {
+    if(sigaction(SIGTERM, &sa, NULL) == -1 || sigaction(SIGINT, &sa, NULL) == -1) {
         fprintf(stderr, "NODE %d: sigaction fallita: %s\n",
             node_id,
             strerror(errno));
         fclose(log_file);
         return -1;
-       }
+    }
+    
+    struct sigaction sa_usr1;
+    sa_usr1.sa_handler = handle_sigusr1;
+    sigemptyset(&sa_usr1.sa_mask);
+    sa_usr1.sa_flags = 0;
+    if (sigaction(SIGUSR1, &sa_usr1, NULL) == -1) {
+        fprintf(stderr, "NODE %d: sigaction SIGUSR1 fallita: %s\n",
+                node_id, strerror(errno));
+        fclose(log_file);
+        return -1;
+    }
 
     log_msg(ctx, "Avvio node id=%d num_nodes=%d num_miners=%d",
             node_id, num_nodes, num_miners);
@@ -212,6 +230,35 @@ int main (int argc, char* argv[]){
         return FIFO_ERROR;
     }
 
+    if (openBrokerFifos(ctx) != 0) {
+        log_msg(ctx, "ERROR: openBrokerFifos fallita");
+        destroyNodeFifos(ctx, num_miners);
+        nodeDestroyStatus(ctx->status);
+        if (ctx->last_block != NULL) blockDestroy(ctx->last_block);
+        fclose(log_file);
+        ctx->log_file = NULL;
+        nodeContextDestroy(ctx);
+        g_ctx = NULL;
+        return FIFO_ERROR;
+    }
+
+    /* registrazione PID al broker: il broker deve conoscere il PID
+    * di tutti i nodi prima di ricevere il primo blocco, altrimenti
+    * non può mandare SIGUSR1 ai nodi che non hanno ancora scritto */
+    BrokerMessage reg;
+    memset(&reg, 0, sizeof(reg));
+    reg.msg_type   = BROKER_MSG_BLOCK;
+    reg.node_id    = ctx->node_id;
+    reg.sender_pid = getpid();
+    reg.csv_line[0] = '\0';   /* stringa vuota: solo registrazione, nessun blocco */
+
+    ssize_t wr = write(ctx->fd_to_broker, &reg, sizeof(BrokerMessage));
+    if (wr != (ssize_t)sizeof(BrokerMessage)) {
+        log_msg(ctx, "ERROR: registrazione PID al broker fallita");
+    } else {
+        log_msg(ctx, "PID registrato al broker");
+    }
+
     /*
     Il thread di comunicazione resta in ascolto sul canale dei miner
     */
@@ -219,6 +266,7 @@ int main (int argc, char* argv[]){
     pthread_t listener;
     if(pthread_create(&listener, NULL, listener_thread, ctx) != 0){
         log_msg(ctx, "ERROR: pthread_create listener fallita");
+        closeBrokerFifos(ctx);
         destroyNodeFifos(ctx,num_miners);
         nodeDestroyStatus(ctx->status);
         if (ctx->last_block != NULL) blockDestroy(ctx->last_block);
@@ -235,10 +283,99 @@ int main (int argc, char* argv[]){
     Il processo si ferma solo in caso di SIGTERM o SIGINT
     */
 
+    sigset_t empty_mask, block_mask;
+    sigemptyset(&empty_mask);
+    sigemptyset(&block_mask);
+    sigaddset(&block_mask, SIGUSR1);
+
     while (ctx->running) {
-        pause();
+
+        sigprocmask(SIG_BLOCK, &block_mask, NULL);
+
+        if (!ctx->pending_broker) {
+            sigsuspend(&empty_mask);
+        }
+
+        sigprocmask(SIG_UNBLOCK, &block_mask, NULL);
+
+        if (!ctx->running) break;
+
+        if (ctx->pending_broker) {
+            ctx->pending_broker = 0;
+
+            BrokerResponse resp;
+            ssize_t rd = read(ctx->fd_from_broker,
+                            &resp, sizeof(BrokerResponse));
+
+            if (rd == 0) {
+                log_msg(ctx, "FIFO broker chiusa, uscita");
+                ctx->running = 0;
+                break;
+            }
+
+            if (rd != (ssize_t)sizeof(BrokerResponse)) {
+                log_msg(ctx, "ERROR: lettura broker troncata (%zd/%zu bytes)",
+                        rd, sizeof(BrokerResponse));
+                continue;
+            }
+
+            Block *broker_block = blockCreate();
+            if (broker_block == NULL) {
+                log_msg(ctx, "ERROR: blockCreate fallita");
+                continue;
+            }
+
+            if (blockFromCsv(broker_block, resp.csv_line) != 0) {
+                log_msg(ctx, "ERROR: blockFromCsv fallita");
+                blockDestroy(broker_block);
+                continue;
+            }
+
+            uint64_t block_index = 0;
+            char block_hash[HASH_HEX_SIZE + 1];
+            blockGetIndex(broker_block, &block_index);
+            blockGetHash(broker_block, block_hash);
+
+            int rc = commit_block_to_local_csv(ctx, broker_block);
+            blockDestroy(broker_block);
+
+            if (rc == 0) {
+                log_msg(ctx, "Blocco index=%llu accettato, notifico miner",
+                        (unsigned long long)block_index);
+                notify_all_miners(ctx, block_index, block_hash, BLOCK_VALID);
+
+            } else if (rc == BLOCK_ALREADY_PRESENT) {
+                log_msg(ctx, "Blocco index=%llu ridondante, "
+                        "recupero transazioni per miner %d",
+                        (unsigned long long)block_index, resp.miner_id);
+
+                if (resp.miner_id >= 0
+                    && resp.miner_id < ctx->num_miners
+                    && ctx->to_miner[resp.miner_id] >= 0) {
+
+                    BlockResponse recover;
+                    memset(&recover, 0, sizeof(recover));
+                    recover.block_index = block_index;
+                    recover.miner_id    = resp.miner_id;
+                    recover.result      = BLOCK_RECOVER_TXS;
+                    strncpy(recover.block_hash, block_hash, HASH_HEX_SIZE);
+                    recover.block_hash[HASH_HEX_SIZE] = '\0';
+
+                    ssize_t wr = write(ctx->to_miner[resp.miner_id],
+                                    &recover, sizeof(BlockResponse));
+                    if (wr != (ssize_t)sizeof(BlockResponse)) {
+                        log_msg(ctx, "ERROR: notify BLOCK_RECOVER_TXS "
+                                "al miner %d fallita", resp.miner_id);
+                    }
+                }
+            } else {
+                log_msg(ctx, "Blocco index=%llu non accettato (rc=%d)",
+                        (unsigned long long)block_index, rc);
+            }
+        }
     }
-    log_msg(ctx, "Terminazione del blocco richiesto");
+
+    log_msg(ctx, "Terminazione richiesta");
 
     /*
     Appena il thred di comunicazione termina , rilasciamo le risorse condivise
@@ -246,6 +383,7 @@ int main (int argc, char* argv[]){
 
     pthread_join(listener, NULL);
 
+    closeBrokerFifos(ctx);       
     destroyNodeFifos(ctx,num_miners);
     nodeDestroyStatus(ctx->status);
 

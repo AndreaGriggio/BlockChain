@@ -42,4 +42,7 @@ int minerMiningLoop(Miner* miner,MinerStatus* status);
 int minerUpdatePrevious(Miner* miner, const char* new_hash, uint64_t new_index);
 
 int minerCleanBlocksPool(Miner* miner,MinerStatus* status,const char* prev_hash,int valid,int miner_id,uint64_t block_index);
+
+int minerRecoverTransactions(Miner* miner, const char* block_hash, uint64_t    block_index);
+
 #endif //PROGETTO_MINER_H

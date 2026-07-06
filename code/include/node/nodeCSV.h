@@ -5,29 +5,28 @@
 #include "../block.h"
 
 /*
- * Copia il CSV condiviso nella copia locale del node.
+ * Aggiunge al CSV locale del nodo (node_<id>_blockchain.csv) il blocco
+ * ricevuto dal broker via broadcast e aggiorna last_block e chain_length.
  *
- * @param ctx puntatore al contesto del node
- * @return 0 se tutto è andato bene, CSV_ERROR in caso di errore
- */
-int mirror_shared_to_local(NodeContext *ctx);
-
-/*
- * Scrive un blocco validato sul CSV condiviso.
- * Protetta dal semaforo POSIX internamente.
- * Legge la coda del CSV, valida il blocco rispetto ad essa,
- * e se valido lo aggiunge in append.
- * Aggiorna last_block e chain_length nel contesto.
+ * Chiamata SOLO dal main loop di node.c quando pending_broker == 1,
+ * cioè dopo che il broker ha già distribuito il blocco a tutti i nodi.
+ * Non usa semafori: ogni nodo scrive esclusivamente sul proprio file.
  *
- * @param ctx       puntatore al contesto del node
- * @param new_block blocco da scrivere
- * @return 0                 se il blocco è stato scritto
- *         BLOCK_ALREADY_PRESENT se il blocco era già presente
- *         CHAIN_MISMATCH    se il blocco non è valido rispetto alla coda
- *         CSV_ERROR         in caso di errore I/O
- *         SEM_ERROR         in caso di errore semaforo
+ * Il blocco viene prima verificato rispetto a last_block:
+ *   - se è già presente (stesso hash):      ritorna BLOCK_ALREADY_PRESENT
+ *   - se non si aggancia (index/hash errati): ritorna CHAIN_MISMATCH
+ *   - se è valido: lo appende al CSV e aggiorna lo stato in memoria
+ *
+ * @param ctx       contesto del nodo
+ * @param new_block blocco da appendere (la ownership rimane al chiamante)
+ * @return 0                   blocco scritto correttamente
+ *         BLOCK_ALREADY_PRESENT  blocco già presente come testa corrente
+ *         CHAIN_MISMATCH      blocco non collegabile alla catena locale
+ *         INVALID_PARAMS      ctx o new_block NULL
+ *         MEMORY_ERROR        blockCreate per la copia fallita
+ *         CSV_ERROR           errore I/O sul file
  */
-int commit_block_to_shared_csv(NodeContext *ctx, Block *new_block);
+int commit_block_to_local_csv(NodeContext *ctx, Block *new_block);
 
 /*
  * Carica lo stato iniziale della blockchain dal CSV condiviso.

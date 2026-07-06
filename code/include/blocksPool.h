@@ -44,4 +44,6 @@ int poolBlocksSetState(BlocksPool* pool,BlockState state);
 
 int poolBlocksGetState(BlocksPool* pool,BlockState* state);
 
+int poolBlockRemoveAt(BlocksPool* pool,size_t index);
+
 #endif //BLOCKSPOOL_H
