@@ -72,6 +72,7 @@ int createNodeFifos(NodeContext *ctx, int num_miners) {
             if (ctx->to_miner[i] < 0) usleep(10000);
         } while (ctx->to_miner[i] < 0);
 
+        //commentata per macos
         /*
         if (fcntl(ctx->to_miner[i], F_SETPIPE_SZ, PIPE_BUF) < 0) {
             fprintf(stderr, "NODE %d: fcntl to_miner[%d] fallita: %s\n",
@@ -95,6 +96,7 @@ int createNodeFifos(NodeContext *ctx, int num_miners) {
             if (ctx->from_miner[i] < 0) usleep(10000);
         } while (ctx->from_miner[i] < 0);
 
+        //commentata per macos
         /*
         if (fcntl(ctx->from_miner[i], F_SETPIPE_SZ, PIPE_BUF) < 0) {
             fprintf(stderr, "NODE %d: fcntl from_miner[%d] fallita: %s\n",

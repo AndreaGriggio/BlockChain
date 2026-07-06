@@ -53,6 +53,7 @@ int nodeChannelsOpen(NodeChannels *ch, const int num_nodes, const int miner_id) 
             if (ch->to_node[i] < 0) usleep(10000);
         }while (ch->to_node[i] < 0 );
 
+        //commentata per macos
        //if (fcntl(ch->to_node[i], F_SETPIPE_SZ,  PIPE_BUF) < 0 )  return FIFO_ERROR; tolta per macos
 
     }
@@ -69,6 +70,7 @@ int nodeChannelsOpen(NodeChannels *ch, const int num_nodes, const int miner_id) 
             if (ch->from_node[i] < 0) usleep(10000);
         }while (ch->from_node[i] < 0);
 
+        //commentata per macos
         //if (fcntl(ch->from_node[i], F_SETPIPE_SZ,PIPE_BUF) < 0) return FIFO_ERROR; tolta per macos
 
     }
