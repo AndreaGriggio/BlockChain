@@ -2,12 +2,14 @@ CC := gcc
 
 # modifica per macOS
 OPENSSL_PREFIX := $(shell brew --prefix openssl)
-
 CFLAGS := -std=gnu11 -Wall -Wextra -g -pthread -I$(OPENSSL_PREFIX)/include
+#CFLAGS := -std=gnu11 -Wall -Wextra -g -pthread
+
 INCLUDES := -Icode/include -Icode/include/communication -Icode/include/miner -Icode/include/node
 
 # modifica per macOS
 LDLIBS := -L$(OPENSSL_PREFIX)/lib -lcrypto
+#LDLIBS := -lcrypto
 
 SRC := code/src
 OBJ := code/obj
