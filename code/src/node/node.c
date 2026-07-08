@@ -20,6 +20,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <pthread.h>
+#include <sys/select.h>
 
 
 static NodeContext *g_ctx = NULL;
@@ -34,6 +35,106 @@ static void handle_signal(int sig) {
 static void handle_sigusr1(int sig) {
     (void)sig;
     if (g_ctx != NULL) g_ctx->pending_broker = 1;
+}
+
+static int read_broker_response(NodeContext *ctx, BrokerResponse *resp) {
+    if (ctx == NULL || resp == NULL) return -1;
+
+    memset(resp, 0, sizeof(*resp));
+
+    ssize_t rd = 0;
+    char *buf = (char *)resp;
+    size_t total = sizeof(*resp);
+
+    while (rd < (ssize_t)total) {
+        ssize_t n = read(ctx->fd_from_broker, buf + rd, total - rd);
+
+        if (n == 0) {
+            log_msg(ctx, "FIFO broker chiusa, uscita");
+            ctx->running = 0;
+            return -1;
+        }
+
+        if (n < 0) {
+            if (errno == EINTR) continue;
+            log_msg(ctx, "ERROR: read broker fallita: %s", strerror(errno));
+            return -1;
+        }
+
+        rd += n;
+    }
+
+    return 0;
+}
+
+static void process_broker_response(NodeContext *ctx, const BrokerResponse *resp) {
+    if (ctx == NULL || resp == NULL) return;
+
+    if (resp->csv_line[0] == '\0') {
+        log_msg(ctx, "WARN: BrokerResponse vuota, ignorata");
+        return;
+    }
+
+    Block *broker_block = blockCreate();
+    if (broker_block == NULL) {
+        log_msg(ctx, "ERROR: blockCreate fallita");
+        return;
+    }
+
+    if (blockFromCsv(broker_block, resp->csv_line) != 0) {
+        log_msg(ctx, "ERROR: blockFromCsv fallita su BrokerResponse: '%.160s'",
+                resp->csv_line);
+        blockDestroy(broker_block);
+        return;
+    }
+
+    uint64_t block_index = 0;
+    char block_hash[HASH_HEX_SIZE + 1];
+
+    blockGetIndex(broker_block, &block_index);
+    blockGetHash(broker_block, block_hash);
+
+    int rc = commit_block_to_local_csv(ctx, broker_block);
+    blockDestroy(broker_block);
+
+    if (rc == 0) {
+        log_msg(ctx, "Blocco index=%llu accettato, notifico miner",
+                (unsigned long long)block_index);
+
+        notify_all_miners(ctx, block_index, block_hash, BLOCK_VALID);
+
+    } else if (rc == BLOCK_ALREADY_PRESENT) {
+        log_msg(ctx, "Blocco index=%llu ridondante, recupero transazioni per miner %d",
+                (unsigned long long)block_index, resp->miner_id);
+
+        if (resp->miner_id >= 0
+            && resp->miner_id < ctx->num_miners
+            && ctx->to_miner[resp->miner_id] >= 0) {
+
+            BlockResponse recover;
+            memset(&recover, 0, sizeof(recover));
+
+            recover.block_index = block_index;
+            recover.miner_id    = resp->miner_id;
+            recover.result      = BLOCK_RECOVER_TXS;
+
+            strncpy(recover.block_hash, block_hash, HASH_HEX_SIZE);
+            recover.block_hash[HASH_HEX_SIZE] = '\0';
+
+            ssize_t wr = write(ctx->to_miner[resp->miner_id],
+                               &recover,
+                               sizeof(BlockResponse));
+
+            if (wr != (ssize_t)sizeof(BlockResponse)) {
+                log_msg(ctx, "ERROR: notify BLOCK_RECOVER_TXS al miner %d fallita",
+                        resp->miner_id);
+            }
+        }
+
+    } else {
+        log_msg(ctx, "Blocco index=%llu non accettato (rc=%d)",
+                (unsigned long long)block_index, rc);
+    }
 }
 
 int main (int argc, char* argv[]){
@@ -282,98 +383,42 @@ int main (int argc, char* argv[]){
     /*
     Il processo si ferma solo in caso di SIGTERM o SIGINT
     */
-
-    sigset_t empty_mask, block_mask;
-    sigemptyset(&empty_mask);
-    sigemptyset(&block_mask);
-    sigaddset(&block_mask, SIGUSR1);
-
     while (ctx->running) {
+        fd_set rfds;
+        FD_ZERO(&rfds);
+        FD_SET(ctx->fd_from_broker, &rfds);
 
-        sigprocmask(SIG_BLOCK, &block_mask, NULL);
+        struct timeval tv;
+        tv.tv_sec = 1;
+        tv.tv_usec = 0;
 
-        if (!ctx->pending_broker) {
-            sigsuspend(&empty_mask);
+        int ready = select(ctx->fd_from_broker + 1, &rfds, NULL, NULL, &tv);
+
+        if (ready < 0) {
+            if (errno == EINTR) continue;
+            log_msg(ctx, "ERROR: select broker fallita: %s", strerror(errno));
+            break;
         }
 
-        sigprocmask(SIG_UNBLOCK, &block_mask, NULL);
-
-        if (!ctx->running) break;
-
-        if (ctx->pending_broker) {
-            ctx->pending_broker = 0;
-
-            BrokerResponse resp;
-            ssize_t rd = read(ctx->fd_from_broker,
-                            &resp, sizeof(BrokerResponse));
-
-            if (rd == 0) {
-                log_msg(ctx, "FIFO broker chiusa, uscita");
-                ctx->running = 0;
-                break;
-            }
-
-            if (rd != (ssize_t)sizeof(BrokerResponse)) {
-                log_msg(ctx, "ERROR: lettura broker troncata (%zd/%zu bytes)",
-                        rd, sizeof(BrokerResponse));
-                continue;
-            }
-
-            Block *broker_block = blockCreate();
-            if (broker_block == NULL) {
-                log_msg(ctx, "ERROR: blockCreate fallita");
-                continue;
-            }
-
-            if (blockFromCsv(broker_block, resp.csv_line) != 0) {
-                log_msg(ctx, "ERROR: blockFromCsv fallita");
-                blockDestroy(broker_block);
-                continue;
-            }
-
-            uint64_t block_index = 0;
-            char block_hash[HASH_HEX_SIZE + 1];
-            blockGetIndex(broker_block, &block_index);
-            blockGetHash(broker_block, block_hash);
-
-            int rc = commit_block_to_local_csv(ctx, broker_block);
-            blockDestroy(broker_block);
-
-            if (rc == 0) {
-                log_msg(ctx, "Blocco index=%llu accettato, notifico miner",
-                        (unsigned long long)block_index);
-                notify_all_miners(ctx, block_index, block_hash, BLOCK_VALID);
-
-            } else if (rc == BLOCK_ALREADY_PRESENT) {
-                log_msg(ctx, "Blocco index=%llu ridondante, "
-                        "recupero transazioni per miner %d",
-                        (unsigned long long)block_index, resp.miner_id);
-
-                if (resp.miner_id >= 0
-                    && resp.miner_id < ctx->num_miners
-                    && ctx->to_miner[resp.miner_id] >= 0) {
-
-                    BlockResponse recover;
-                    memset(&recover, 0, sizeof(recover));
-                    recover.block_index = block_index;
-                    recover.miner_id    = resp.miner_id;
-                    recover.result      = BLOCK_RECOVER_TXS;
-                    strncpy(recover.block_hash, block_hash, HASH_HEX_SIZE);
-                    recover.block_hash[HASH_HEX_SIZE] = '\0';
-
-                    ssize_t wr = write(ctx->to_miner[resp.miner_id],
-                                    &recover, sizeof(BlockResponse));
-                    if (wr != (ssize_t)sizeof(BlockResponse)) {
-                        log_msg(ctx, "ERROR: notify BLOCK_RECOVER_TXS "
-                                "al miner %d fallita", resp.miner_id);
-                    }
-                }
-            } else {
-                log_msg(ctx, "Blocco index=%llu non accettato (rc=%d)",
-                        (unsigned long long)block_index, rc);
-            }
+        if (ready == 0) {
+            continue;
         }
+
+        if (!FD_ISSET(ctx->fd_from_broker, &rfds)) {
+            continue;
+        }
+
+        BrokerResponse resp;
+        if (read_broker_response(ctx, &resp) != 0) {
+            continue;
+        }
+
+        log_msg(ctx, "BrokerResponse ricevuta: miner=%d csv='%.120s'",
+                resp.miner_id, resp.csv_line);
+
+        process_broker_response(ctx, &resp);
     }
+
 
     log_msg(ctx, "Terminazione richiesta");
 

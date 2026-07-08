@@ -52,14 +52,37 @@ calc_merkle() {
 
 
 cmd_merkle() {
-    local tx_string="$1"
-    local -a tx_array
-    split_by_delim "$tx_string" "::" tx_array
+    local txs="${1:-}"
 
-    local -a tx_hashes=()
-    for tx in "${tx_array[@]}"; do
-        tx_hashes+=( "$(sha256_hex "$tx")" )
+    if [[ -z "$txs" ]]; then
+        echo "INVALID_TRANSACTION: empty transaction list" >&2
+        return 3
+    fi
+
+    local tx
+    local rest="$txs"
+    local tx_hashes=()
+
+    while [[ "$rest" == *"::"* ]]; do
+        tx="${rest%%::*}"
+        rest="${rest#*::}"
+
+        if [[ -z "$tx" ]]; then
+            echo "INVALID_TRANSACTION: empty transaction" >&2
+            return 3
+        fi
+
+        tx_hashes+=("$(printf "%s" "$tx" | sha256sum | awk '{print $1}')")
     done
+
+    tx="$rest"
+
+    if [[ -z "$tx" ]]; then
+        echo "INVALID_TRANSACTION: empty transaction" >&2
+        return 3
+    fi
+
+    tx_hashes+=("$(printf "%s" "$tx" | sha256sum | awk '{print $1}')")
 
     calc_merkle "${tx_hashes[@]}"
 }
@@ -117,6 +140,41 @@ cmd_verify() {
 
         local idx_hex ts_hex ph_hex mr_hex nonce_hex tx_field
         IFS=',' read -r idx_hex ts_hex ph_hex mr_hex nonce_hex tx_field <<< "$line"
+
+                if [[ ! "$idx_hex" =~ ^[0-9a-fA-F]{16}$ ]]; then
+            echo "Blocco #$block_num: INVALID_BLOCK (index must be 16 hex chars)"
+            errors=$((errors + 1))
+            block_num=$((block_num + 1))
+            continue
+        fi
+
+        if [[ ! "$ts_hex" =~ ^[0-9a-fA-F]{16}$ ]]; then
+            echo "Blocco #$block_num: INVALID_BLOCK (timestamp must be 16 hex chars)"
+            errors=$((errors + 1))
+            block_num=$((block_num + 1))
+            continue
+        fi
+
+        if [[ ! "$ph_hex" =~ ^[0-9a-fA-F]{64}$ ]]; then
+            echo "Blocco #$block_num: INVALID_BLOCK (prev_hash must be 64 hex chars)"
+            errors=$((errors + 1))
+            block_num=$((block_num + 1))
+            continue
+        fi
+
+        if [[ ! "$mr_hex" =~ ^[0-9a-fA-F]{64}$ ]]; then
+            echo "Blocco #$block_num: INVALID_BLOCK (merkle_root must be 64 hex chars)"
+            errors=$((errors + 1))
+            block_num=$((block_num + 1))
+            continue
+        fi
+
+        if [[ ! "$nonce_hex" =~ ^[0-9a-fA-F]{16}$ ]]; then
+            echo "Blocco #$block_num: INVALID_BLOCK (nonce must be 16 hex chars)"
+            errors=$((errors + 1))
+            block_num=$((block_num + 1))
+            continue
+        fi
 
         if [[ -z "$idx_hex" || -z "$ts_hex" || -z "$ph_hex" || -z "$mr_hex" || -z "$nonce_hex" ]] \
            || [[ ! "$idx_hex$ts_hex$ph_hex$mr_hex$nonce_hex" =~ ^[0-9a-fA-F]+$ ]]; then
@@ -176,18 +234,39 @@ cmd_verify() {
 }
 
 
-case "${1:-}" in
+usage() {
+    echo "Utilizzo: $0 --verify <state.csv> | --hash <block_hex> | --merkle <transactions>" >&2
+}
+
+if [[ $# -lt 1 ]]; then
+    usage
+    exit 1
+fi
+
+case "$1" in
     --merkle)
+        if [[ $# -ne 2 ]]; then
+            usage
+            exit 1
+        fi
         cmd_merkle "$2"
         ;;
     --hash)
+        if [[ $# -ne 2 ]]; then
+            usage
+            exit 1
+        fi
         cmd_hash "$2"
         ;;
-        --verify)
+    --verify)
+        if [[ $# -ne 2 ]]; then
+            usage
+            exit 1
+        fi
         cmd_verify "$2"
         ;;
     *)
-        echo "Utilizzo: $0 --verify <state.csv> | --hash <block_hex> | --merkle <transactions>" >&2
+        usage
         exit 1
         ;;
 esac

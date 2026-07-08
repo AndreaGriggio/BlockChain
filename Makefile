@@ -1,58 +1,58 @@
 CC := gcc
+CFLAGS := -std=gnu11 -Wall -Wextra -g -pthread
 
-# modifica per macOS
-OPENSSL_PREFIX := $(shell brew --prefix openssl)
-CFLAGS := -std=gnu11 -Wall -Wextra -g -pthread -I$(OPENSSL_PREFIX)/include
-#CFLAGS := -std=gnu11 -Wall -Wextra -g -pthread
+ARGS ?= 2 2 1 1 12
 
 INCLUDES := -Icode/include -Icode/include/communication -Icode/include/miner -Icode/include/node
-
-# modifica per macOS
-LDLIBS := -L$(OPENSSL_PREFIX)/lib -lcrypto
-#LDLIBS := -lcrypto
+LDLIBS := -lcrypto
 
 SRC := code/src
 OBJ := code/obj
 BIN := code/bin
 
-vpath %.c code/src code/src/communication code/src/miner code/src/node
+# Sottocartelle dei sorgenti per vpath
+SRC_DIRS := $(SRC) $(SRC)/communication $(SRC)/miner $(SRC)/node
+
+vpath %.c $(SRC_DIRS)
 
 COMMON_OBJS := \
-	$(OBJ)/block.o \
-	$(OBJ)/protocolSocket.o \
-	$(OBJ)/message.o \
-	$(OBJ)/childProcess.o \
-	$(OBJ)/utils.o
+    $(OBJ)/block.o \
+    $(OBJ)/protocolSocket.o \
+    $(OBJ)/message.o \
+    $(OBJ)/childProcess.o \
+    $(OBJ)/utils.o
 
 .PHONY: build clean run dirs
 
-build: dirs code/blockchain $(BIN)/broker $(BIN)/miner $(BIN)/client $(BIN)/node
+# Il target build ora dipende solo dai file finali
+build: code/blockchain $(BIN)/broker $(BIN)/miner $(BIN)/client $(BIN)/node
 
-dirs:
-	mkdir -p $(OBJ) $(BIN)
+# Regole per creare le cartelle al volo se non esistono
+$(OBJ) $(BIN):
+	mkdir -p $@
 
 code/blockchain: $(OBJ)/main.o $(OBJ)/repl.o $(COMMON_OBJS)
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^ $(LDLIBS)
 
-$(BIN)/broker: $(OBJ)/broker.o $(COMMON_OBJS)
+$(BIN)/broker: $(OBJ)/broker.o $(COMMON_OBJS) | $(BIN)
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^ $(LDLIBS)
 
-$(BIN)/miner: $(OBJ)/miner.o $(OBJ)/minerCommunicationProcess.o $(OBJ)/minerStatus.o $(OBJ)/transactionPool.o $(OBJ)/minerCommunicationProtocol.o $(OBJ)/minerFifo.o $(OBJ)/minerThread.o $(OBJ)/blocksPool.o $(COMMON_OBJS)
+$(BIN)/miner: $(OBJ)/miner.o $(OBJ)/minerCommunicationProcess.o $(OBJ)/minerStatus.o $(OBJ)/transactionPool.o $(OBJ)/minerCommunicationProtocol.o $(OBJ)/minerFifo.o $(OBJ)/minerThread.o $(OBJ)/blocksPool.o $(COMMON_OBJS) | $(BIN)
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^ $(LDLIBS)
 
-$(BIN)/client: $(OBJ)/ClientProcess.o $(OBJ)/client.o $(COMMON_OBJS)
+$(BIN)/client: $(OBJ)/ClientProcess.o $(OBJ)/client.o $(COMMON_OBJS) | $(BIN)
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^ $(LDLIBS)
 
-$(BIN)/node: $(OBJ)/node.o $(OBJ)/nodeContext.o $(OBJ)/nodeLog.o $(OBJ)/nodeCSV.o $(OBJ)/nodeFIFO.o $(OBJ)/nodeListener.o $(OBJ)/nodeValidation.o $(OBJ)/nodeStatus.o $(COMMON_OBJS)
+$(BIN)/node: $(OBJ)/node.o $(OBJ)/nodeContext.o $(OBJ)/nodeLog.o $(OBJ)/nodeCSV.o $(OBJ)/nodeFIFO.o $(OBJ)/nodeListener.o $(OBJ)/nodeValidation.o $(OBJ)/nodeStatus.o $(COMMON_OBJS) | $(BIN)
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^ $(LDLIBS)
 
-$(OBJ)/%.o: %.c
+# Il simbolo '| $(OBJ)' garantisce che la cartella obj esista PRIMA di compilare i file .o
+$(OBJ)/%.o: %.c | $(OBJ)
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
 clean:
-	rm -f $(OBJ)/*.o
+	rm -rf $(OBJ) $(BIN)
 	rm -f code/blockchain
-	rm -f $(BIN)/broker $(BIN)/miner $(BIN)/client $(BIN)/node
 	rm -f *.log
 	rm -f ./tmp/*
 	rm -f /dev/shm/sem.blockchain_csv
