@@ -152,6 +152,48 @@ static int copyInitialCsv(const char *src_path, const char *dst_path) {
 	return 0;
 }
 
+static int copyFinalBlockchain(const char *src_path, const char *dst_path) {
+    FILE *src = fopen(src_path, "r");
+    if (src == NULL) {
+        fprintf(stderr, "Errore: impossibile aprire blockchain finale %s: %s\n",
+                src_path, strerror(errno));
+        return CSV_ERROR;
+    }
+
+    FILE *dst = fopen(dst_path, "w");
+    if (dst == NULL) {
+        fprintf(stderr, "Errore: impossibile scrivere blockchain finale %s: %s\n",
+                dst_path, strerror(errno));
+        fclose(src);
+        return CSV_ERROR;
+    }
+
+    char buffer[4096];
+    size_t n;
+
+    while ((n = fread(buffer, 1, sizeof(buffer), src)) > 0) {
+        if (fwrite(buffer, 1, n, dst) != n) {
+            fprintf(stderr, "Errore: scrittura incompleta su %s: %s\n",
+                    dst_path, strerror(errno));
+            fclose(src);
+            fclose(dst);
+            return CSV_ERROR;
+        }
+    }
+
+    if (ferror(src)) {
+        fprintf(stderr, "Errore: lettura fallita da %s: %s\n",
+                src_path, strerror(errno));
+        fclose(src);
+        fclose(dst);
+        return CSV_ERROR;
+    }
+
+    fclose(src);
+    fclose(dst);
+    return 0;
+}
+
 /*
  Verifica che il file CSV fornito come stato iniziale sia una catena valida:
  header presente, almeno il blocco genesis (indice 0) e ogni blocco
@@ -200,6 +242,29 @@ static int verify_csv_chain(const char *path) {
 
         uint64_t idx = 0;
         blockGetIndex(b, &idx);
+
+        char computed_merkle[MERKLE_ROOT_HEX_SIZE + 1];
+        char stored_merkle[MERKLE_ROOT_HEX_SIZE + 1];
+
+        if (blockGetmerkle(b, computed_merkle) != 0 ||
+            blockGetMerkleRoot(b, stored_merkle) != 0) {
+            fprintf(stderr, "CSV iniziale: errore nel calcolo Merkle del blocco %d\n", count);
+            blockDestroy(b);
+            if (prev) blockDestroy(prev);
+            fclose(f);
+            return INVALID_MERKLE;
+        }
+
+        if (strcmp(computed_merkle, stored_merkle) != 0) {
+            fprintf(stderr,
+                    "CSV iniziale: INVALID_MERKLE al blocco %d "
+                    "(calcolato=%s, dichiarato=%s)\n",
+                    count, computed_merkle, stored_merkle);
+            blockDestroy(b);
+            if (prev) blockDestroy(prev);
+            fclose(f);
+            return INVALID_MERKLE;
+        }
 
         if (count == 0) {
             // Genesis: deve avere indice 0
@@ -585,6 +650,20 @@ int main(int argc, char *argv[]) {
     sleep(2);
     killpg(child_pgid, SIGKILL);
     for (int i = 0; i < n_children; i++) waitpid(children[i], NULL, 0);
+
+    /*
+    * Salvataggio finale dello stato persistente.
+    * Con l'architettura broker ogni nodo mantiene un CSV locale;
+    * per convenzione la REPL legge node_0_blockchain.csv, quindi
+    * usiamo lo stesso file come sorgente autorevole per blockchain.csv.
+    */
+    if (copyFinalBlockchain("node_0_blockchain.csv", BLOCKCHAIN_CSV_PATH) != 0) {
+        fprintf(stderr,
+                "WARN: impossibile salvare lo stato finale in %s\n",
+                BLOCKCHAIN_CSV_PATH);
+    } else {
+        printf("Blockchain finale salvata in %s\n", BLOCKCHAIN_CSV_PATH);
+    }
 
     /* 
 	Pulizia delle risorse IPC create dal padre
