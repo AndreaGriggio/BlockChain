@@ -122,7 +122,17 @@ cmd_verify() {
     local -a lines=()
     mapfile -t lines < "$csv_path"
 
-    if (( ${#lines[@]} > 0 )) && [[ "${lines[0]}" == "index,timestamp,prev_hash,merkle_root,nonce,transactions" ]]; then
+    # mapfile su file vuoto produce un array con un elemento vuoto ""
+    if (( ${#lines[@]} == 1 )) && [[ -z "${lines[0]}" ]]; then
+        lines=()
+    fi
+
+    if (( ${#lines[@]} == 0 )); then
+        echo "Errore: catena vuota, nessun blocco da verificare" >&2
+        return "$E_CSV_ERROR"
+    fi
+
+    if [[ "${lines[0]}" == "index,timestamp,prev_hash,merkle_root,nonce,transactions" ]]; then
         lines=("${lines[@]:1}")
     fi
 

@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <signal.h>
+#include <stdarg.h>
 #include <sys/select.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -16,6 +17,18 @@
 #include "error.h"
 
 static volatile sig_atomic_t running = 1;
+static FILE *broker_log = NULL;
+
+/* Scrive un messaggio nel file broker-<pid>.log con newline automatico */
+static void blog(const char *fmt, ...) {
+    if (broker_log == NULL) return;
+    va_list ap;
+    va_start(ap, fmt);
+    vfprintf(broker_log, fmt, ap);
+    va_end(ap);
+    fprintf(broker_log, "\n");
+    fflush(broker_log);
+}
 
 static void broker_cleanup(int *fd_from_node, int *fd_to_node,
                             pid_t *node_pids, int num_nodes) {
@@ -43,7 +56,12 @@ static void broker_cleanup(int *fd_from_node, int *fd_to_node,
         free(node_pids);
     }
 
-    fprintf(stderr, "BROKER: terminato\n");
+    blog("BROKER: terminato");
+
+    if (broker_log != NULL) {
+        fclose(broker_log);
+        broker_log = NULL;
+    }
 }
 
 static void handle_signal(int sig) {
@@ -62,6 +80,11 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "BROKER: num_nodes non valido\n");
         return 1;
     }
+
+    /* Apre il file di log prima di tutto il resto */
+    char logname[64];
+    snprintf(logname, sizeof logname, "broker-%d.log", getpid());
+    broker_log = fopen(logname, "w");
 
     struct sigaction sa;
     sa.sa_handler = handle_signal;
@@ -103,7 +126,7 @@ int main(int argc, char *argv[]) {
             if (fd_to_node[i] < 0) usleep(10000);
         } while (fd_to_node[i] < 0);
 
-        fprintf(stderr, "BROKER: aperta FIFO broker->node_%d\n", i);
+        blog("BROKER: aperta FIFO broker->node_%d", i);
     }
 
     for (int i = 0; i < num_nodes; i++) {
@@ -121,16 +144,12 @@ int main(int argc, char *argv[]) {
             if (fd_from_node[i] < 0) usleep(10000);
         } while (fd_from_node[i] < 0);
 
-        fprintf(stderr, "BROKER: aperta FIFO node_%d->broker\n", i);
+        blog("BROKER: aperta FIFO node_%d->broker", i);
     }
 
-    fprintf(stderr, "BROKER: pronto, num_nodes=%d\n", num_nodes);
-    fprintf(stderr,
-        "BROKER: sizeof(BrokerMessage)=%zu sizeof(BrokerResponse)=%zu\n",
+    blog("BROKER: pronto, num_nodes=%d", num_nodes);
+    blog("BROKER: sizeof(BrokerMessage)=%zu sizeof(BrokerResponse)=%zu",
         sizeof(BrokerMessage), sizeof(BrokerResponse));
-
-    
-
 
     while (running) {
 
@@ -145,7 +164,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (maxfd < 0) {
-            fprintf(stderr, "BROKER: tutte le FIFO chiuse, uscita\n");
+            blog("BROKER: tutte le FIFO chiuse, uscita");
             break;
         }
 
@@ -154,7 +173,7 @@ int main(int argc, char *argv[]) {
 
         if (ready < 0) {
             if (errno == EINTR) continue;
-            fprintf(stderr, "BROKER: select fallita: %s\n", strerror(errno));
+            blog("BROKER: select fallita: %s", strerror(errno));
             break;
         }
         if (ready == 0) continue;
@@ -171,7 +190,7 @@ int main(int argc, char *argv[]) {
             while (rd < (ssize_t)total) {
                 ssize_t n = read(fd_from_node[i], buf + rd, total - rd);
                 if (n == 0) {
-                    fprintf(stderr, "BROKER: FIFO node_%d chiusa\n", i);
+                    blog("BROKER: FIFO node_%d chiusa", i);
                     close(fd_from_node[i]);
                     fd_from_node[i] = -1;
                     rd = -1;
@@ -179,50 +198,45 @@ int main(int argc, char *argv[]) {
                 }
                 if (n < 0) {
                     if (errno == EINTR) continue;
-                    fprintf(stderr, "BROKER: read da node_%d fallita: %s\n",
-                            i, strerror(errno));
+                    blog("BROKER: read da node_%d fallita: %s", i, strerror(errno));
                     rd = -1;
                     break;
                 }
                 rd += n;
             }
 
-            if (fd_from_node[i] < 0) continue;  /* FIFO chiusa */
+            if (fd_from_node[i] < 0) continue;
 
             if (rd != (ssize_t)total) {
-                fprintf(stderr, "BROKER: messaggio incompleto da node_%d "
-                        "(%zd/%zu bytes)\n", i, rd, sizeof(BrokerMessage));
+                blog("BROKER: messaggio incompleto da node_%d (%zd/%zu bytes)",
+                     i, rd, sizeof(BrokerMessage));
                 continue;
             }
             if (msg.node_id < 0 || msg.node_id >= num_nodes) {
-                fprintf(stderr,
-                        "BROKER ERROR: node_id non valido da FIFO node_%d: msg.node_id=%d\n",
-                        i, msg.node_id);
+                blog("BROKER ERROR: node_id non valido da FIFO node_%d: msg.node_id=%d",
+                     i, msg.node_id);
                 continue;
             }
 
             if (msg.node_id != i) {
-                fprintf(stderr,
-                        "BROKER WARN: messaggio letto da FIFO node_%d ma contiene node_id=%d\n",
-                        i, msg.node_id);
+                blog("BROKER WARN: messaggio letto da FIFO node_%d ma contiene node_id=%d",
+                     i, msg.node_id);
                 continue;
             }
 
             if (node_pids[msg.node_id] == -1 && msg.sender_pid > 0) {
                 node_pids[msg.node_id] = msg.sender_pid;
-                fprintf(stderr, "BROKER: registrato PID node_%d = %d\n",
-                        msg.node_id, (int)msg.sender_pid);
+                blog("BROKER: registrato PID node_%d = %d",
+                     msg.node_id, (int)msg.sender_pid);
             }
 
-            /* se csv_line è vuota è solo una registrazione, nessun broadcast */
             if (msg.csv_line[0] == '\0') {
-                fprintf(stderr, "BROKER: registrazione da node_%d, nessun broadcast\n",
-                        msg.node_id);
+                blog("BROKER: registrazione da node_%d, nessun broadcast", msg.node_id);
                 continue;
             }
 
-            fprintf(stderr, "BROKER: blocco ricevuto da node_%d, "
-                    "broadcast a %d nodi\n", msg.node_id, num_nodes);
+            blog("BROKER: blocco ricevuto da node_%d, broadcast a %d nodi",
+                 msg.node_id, num_nodes);
 
             BrokerResponse resp;
             memset(&resp, 0, sizeof(resp));
@@ -231,16 +245,15 @@ int main(int argc, char *argv[]) {
             resp.csv_line[BLOCK_CSV_LINE_SIZE - 1] = '\0';
 
             if (resp.csv_line[0] == '\0') {
-                fprintf(stderr, "BROKER ERROR: BrokerResponse vuota, broadcast annullato\n");
+                blog("BROKER ERROR: BrokerResponse vuota, broadcast annullato");
                 continue;
             }
 
             for (int j = 0; j < num_nodes; j++) {
                 if (fd_to_node[j] < 0) continue;
 
-                fprintf(stderr,
-                    "BROKER: invio a node_%d miner=%d csv='%.120s'\n",
-                    j, resp.miner_id, resp.csv_line);
+                blog("BROKER: invio a node_%d miner=%d csv='%.120s'",
+                     j, resp.miner_id, resp.csv_line);
 
                 ssize_t wr = 0;
                 const char *wbuf = (const char *)&resp;
@@ -250,8 +263,8 @@ int main(int argc, char *argv[]) {
                     ssize_t n = write(fd_to_node[j], wbuf + wr, wtotal - wr);
                     if (n < 0) {
                         if (errno == EINTR) continue;
-                        fprintf(stderr, "BROKER: write verso node_%d fallita: %s\n",
-                                j, strerror(errno));
+                        blog("BROKER: write verso node_%d fallita: %s",
+                             j, strerror(errno));
                         break;
                     }
                     wr += n;
@@ -259,9 +272,8 @@ int main(int argc, char *argv[]) {
 
                 if (node_pids[j] > 0) {
                     if (kill(node_pids[j], SIGUSR1) < 0) {
-                        fprintf(stderr,
-                                "BROKER: kill(node_%d, SIGUSR1) fallita: %s\n",
-                                j, strerror(errno));
+                        blog("BROKER: kill(node_%d, SIGUSR1) fallita: %s",
+                             j, strerror(errno));
                     }
                 }
             }

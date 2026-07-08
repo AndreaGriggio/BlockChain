@@ -170,29 +170,24 @@ int load_initial_state(NodeContext *ctx, const char *csv_path) {
     log_msg(ctx, "Stato iniziale caricato: %llu blocchi",
             (unsigned long long)ctx->chain_length);
 
-    /* copia il CSV iniziale nel file locale del nodo se non esiste ancora */
+    /* Sovrascrive sempre il CSV locale con quello del bootstrap,
+    * garantendo che tutti i nodi partano dallo stesso genesis. */
     char local_path[64];
     local_csv_path(ctx->node_id, local_path, sizeof(local_path));
 
-    FILE *existing = fopen(local_path, "r");
-    if (existing != NULL) {
-        fclose(existing);
-        log_msg(ctx, "CSV locale %s gia' esistente, skip copia", local_path);
+    FILE *src = fopen(csv_path, "r");
+    FILE *dst = fopen(local_path, "w");
+    if (src != NULL && dst != NULL) {
+        char buf[4096];
+        size_t n;
+        while ((n = fread(buf, 1, sizeof(buf), src)) > 0)
+            fwrite(buf, 1, n, dst);
+        log_msg(ctx, "CSV locale %s inizializzato da %s", local_path, csv_path);
     } else {
-        FILE *src = fopen(csv_path, "r");
-        FILE *dst = fopen(local_path, "w");
-        if (src != NULL && dst != NULL) {
-            char buf[4096];
-            size_t n;
-            while ((n = fread(buf, 1, sizeof(buf), src)) > 0)
-                fwrite(buf, 1, n, dst);
-            log_msg(ctx, "CSV locale %s creato da %s", local_path, csv_path);
-        } else {
-            log_msg(ctx, "ERROR: impossibile creare CSV locale %s", local_path);
-        }
-        if (src) fclose(src);
-        if (dst) fclose(dst);
+        log_msg(ctx, "ERROR: impossibile inizializzare CSV locale %s", local_path);
     }
+    if (src) fclose(src);
+    if (dst) fclose(dst);
 
     return 0;
 }
