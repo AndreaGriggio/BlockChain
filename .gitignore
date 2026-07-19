@@ -49,3 +49,4 @@ Icon?
 
 # Script install di CMake
 cmake_install.cmake
+Dockerfile

@@ -57,12 +57,7 @@
 // fifo broker <-> node
 #define BROKER_SEM_NAME   "/blockchain_broker"
 
-/*
- * Directory runtime esterna al workspace.
- * In questo modo editor e indicizzatori, come VS Code cpptools,
- * non aprono accidentalmente FIFO e socket.
- */
-#define RUNTIME_DIR "/tmp/blockchain-os"
+#define RUNTIME_DIR "./code/tmp"
 
 /* Socket */
 #define NODE_SOCKET           RUNTIME_DIR "/blockchain_node_"
