@@ -5,6 +5,7 @@ set -euo pipefail
 readonly E_CHAIN_MISMATCH=1
 readonly E_INVALID_TRANSACTION=2
 readonly E_INVALID_BLOCK=4
+readonly E_INVALID_HASH=5
 readonly E_INVALID_MERKLE=10
 readonly E_BLOCK_TOO_FAR=11
 readonly E_CSV_ERROR=12
@@ -56,7 +57,7 @@ cmd_merkle() {
 
     if [[ -z "$txs" ]]; then
         echo "INVALID_TRANSACTION: empty transaction list" >&2
-        return 3
+        return "$E_INVALID_TRANSACTION"
     fi
 
     local tx
@@ -69,7 +70,7 @@ cmd_merkle() {
 
         if [[ -z "$tx" ]]; then
             echo "INVALID_TRANSACTION: empty transaction" >&2
-            return 3
+            return "$E_INVALID_TRANSACTION"
         fi
 
         tx_hashes+=("$(printf "%s" "$tx" | sha256sum | awk '{print $1}')")
@@ -79,7 +80,7 @@ cmd_merkle() {
 
     if [[ -z "$tx" ]]; then
         echo "INVALID_TRANSACTION: empty transaction" >&2
-        return 3
+        return "$E_INVALID_TRANSACTION"
     fi
 
     tx_hashes+=("$(printf "%s" "$tx" | sha256sum | awk '{print $1}')")
@@ -97,12 +98,12 @@ cmd_hash() {
 
     if [[ ! "$block_hex" =~ ^[0-9a-fA-F]+$ ]]; then
         echo "Errore: input non è una stringa hex valida" >&2
-        return 1
+        return "$E_INVALID_HASH"
     fi
 
     if (( ${#block_hex} < HEX_FIELDS_LEN )); then
         echo "Errore: input troppo corto per contenere i campi fissi del blocco" >&2
-        return 1
+        return "$E_INVALID_HASH"
     fi
 
     local fixed_fields="${block_hex:0:HEX_FIELDS_LEN}"
