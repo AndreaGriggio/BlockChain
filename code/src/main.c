@@ -386,11 +386,18 @@ static int getTailBlockRef(const char *csv_path, char out_hash[HASH_HEX_SIZE + 1
 /*
 La cartella ./tmp/ deve esistere prima di creare socket e FIFO
 */
-static int ensureTmpDir(void) {
-    if (mkdir("tmp", 0755) < 0 && errno != EEXIST) {
-        fprintf(stderr, "Errore creazione cartella tmp: %s\n", strerror(errno));
-        return CSV_ERROR;
+static int ensureRuntimeDir(void) {
+    if (mkdir(RUNTIME_DIR, 0700) < 0 && errno != EEXIST) {
+        fprintf(
+            stderr,
+            "Errore creazione directory runtime %s: %s\n",
+            RUNTIME_DIR,
+            strerror(errno)
+        );
+
+        return FIFO_ERROR;
     }
+
     return 0;
 }
 
@@ -410,18 +417,41 @@ static int createBrokerFifos(int num_nodes) {
     for (int i = 0; i < num_nodes; i++) {
         char path[64];
 
+        /*
+         * Elimina un'eventuale FIFO lasciata da una precedente
+         * esecuzione e crea sempre un nuovo inode.
+         */
         snprintf(path, sizeof(path), "%s%d", NODE_BROKER_FIFO, i);
-        if (mkfifo(path, 0666) < 0 && errno != EEXIST) {
-            fprintf(stderr, "Errore mkfifo %s: %s\n", path, strerror(errno));
+
+        unlink(path);
+
+        if (mkfifo(path, 0600) < 0) {
+            fprintf(
+                stderr,
+                "Errore mkfifo %s: %s\n",
+                path,
+                strerror(errno)
+            );
+
             return FIFO_ERROR;
         }
 
         snprintf(path, sizeof(path), "%s%d", BROKER_NODE_FIFO, i);
-        if (mkfifo(path, 0666) < 0 && errno != EEXIST) {
-            fprintf(stderr, "Errore mkfifo %s: %s\n", path, strerror(errno));
+
+        unlink(path);
+
+        if (mkfifo(path, 0600) < 0) {
+            fprintf(
+                stderr,
+                "Errore mkfifo %s: %s\n",
+                path,
+                strerror(errno)
+            );
+
             return FIFO_ERROR;
         }
     }
+
     return 0;
 }
 
@@ -527,9 +557,9 @@ int main(int argc, char *argv[]) {
 		}
 
 	
-		if (ensureTmpDir() != 0) {
-        return CSV_ERROR;
-    }
+		if (ensureRuntimeDir() != 0) {
+            return FIFO_ERROR;
+}
 
     int miners_fd = createMinersSocket();
 	

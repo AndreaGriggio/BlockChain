@@ -36,14 +36,9 @@
 #define STR_NUMBERS "0123456789"
 
 //socket constants
-#define NODE_SOCKET "./tmp/blockchain_node_"
-#define CLIENT_MANAGER_SOCKET "./tmp/client_manager.sock"
-#define MINERS_SOCKET "./tmp/miners.sock"
 #define MAX_CONNECTION_TRIES 10
 
 //fifo constants
-#define MINER_NODE_FIFO  "./tmp/miner_node_"
-#define NODE_MINER_FIFO  "./tmp/node_miner_"
 #define FIFO_WAIT_MS 100
 
 
@@ -60,9 +55,27 @@
 #define CSV_FILE_NAME "./blockchain.csv"
 
 // fifo broker <-> node
-#define NODE_BROKER_FIFO  "./tmp/node_broker_"
-#define BROKER_NODE_FIFO  "./tmp/broker_node_"
 #define BROKER_SEM_NAME   "/blockchain_broker"
+
+/*
+ * Directory runtime esterna al workspace.
+ * In questo modo editor e indicizzatori, come VS Code cpptools,
+ * non aprono accidentalmente FIFO e socket.
+ */
+#define RUNTIME_DIR "/tmp/blockchain-os"
+
+/* Socket */
+#define NODE_SOCKET           RUNTIME_DIR "/blockchain_node_"
+#define CLIENT_MANAGER_SOCKET RUNTIME_DIR "/client_manager.sock"
+#define MINERS_SOCKET         RUNTIME_DIR "/miners.sock"
+
+/* FIFO miner <-> nodo */
+#define MINER_NODE_FIFO RUNTIME_DIR "/miner_node_"
+#define NODE_MINER_FIFO RUNTIME_DIR "/node_miner_"
+
+/* FIFO broker <-> nodo */
+#define NODE_BROKER_FIFO RUNTIME_DIR "/node_broker_"
+#define BROKER_NODE_FIFO RUNTIME_DIR "/broker_node_"
 
 //argoments constants
 #define MAX_NODE_COUNT 100

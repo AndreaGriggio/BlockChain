@@ -5,6 +5,7 @@ ARGS ?= 2 2 1 1 12
 
 INCLUDES := -Icode/include -Icode/include/communication -Icode/include/miner -Icode/include/node
 LDLIBS := -lcrypto
+RUNTIME_DIR := /tmp/blockchain-os
 
 SRC := code/src
 OBJ := code/obj
@@ -54,10 +55,10 @@ clean:
 	rm -rf $(OBJ) $(BIN)
 	rm -f code/blockchain
 	rm -f *.log
-	rm -f ./tmp/*
+	rm -f node_*_blockchain.csv
+	rm -rf $(RUNTIME_DIR)
 	rm -f /dev/shm/sem.blockchain_csv
 	rm -f /dev/shm/sem.blockchain_broker
-	rm -f blockchain.csv node_*.csv
 
 run: build
 	./code/blockchain $(ARGS)
