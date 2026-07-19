@@ -3,8 +3,13 @@
 #include <stddef.h> // per size_t
 #include <stdint.h> // per uint64_t
 #include "constants.h"
+
+//definete per evitare problemi con le FIFO
+#define BLOCK_CSV_FIXED_CHARS \
+    (UINT64_TO_CHAR_SIZE * 3 + HASH_HEX_SIZE * 2 + 5)
+
 #define BLOCK_CSV_LINE_SIZE \
-    (MAX_BLOCK_TXS_BUF + HASH_HEX_SIZE * 2 + UINT64_TO_CHAR_SIZE*3+128)//128 per il meme tenerci larghi
+    (MAX_BLOCK_TXS_BUF + BLOCK_CSV_FIXED_CHARS)
 typedef struct Block Block;
 
 typedef struct {

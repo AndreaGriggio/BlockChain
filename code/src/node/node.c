@@ -111,24 +111,10 @@ static void process_broker_response(NodeContext *ctx, const BrokerResponse *resp
             && resp->miner_id < ctx->num_miners
             && ctx->to_miner[resp->miner_id] >= 0) {
 
-            BlockResponse recover;
-            memset(&recover, 0, sizeof(recover));
-
-            recover.block_index = block_index;
-            recover.miner_id    = resp->miner_id;
-            recover.result      = BLOCK_RECOVER_TXS;
-
-            strncpy(recover.block_hash, block_hash, HASH_HEX_SIZE);
-            recover.block_hash[HASH_HEX_SIZE] = '\0';
-
-            ssize_t wr = write(ctx->to_miner[resp->miner_id],
-                               &recover,
-                               sizeof(BlockResponse));
-
-            if (wr != (ssize_t)sizeof(BlockResponse)) {
-                log_msg(ctx, "ERROR: notify BLOCK_RECOVER_TXS al miner %d fallita",
-                        resp->miner_id);
-            }
+            
+            log_msg(ctx, "ERROR: notify BLOCK_RECOVER_TXS al miner %d fallita",
+                    resp->miner_id);
+            
         }
 
     } else {

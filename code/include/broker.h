@@ -2,6 +2,7 @@
 #define BROKER_H
 
 #include <sys/types.h>
+#include <limits.h>
 #include "block.h"
 
 typedef enum {
@@ -26,8 +27,14 @@ typedef struct {
 
 
 typedef struct {
-    int  miner_id;               
+    int miner_id;               
     char csv_line[BLOCK_CSV_LINE_SIZE];
 } BrokerResponse;
 
+//controlli
+_Static_assert(sizeof(BrokerMessage) <= PIPE_BUF,
+               "BrokerMessage supera PIPE_BUF: protocollo FIFO non atomico");
+
+_Static_assert(sizeof(BrokerResponse) <= PIPE_BUF,
+               "BrokerResponse supera PIPE_BUF: protocollo FIFO non atomico");
 #endif 

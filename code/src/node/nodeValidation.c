@@ -43,17 +43,13 @@ int process_block(NodeContext *ctx, Block *new_block) {
         return INVALID_MERKLE;
     }
 
-    pthread_mutex_lock(&ctx->chain_mutex);
-
+    /* commit_block_to_local_csv() gestisce già chain_mutex internamente.
+     * Bloccarlo anche qui causava un deadlock su mutex non ricorsivo. */
     int rc = commit_block_to_local_csv(ctx, new_block);
+    if (rc != 0) return rc;
 
-    if (rc != 0) {
-        pthread_mutex_unlock(&ctx->chain_mutex);
-        return rc;
-    }
-
+    pthread_mutex_lock(&ctx->chain_mutex);
     uint64_t len = ctx->chain_length;
-
     pthread_mutex_unlock(&ctx->chain_mutex);
 
     nSSetLastBlock(ctx->status, new_block);

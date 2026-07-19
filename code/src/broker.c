@@ -19,6 +19,42 @@
 static volatile sig_atomic_t running = 1;
 static FILE *broker_log = NULL;
 
+#define SEEN_BLOCK_CACHE_SIZE 256
+
+/* Cache circolare degli hash già inoltrati: ogni miner manda lo stesso blocco
+ * a tutti i nodi, ma il broker deve broadcastarlo una sola volta. */
+typedef struct {
+    char hashes[SEEN_BLOCK_CACHE_SIZE][HASH_HEX_SIZE + 1];
+    size_t count;
+    size_t next;
+} SeenBlockCache;
+
+static int block_hash_from_csv(const char *csv_line,
+                               char out_hash[HASH_HEX_SIZE + 1]) {
+    Block *block = blockCreate();
+    if (block == NULL) return MEMORY_ERROR;
+
+    int rc = blockFromCsv(block, csv_line);
+    if (rc == 0) rc = blockGetHash(block, out_hash);
+
+    blockDestroy(block);
+    return rc;
+}
+
+static int cache_contains(const SeenBlockCache *cache, const char *hash) {
+    for (size_t i = 0; i < cache->count; i++) {
+        if (strcmp(cache->hashes[i], hash) == 0) return 1;
+    }
+    return 0;
+}
+
+static void cache_add(SeenBlockCache *cache, const char *hash) {
+    strncpy(cache->hashes[cache->next], hash, HASH_HEX_SIZE);
+    cache->hashes[cache->next][HASH_HEX_SIZE] = '\0';
+    cache->next = (cache->next + 1) % SEEN_BLOCK_CACHE_SIZE;
+    if (cache->count < SEEN_BLOCK_CACHE_SIZE) cache->count++;
+}
+
 /* Scrive un messaggio nel file broker-<pid>.log con newline automatico */
 static void blog(const char *fmt, ...) {
     if (broker_log == NULL) return;
@@ -148,8 +184,11 @@ int main(int argc, char *argv[]) {
     }
 
     blog("BROKER: pronto, num_nodes=%d", num_nodes);
-    blog("BROKER: sizeof(BrokerMessage)=%zu sizeof(BrokerResponse)=%zu",
-        sizeof(BrokerMessage), sizeof(BrokerResponse));
+    blog("BROKER: sizeof(BrokerMessage)=%zu sizeof(BrokerResponse)=%zu PIPE_BUF=%d",
+        sizeof(BrokerMessage), sizeof(BrokerResponse), PIPE_BUF);
+
+    SeenBlockCache seen_blocks;
+    memset(&seen_blocks, 0, sizeof(seen_blocks));
 
     while (running) {
 
@@ -235,8 +274,21 @@ int main(int argc, char *argv[]) {
                 continue;
             }
 
-            blog("BROKER: blocco ricevuto da node_%d, broadcast a %d nodi",
-                 msg.node_id, num_nodes);
+            char block_hash[HASH_HEX_SIZE + 1];
+            if (block_hash_from_csv(msg.csv_line, block_hash) != 0) {
+                blog("BROKER ERROR: blocco malformato da node_%d, scartato", msg.node_id);
+                continue;
+            }
+
+            if (cache_contains(&seen_blocks, block_hash)) {
+                blog("BROKER: duplicato hash=%.16s... da node_%d, nessun broadcast",
+                     block_hash, msg.node_id);
+                continue;
+            }
+            cache_add(&seen_blocks, block_hash);
+
+            blog("BROKER: blocco hash=%.16s... ricevuto da node_%d, broadcast a %d nodi",
+                 block_hash, msg.node_id, num_nodes);
 
             BrokerResponse resp;
             memset(&resp, 0, sizeof(resp));
