@@ -4,7 +4,7 @@
 #include <stdint.h> // per uint64_t
 #include "constants.h"
 
-//definete per evitare problemi con le FIFO
+//definite per evitare problemi di dimensioni con le FIFO
 #define BLOCK_CSV_FIXED_CHARS \
     (UINT64_TO_CHAR_SIZE * 3 + HASH_HEX_SIZE * 2 + 5)
 
