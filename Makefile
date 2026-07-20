@@ -55,7 +55,7 @@ clean:
 	rm -rf $(OBJ) $(BIN)
 	rm -f code/blockchain
 	rm -f *.log
-	rm -f node_*_blockchain.csv
+	rm -f blockchain.csv node_*_blockchain.csv
 	rm -rf $(RUNTIME_DIR)
 	rm -f /dev/shm/sem.blockchain_csv
 	rm -f /dev/shm/sem.blockchain_broker
