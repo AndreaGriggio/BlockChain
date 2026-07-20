@@ -29,7 +29,17 @@ int minerInit(Miner* miner,uint miner_difficulty);
 
 int minerPushTransaction( Miner* miner,const char* tx);
 
-int minerAddBlockToPending(Miner* miner,Block* block);
+/*
+ * Inserisce una copia del blocco nella pending pool.
+ * Il blocco originale continua ad appartenere al chiamante.
+ */
+int minerAddBlockToPending(Miner *miner, Block *block);
+
+/*
+ * Reinserisce nella transaction pool tutte le
+ * transazioni contenute nel blocco.
+ */
+int minerRequeueBlockTransactions(Miner *miner, const Block *block);
 
 int minerPopMinedBlock(Miner*miner,Block** block_ptr);
 /**
@@ -39,7 +49,6 @@ int minerPopMinedBlock(Miner*miner,Block** block_ptr);
  * @return 0 se tutto è andato bene
  */
 int minerMiningLoop(Miner* miner,MinerStatus* status);
-int minerUpdatePrevious(Miner* miner, const char* new_hash, uint64_t new_index);
 
 int minerCleanBlocksPool(Miner* miner,MinerStatus* status,const char* prev_hash,int valid,int miner_id,uint64_t block_index);
 

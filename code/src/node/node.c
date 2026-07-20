@@ -103,24 +103,13 @@ static void process_broker_response(NodeContext *ctx, const BrokerResponse *resp
 
         notify_all_miners(ctx, block_index, block_hash, BLOCK_VALID);
 
-    } else if (rc == BLOCK_ALREADY_PRESENT) {
-        log_msg(ctx, "Blocco index=%llu ridondante, recupero transazioni per miner %d",
-                (unsigned long long)block_index, resp->miner_id);
-
-        if (resp->miner_id >= 0
-            && resp->miner_id < ctx->num_miners
-            && ctx->to_miner[resp->miner_id] >= 0) {
-
-            
-            log_msg(ctx, "ERROR: notify BLOCK_RECOVER_TXS al miner %d fallita",
-                    resp->miner_id);
-            
-        }
-
+    }  else if (rc == BLOCK_ALREADY_PRESENT) {
+        log_msg(ctx,"Blocco index=%llu ridondante, ignorato",
+            (unsigned long long)block_index);
     } else {
-        log_msg(ctx, "Blocco index=%llu non accettato (rc=%d)",
-                (unsigned long long)block_index, rc);
-    }
+            log_msg(ctx, "Blocco index=%llu non accettato (rc=%d)",
+                    (unsigned long long)block_index, rc);
+        }
 }
 
 int main (int argc, char* argv[]){

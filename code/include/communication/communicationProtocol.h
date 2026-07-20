@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "../constants.h"
  
-typedef enum {BLOCK_VALID, BLOCK_INVALID, BLOCK_RECOVER_TXS} BlockValidationResult;
+typedef enum {BLOCK_VALID, BLOCK_INVALID} BlockValidationResult;
  
 typedef struct {
     uint64_t                block_index;

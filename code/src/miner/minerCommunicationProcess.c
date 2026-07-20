@@ -166,29 +166,43 @@ static int receiveBlockFromNodes(Miner* miner,MinerStatus* status) {
 
     return one_block_returned;
 }
-/**
- * Invia il blocco corrente (previous_block) a tutti i nodi, ritentando l'invio
- * fino a MAX_CONNECTION_TRIES volte per ciascun nodo in caso di errore.
- * @return 0 al termine del tentativo di invio verso tutti i nodi
- */
-static int sendBlockToNodes(Block* block_to_send) {
 
-    if (block_to_send == NULL) return INVALID_PARAMS;
+//Se i nodi ricevono il blocco restituiscono 0
+static int sendBlockToNodes(Block *block_to_send){
+    if (block_to_send == NULL) {
+        return INVALID_PARAMS;
+    }
+
+    int delivered = 0;
 
     for (int i = 0; i < num_nodes; i++) {
-
         int tries = 0;
-        int res = 1;
+        int rc = FIFO_ERROR;
 
         do {
-             res = sendBlockToNode(block_to_send,status,channels.to_node[i]);
-            if ( res == INVALID_PARAMS) break;
+            rc = sendBlockToNode(block_to_send, status, channels.to_node[i]);
 
-            tries ++;
-        }while (res != 0 && tries < MAX_CONNECTION_TRIES);
+            if (rc == INVALID_PARAMS) {
+                break;
+            }
+
+            tries++;
+
+        } while (
+            rc != 0 &&
+            tries < MAX_CONNECTION_TRIES
+        );
+
+        if (rc == 0) {
+            delivered++;
+        }
     }
-    return 0;
+
+    return delivered > 0
+        ? 0
+        : FIFO_ERROR;
 }
+
 /**
  * Entry point del processo miner: valida gli argomenti (difficoltà, id, numero di
  * nodi), esegue l'inizializzazione e gira il ciclo principale ricevendo
@@ -280,25 +294,60 @@ int main(int argc, char ** argv) {
         //condizioni necessarie per compilare un blocco prima dell'invio
         if (current_block_state == MINER_BLOCK_FOUND) {
             if (minerPopMinedBlock(miner, &block) == 0 && block != NULL) {
-
-                /* aggiorno la testa della catena con il blocco appena minato */
                 char new_hash[HASH_HEX_SIZE + 1];
                 uint64_t new_index = 0;
-                blockGetHash(block, new_hash);
-                blockGetIndex(block, &new_index);
-                minerUpdatePrevious(miner, new_hash, new_index);
 
-                sendBlockToNodes(block);
-                mlog("Blocco index=%llu inviato ai %d nodi",
-                    (unsigned long long)new_index,num_nodes);
-                minerAddBlockToPending(miner, block);  // fa blockCopy + blockDestroy(block)
-                block = NULL;                          // evito use-after-free
+                if (blockGetHash(block, new_hash) != 0 || blockGetIndex(block, &new_index) != 0) {
 
-                minerThreadMine(status);               // ri-mino solo dopo aver consumato
+                    mlog("Errore lettura hash/index blocco minato");
+
+                    minerRequeueBlockTransactions(miner, block);
+
+                    blockDestroy(block);
+                    block = NULL;
+
+                    minerThreadMine(status);
+                    continue;
+                }
+
+                int pending_rc = minerAddBlockToPending(miner, block);
+
+                if (pending_rc != 0) {
+                    int recovery_rc = minerRequeueBlockTransactions(miner, block);
+
+                    mlog("Errore pending block index=%llu: "
+                        "pending_rc=%d recovery_rc=%d",
+                        (unsigned long long)new_index, pending_rc, recovery_rc);
+
+                    blockDestroy(block);
+                    block = NULL;
+
+                    minerThreadMine(status);
+                    continue;
+                }
+
+                int send_rc = sendBlockToNodes(block);
+
+                if (send_rc != 0) {
+                    int recovery_rc = minerRecoverTransactions(miner, new_hash, new_index);
+
+                    mlog(
+                        "Invio blocco index=%llu fallito: "
+                        "send_rc=%d recovery_rc=%d",
+                        (unsigned long long)new_index, send_rc, recovery_rc);
+                } else {
+                    mlog("Blocco index=%llu inviato ai nodi, "
+                        "in attesa di conferma",
+                        (unsigned long long)new_index);
+                }
+                blockDestroy(block);
+                block = NULL;
+
+                minerThreadMine(status);
             }
         }
 
-        if ( receiveBlockFromNodes(miner,status) == 1) minerThreadRestart(status);// ha ricevuto qualcosa dai nodi quindi restart mining
+        if ( receiveBlockFromNodes(miner,status) == 1) minerThreadRestart(status);
     }
 
 

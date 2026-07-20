@@ -15,6 +15,7 @@ typedef struct Block{
     u_int64_t nonce;
     char transactions[MAX_BLOCK_TXS_BUF+1];
 }Block;
+
 /**
  * Crea zona di memoria per il blocco
  * @return Ritorna puntatore a zona di memoria del nuovo blocco
@@ -56,10 +57,8 @@ int blockInit(Block *block_ptr,const u_int64_t index, const u_int64_t timestamp,
 
     return 0;
 }
-int blockGetmerkle(
-    const Block* block_ptr,
-    char output_merkle[MERKLE_ROOT_HEX_SIZE+1]
-) {
+
+int blockGetmerkle(const Block* block_ptr, char output_merkle[MERKLE_ROOT_HEX_SIZE+1]) {
     if (block_ptr == NULL || 
         block_ptr->transactions[0] == '\0' )  {
         return INVALID_PARAMS;
@@ -68,14 +67,11 @@ int blockGetmerkle(
     TxList list;
 
     int result = unpack_transactions(block_ptr, &list);
+    
     if(result != 0 ){
         return result;
     }   
 
-    /*
-    evita di creare un VLA di dimensione zero nel caso in cui
-    il parsing non abbia trovato alcuna transazione valida
-    */
     if (list.count == 0){
         return INVALID_PARAMS;
     }

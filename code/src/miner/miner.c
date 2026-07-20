@@ -119,13 +119,66 @@ int minerInit(Miner* miner,uint miner_difficulty){
 
     return 0;
 }
-int minerPushTransaction(Miner* miner,const char* tx) {
-    if ( miner == NULL || tx == NULL ) return INVALID_PARAMS;
-    pthread_mutex_lock(& miner->lock );
-    poolPush(miner->transaction_pool,tx);
+
+int minerPushTransaction(Miner *miner, const char *tx){
+    if (miner == NULL || tx == NULL) {
+        return INVALID_PARAMS;
+    }
+
+    pthread_mutex_lock(&miner->lock);
+
+    int rc = poolPush(miner->transaction_pool, tx);
+
     pthread_mutex_unlock(&miner->lock);
 
+    return rc;
+}
+
+//Reinserisce le transazioni di un blocco nella transaction pool
+static int requeue_block_transactions_locked(Miner *miner, const Block *block){
+    if (miner == NULL || block == NULL) {
+        return INVALID_PARAMS;
+    }
+
+    TxList list;
+
+    int rc = unpack_transactions(block, &list);
+    if (rc != 0) {
+        return rc;
+    }
+
+    size_t inserted = 0;
+
+    for (size_t i = 0; i < list.count; i++) {
+        rc = poolPush(miner->transaction_pool, list.strings[i]);
+
+        if (rc != 0) {
+             //Il mutex impedisce ad altri thread di modificare la pool durante questa operazione
+            while (inserted > 0) {
+                char *tx = poolRemoveLast(
+                    miner->transaction_pool
+                );
+                free(tx);
+                inserted--;
+            }
+            return rc;
+        }
+        inserted++;
+    }
     return 0;
+}
+
+int minerRequeueBlockTransactions(Miner *miner, const Block *block){
+    if (miner == NULL || block == NULL) {
+        return INVALID_PARAMS;
+    }
+    pthread_mutex_lock(&miner->lock);
+
+    int rc = requeue_block_transactions_locked(miner, block);
+
+    pthread_mutex_unlock(&miner->lock);
+
+    return rc;
 }
 
 static int minerInitMinedBlock(Miner* miner,u_int64_t nonce ) {
@@ -167,29 +220,22 @@ static int minerInitMinedBlock(Miner* miner,u_int64_t nonce ) {
 }
 
 
-int minerAddBlockToPending(Miner* miner,Block* block) {
-    if (miner == NULL || block == NULL ) return INVALID_PARAMS;
-
-    int res = poolPushBlock(miner->pending_pool,block);
-    blockDestroy(block);
-    return res;
-
-}
-
-int minerUpdatePrevious(Miner* miner, const char* new_hash, uint64_t new_index) {
-    if ( miner == NULL || new_hash == NULL) return INVALID_PARAMS;
-    if ( strlen(new_hash) != HASH_HEX_SIZE) return INVALID_PARAMS;
-
+int minerAddBlockToPending(Miner *miner, Block *block){
+    if (miner == NULL || block == NULL) {
+        return INVALID_PARAMS;
+    }
     pthread_mutex_lock(&miner->lock);
 
-    strncpy(miner->previous_hash,new_hash,HASH_HEX_SIZE);
-    miner->previous_index = new_index;
+    int rc = poolPushBlock(
+        miner->pending_pool,
+        block
+    );
 
     pthread_mutex_unlock(&miner->lock);
-
-
-    return 0;
+    return rc;
 }
+
+
 /**
  * Trasferisce al chiamante il blocco minato dal miner, cedendone la proprietà
  * (dopo la chiamata il miner non punta più al blocco).
@@ -324,64 +370,96 @@ int minerMiningLoop(Miner* miner, MinerStatus* status) {
     return 0;
 }
 
-/**
- * Aggiorna la pending pool del miner in base alla risposta di un nodo e
- * risincronizza la testa della catena.
- * @param miner       Miner da aggiornare
- * @param status      Stato condiviso (non modificato qui: il controllo del mining
- *                    resta al processo di comunicazione)
- * @param prev_hash   Hash della testa autorevole comunicata dal nodo (block_hash)
- * @param valid       1 se il blocco e' stato accettato (BLOCK_VALID), 0 se rifiutato
- * @param miner_id    Id del miner destinatario (informativo: la FIFO e' gia' per-miner)
- * @param block_index Indice della testa di catena comunicata dal nodo
- * @return 0 se tutto e' andato a buon fine, INVALID_PARAMS/MEMORY_ERROR altrimenti
- */
-int minerCleanBlocksPool(Miner* miner,MinerStatus* status,const char* prev_hash,int valid,int miner_id,uint64_t block_index) {
-    if (miner == NULL || status == NULL || prev_hash == NULL) return INVALID_PARAMS;
-    (void)status;      /* il controllo dello stato di mining resta al comm process */
-    (void)miner_id;    /* il messaggio e' gia' destinato a questo miner (FIFO dedicata) */
 
-    Block* tmp = blockCreate();
-    if (tmp == NULL) return MEMORY_ERROR;
+ int minerCleanBlocksPool(Miner *miner, MinerStatus *status, const char *accepted_hash, int valid, int miner_id, uint64_t block_index){
+    if (miner == NULL || status == NULL || accepted_hash == NULL) {
+        return INVALID_PARAMS;
+    }
+
+    (void)status;
+    (void)miner_id;
+
+    //La pulizia viene eseguita soltanto su una conferma valida.
+    if (!valid) {
+        return 0;
+    }
+
+    if (strlen(accepted_hash) != HASH_HEX_SIZE) {
+        return INVALID_HASH;
+    }
+
+    Block *tmp = blockCreate();
+    if (tmp == NULL) {
+        return MEMORY_ERROR;
+    }
 
     pthread_mutex_lock(&miner->lock);
 
-    /* Rimuovo dai pending i blocchi resi obsoleti dalla risposta del nodo.
-     * VALID  : il blocco a block_index e' entrato in catena -> tutto cio' che ha
-     *          index <= block_index e' ormai deciso e non va piu' tenuto.
-     * INVALID: il nostro blocco e' stato rifiutato e la testa reale e' block_index
-     *          -> scarto cio' che sta sopra la testa (index > block_index). */
-    size_t i = 0;
-    BlockState st;
-    poolBlocksGetState(miner->pending_pool, &st);
-    
-    if (st != BLOCK_WAITING) {  // pending pool in stato non valido per essere aggiornata
+    BlockState state;
+
+    int rc = poolBlocksGetState(miner->pending_pool, &state);
+
+    if (rc != 0 || state != BLOCK_WAITING) {
         pthread_mutex_unlock(&miner->lock);
         blockDestroy(tmp);
         return INVALID_PARAMS;
-    } 
-    while (i < miner->pending_pool->count) {
-        uint64_t idx = 0;
-        if (poolBlockGet(miner->pending_pool, tmp, i) == 0
-            && blockGetIndex(tmp, &idx) == 0) {
+    }
 
-            int obsolete = valid ? (idx <= block_index) : (idx > block_index);
-            if (obsolete) {
-                poolBlockRemoveAt(miner->pending_pool, i);
-                continue;   /* non incremento: lo slot i ora contiene l'ultimo blocco spostato */
+    size_t i = 0;
+
+    while (i < miner->pending_pool->count) {
+        uint64_t pending_index = 0;
+        char pending_hash[HASH_HEX_SIZE + 1];
+
+        rc = poolBlockGet( miner->pending_pool, tmp, i);
+
+        if (rc != 0 ||
+            blockGetIndex(tmp, &pending_index) != 0 ||
+            blockGetHash(tmp, pending_hash) != 0) {
+            i++;
+            continue;
+        }
+
+        if (pending_index > block_index) {
+            i++;
+            continue;
+        }
+
+        int is_accepted_block =
+            pending_index == block_index &&
+            strcmp(
+                pending_hash,
+                accepted_hash
+            ) == 0;
+
+        if (!is_accepted_block) {
+            rc = requeue_block_transactions_locked(
+                miner,
+                tmp
+            );
+
+            if (rc != 0) {
+                pthread_mutex_unlock(&miner->lock);
+                blockDestroy(tmp);
+                return rc;
             }
         }
-        i++;
-    }
 
-    /* Allineo la testa della catena a quella autorevole del nodo: il prossimo
-     * blocco verra' minato su (prev_hash, block_index + 1). */
+        //Caso vincitore: rimuove il pending senza recupero.
+        //Caso perdente: il recupero è riuscito, quindi rimuove il pending.
 
-    if (strlen(prev_hash) == HASH_HEX_SIZE) {
-        memcpy(miner->previous_hash, prev_hash, HASH_HEX_SIZE);
-        miner->previous_hash[HASH_HEX_SIZE] = '\0';
-        miner->previous_index = block_index;
+        rc = poolBlockRemoveAt(miner->pending_pool,i);
+
+        if (rc != 0) {
+            pthread_mutex_unlock(&miner->lock);
+            blockDestroy(tmp);
+            return rc;
+        }
     }
+    memcpy(miner->previous_hash, accepted_hash,HASH_HEX_SIZE);
+
+    miner->previous_hash[HASH_HEX_SIZE] = '\0';
+    miner->previous_index = block_index;
 
     pthread_mutex_unlock(&miner->lock);
     blockDestroy(tmp);
@@ -409,14 +487,20 @@ int minerRecoverTransactions(Miner* miner, const char* block_hash, uint64_t    b
         if (idx == block_index && strcmp(hash, block_hash) == 0) {
             found = 1;
 
-            TxList list;
-            if (unpack_transactions(tmp, &list) == 0) {
-                for (size_t t = 0; t < list.count; t++) {
-                    poolPush(miner->transaction_pool, list.strings[t]);
-                }
-            }
+            int rc = requeue_block_transactions_locked(miner,tmp);
 
-            poolBlockRemoveAt(miner->pending_pool, i);
+            if (rc != 0) {
+                pthread_mutex_unlock(&miner->lock);
+                blockDestroy(tmp);
+                return rc;
+            }
+            rc = poolBlockRemoveAt(miner->pending_pool,i);
+            
+            if (rc != 0) {
+                pthread_mutex_unlock(&miner->lock);
+                blockDestroy(tmp);
+                return rc;
+            }
             break;
         }
     }

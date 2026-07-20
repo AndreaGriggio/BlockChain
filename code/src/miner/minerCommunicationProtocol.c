@@ -83,9 +83,6 @@ int receiveBlockFromNode(Miner* miner, MinerStatus* status, int fd) {
     }
     if (red != (ssize_t)sizeof(BlockResponse)) return FIFO_ERROR;
 
-    if (resp.result == BLOCK_RECOVER_TXS) {
-        return minerRecoverTransactions(miner, resp.block_hash, resp.block_index);
-    }
 
     /* result e' un enum: BLOCK_VALID == 0, quindi normalizzo a un booleano */
     int valid = (resp.result == BLOCK_VALID);
@@ -152,7 +149,15 @@ int pollClientTransaction(int listen_fd, Miner* miner, int timeout_ms) {
     if (s <= 0 || !FD_ISSET(listen_fd, &rfds)) return 0;   // timeout o EINTR
 
     int conn_fd = accept(listen_fd, NULL, NULL);
-    if (conn_fd < 0) return SOCKET_ERROR;
+
+    if (conn_fd < 0) {
+        if (errno == EAGAIN ||
+            errno == EWOULDBLOCK ||
+            errno == EINTR) {
+            return 0;
+        }
+        return SOCKET_ERROR;
+    }
 
     int rtx = receiveTransactionFromClient(conn_fd, miner);
     close(conn_fd);

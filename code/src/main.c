@@ -488,6 +488,18 @@ static int createMinersSocket(void) {
         return -1;
     }
 
+    int flags = fcntl(fd, F_GETFL, 0);
+    
+    if (flags < 0 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0) {
+
+        fprintf(stderr,"Errore impostazione O_NONBLOCK "
+            "sul socket miner: %s\n",
+            strerror(errno));
+
+        close(fd);
+        return -1;
+    }
+
     return fd;
 }
 

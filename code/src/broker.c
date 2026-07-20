@@ -21,14 +21,14 @@ static FILE *broker_log = NULL;
 
 #define SEEN_BLOCK_CACHE_SIZE 256
 
-/* Cache circolare degli hash già inoltrati: ogni miner manda lo stesso blocco
- * a tutti i nodi, ma il broker deve broadcastarlo una sola volta. */
+// Cache circolare per evitare n inoltri dello stesso blocco 
 typedef struct {
     char hashes[SEEN_BLOCK_CACHE_SIZE][HASH_HEX_SIZE + 1];
     size_t count;
     size_t next;
 } SeenBlockCache;
 
+//recupero hashcode del blocco da csv_line
 static int block_hash_from_csv(const char *csv_line,
                                char out_hash[HASH_HEX_SIZE + 1]) {
     Block *block = blockCreate();
@@ -55,7 +55,7 @@ static void cache_add(SeenBlockCache *cache, const char *hash) {
     if (cache->count < SEEN_BLOCK_CACHE_SIZE) cache->count++;
 }
 
-/* Scrive un messaggio nel file broker-<pid>.log con newline automatico */
+//funzione per scrivere messaggi di log sul file broker_log
 static void blog(const char *fmt, ...) {
     if (broker_log == NULL) return;
     va_list ap;
@@ -66,6 +66,7 @@ static void blog(const char *fmt, ...) {
     fflush(broker_log);
 }
 
+//cleanup finale
 static void broker_cleanup(int *fd_from_node, int *fd_to_node,
                             pid_t *node_pids, int num_nodes) {
     if (fd_from_node != NULL) {
@@ -117,7 +118,6 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    /* Apre il file di log prima di tutto il resto */
     char logname[64];
     snprintf(logname, sizeof logname, "broker-%d.log", getpid());
     broker_log = fopen(logname, "w");
