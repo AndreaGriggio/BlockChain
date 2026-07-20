@@ -6,8 +6,6 @@
 #include "nodeFIFO.h"
 #include "nodeListener.h"
 #include "nodeValidation.h"
-#include "nodeStatus.h"
-#include "childProcess.h"
 #include "error.h"
 #include "constants.h"
 #include "broker.h"
@@ -199,66 +197,6 @@ int main (int argc, char* argv[]){
     log_msg(ctx, "Avvio node id=%d num_nodes=%d num_miners=%d",
             node_id, num_nodes, num_miners);
 
-    /*
-    NodeStatus contiene lo stato logico del node
-    ovvero non possedendo i blocchi: conserva solo riferimenti e metadati
-    protetti da un mutex
-    */
-
-    ctx->status = nodeCreateStatus();
-    if(ctx->status == NULL) {
-        log_msg(ctx, "ERROR: nodeCreateStatus fallita ");
-        fclose(log_file);
-        ctx->log_file = NULL;
-        nodeContextDestroy(ctx);
-        g_ctx = NULL;
-        return -1;
-    }
-    
-    /*
-    ChildProcess descrive questo processo dal punto di vista logico
-    ovvero pid reale ma id logico e ruolo NODE
-    */
-
-    ChildProcess * cp = childProcessCreate();
-    if (cp == NULL) {
-        log_msg(ctx,"ERROR: childProcessCreate fallita");
-        nodeDestroyStatus(ctx->status);
-        fclose(log_file);
-        ctx->log_file = NULL;
-        nodeContextDestroy(ctx);
-        g_ctx = NULL;
-        return -1;
-    }
-
-    if(childProcessInit(cp,getpid(),node_id,NODE) != 0){
-        log_msg(ctx,"ERROR: childProcessInit fallita");
-        childProcessDestroy(cp);
-        nodeDestroyStatus(ctx->status);
-        fclose(log_file);
-        ctx->log_file = NULL;
-        nodeContextDestroy(ctx);
-        g_ctx = NULL;
-        return INVALID_PARAMS;
-    }
-
-    /*
-    Copio le informazioni del ChildProcess dentro NodeStatus
-    In modo che NodeStatus abbia una copia , e quindi possiamo distruggere cp
-    */
-
-    if (nodeInitStatus(ctx->status, cp, NODE_IDLE, 0) != 0) {
-        log_msg(ctx, "ERROR: nodeInitStatus fallita");
-        childProcessDestroy(cp);
-        nodeDestroyStatus(ctx->status);
-        fclose(log_file);
-        ctx->log_file = NULL;
-        nodeContextDestroy(ctx);
-        g_ctx = NULL;
-        return INVALID_PARAMS;
-    }
-
-    childProcessDestroy(cp);
 
     /* 
     Carico la blockchain iniziale dal CVS condiviso
@@ -267,7 +205,6 @@ int main (int argc, char* argv[]){
 
      if (load_initial_state(ctx, CSV_FILE_NAME) != 0) {
         log_msg(ctx, "ERROR: load_initial_state fallita");
-        nodeDestroyStatus(ctx->status);
         fclose(log_file);
         ctx->log_file = NULL;
         nodeContextDestroy(ctx);
@@ -276,28 +213,11 @@ int main (int argc, char* argv[]){
     }
 
     /*
-    Sincronizzazione di NodeStatus con lo stato caricato da CSV
-    l'ultimo blocco rimane comunque a node.c mentre
-    NodeStatus possiede il puntatore const
-    */
-
-    pthread_mutex_lock(&ctx->chain_mutex);
-    const Block *loaded_last_block = ctx->last_block;
-    uint64_t loaded_chain_length = ctx->chain_length;
-    pthread_mutex_unlock(&ctx->chain_mutex);
-
-    if(loaded_last_block != NULL) {
-        nSSetLastBlock(ctx->status, loaded_last_block);
-    }
-    nSSetChainLength(ctx->status,loaded_chain_length);
-
-    /*
     Creazione del canale di comunicazione node -> Miners    
     */
 
     if(createNodeFifos(ctx,num_miners) != 0){
         log_msg(ctx, "ERROR: createNodeFifos fallita");
-        nodeDestroyStatus(ctx->status);
         if (ctx->last_block != NULL) blockDestroy(ctx->last_block);
         fclose(log_file);
         ctx->log_file = NULL;
@@ -309,7 +229,6 @@ int main (int argc, char* argv[]){
     if (openBrokerFifos(ctx) != 0) {
         log_msg(ctx, "ERROR: openBrokerFifos fallita");
         destroyNodeFifos(ctx, num_miners);
-        nodeDestroyStatus(ctx->status);
         if (ctx->last_block != NULL) blockDestroy(ctx->last_block);
         fclose(log_file);
         ctx->log_file = NULL;
@@ -344,7 +263,6 @@ int main (int argc, char* argv[]){
         log_msg(ctx, "ERROR: pthread_create listener fallita");
         closeBrokerFifos(ctx);
         destroyNodeFifos(ctx,num_miners);
-        nodeDestroyStatus(ctx->status);
         if (ctx->last_block != NULL) blockDestroy(ctx->last_block);
         fclose(log_file);
         ctx->log_file = NULL;
@@ -405,7 +323,6 @@ int main (int argc, char* argv[]){
 
     closeBrokerFifos(ctx);       
     destroyNodeFifos(ctx,num_miners);
-    nodeDestroyStatus(ctx->status);
 
     if (ctx->last_block != NULL) {
         blockDestroy(ctx->last_block);

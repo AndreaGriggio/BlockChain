@@ -10,7 +10,6 @@
 #include <pthread.h>
 
 #include "../block.h"
-#include "nodeStatus.h"
 
 typedef struct NodeContext {
     int node_id;                    /* id logico del node (0-based)              */
@@ -28,8 +27,6 @@ typedef struct NodeContext {
     int   fd_to_broker;
     int   fd_from_broker;
     volatile sig_atomic_t pending_broker;
-    
-    NodeStatus *status;             /* stato condiviso con NodeStatus              */
 
     FILE *log_file;                 /* file di log del processo                    */
 

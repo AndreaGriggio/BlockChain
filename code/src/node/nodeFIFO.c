@@ -4,7 +4,6 @@
 #include "nodeLog.h"
 #include "error.h"
 #include "constants.h"
-#include "childProcess.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,23 +33,11 @@ int createNodeFifos(NodeContext *ctx, int num_miners) {
         ctx->from_miner[i] = -1;
     }
 
-    ChildProcess *cp = childProcessCreate();
-    if (cp == NULL) return -1;
+    int id = ctx->node_id;
 
-    if (ctx->status == NULL) {
-        fprintf(stderr, "NODE: status non inizializzato\n");
-        childProcessDestroy(cp);
-        return -1;
+    if (id < 0) {
+        return INVALID_PARAMS;
     }
-
-    nSGetCPChildProcess(ctx->status, cp);
-
-    int id;
-    if (getCpId(cp, &id) != 0 || id < 0) {
-        childProcessDestroy(cp);
-        return -1;
-    }
-    childProcessDestroy(cp);
 
     for (int i = 0; i < num_miners; i++) {
         char path_to[64];
