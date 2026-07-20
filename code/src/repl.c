@@ -11,7 +11,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include "constants.h"     // MINERS_SOCKET, CSV_FILE_NAME, CSV_SEM_NAME
+#include "constants.h"   
 #include "error.h"
 #include "block.h"
 #include "message.h"       // Message, MSG_NEW_TX, sendMessage

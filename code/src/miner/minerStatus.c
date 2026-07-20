@@ -207,24 +207,6 @@ int mSGetCPChildProcess(MinerStatus *s, ChildProcess *out) {
     return ret;
 }
 
-
-
-/**
- * Imposta in modo thread-safe lo stato del miner (senza segnalare la condvar).
- * @param s Stato del miner da aggiornare
- * @param state Nuovo stato da impostare
- * @return 0 se tutto è andato a buon fine, INVALID_PARAMS se s è NULL
- */
-int mSSetState(MinerStatus *s, MinerState state) {
-    if (s == NULL) return INVALID_PARAMS;
-
-    pthread_mutex_lock(&s->mutex);
-    s->state = state;
-    pthread_mutex_unlock(&s->mutex);
-
-    return 0;
-}
-
 int mSSetBlockState(MinerStatus *s, MinerBlockState state){
     if (s == NULL) return INVALID_PARAMS;
     pthread_mutex_lock(&s->mutex);
@@ -263,24 +245,4 @@ int mSSetAttempts(MinerStatus *s, size_t attempts) {
     pthread_mutex_unlock(&s->mutex);
 
     return 0;
-}
-
-
-/**
- * Copia in modo thread-safe il child process fornito dentro lo stato del miner.
- * @param s Stato del miner da aggiornare
- * @param cp Child process sorgente da copiare nello stato
- * @return 0 se tutto è andato a buon fine, INVALID_PARAMS per parametri nulli o
- *         se lo stato non possiede un child process
- */
-int mSSetCP( MinerStatus *s,const ChildProcess *cp) {
-    if (s == NULL || cp == NULL) return INVALID_PARAMS;
-
-    if (s->cp == NULL) return INVALID_PARAMS;
-
-    pthread_mutex_lock(&s->mutex);
-    int ret = copyCp(cp, s->cp);
-    pthread_mutex_unlock(&s->mutex);
-
-    return ret;
 }

@@ -14,22 +14,6 @@ struct ChildProcess {
     int id;
 };
 
-static const char *roleToString(const Ruolo role) {
-    switch (role) {
-        case CLIENT:
-            return "Client";
-
-        case MINER:
-            return "Miner";
-
-        case NODE:
-            return "Node";
-
-        default:
-            return "Invalid";
-    }
-}
-
 ChildProcess *childProcessCreate(void) {
     return malloc(sizeof(ChildProcess));
 }
@@ -56,43 +40,6 @@ void childProcessDestroy(ChildProcess *child_ptr) {
     }
 
     free(child_ptr);
-}
-
-char *getCpToString(const ChildProcess *child_ptr) {
-    if (child_ptr == NULL) {
-        return NULL;
-    }
-
-    const char *role_str = roleToString(child_ptr->role);
-
-    int buffer_size = snprintf(
-        NULL,
-        0,
-        "ChildProcess { pid: %d, id: %d, role: %s }",
-        child_ptr->pid,
-        child_ptr->id,
-        role_str
-    );
-
-    if (buffer_size < 0) {
-        return NULL;
-    }
-
-    char *buffer = malloc((size_t)buffer_size + 1);
-    if (buffer == NULL) {
-        return NULL;
-    }
-
-    snprintf(
-        buffer,
-        (size_t)buffer_size + 1,
-        "ChildProcess { pid: %d, id: %d, role: %s }",
-        child_ptr->pid,
-        child_ptr->id,
-        role_str
-    );
-
-    return buffer;
 }
 
 int getCpId(const ChildProcess *child_ptr, int *id_ptr) {

@@ -27,9 +27,6 @@
 
 #define MAX_COINS 99
 #define MIN_COINS 1
-#define N_LETTERS 26
-#define N_NUMBERS 10
-#define TOTAL_SUBSETS 3
 
 #define STR_CAP_LETTERS "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 #define STR_LC_LETTERS "abcdefghijklmnopqrstuvwxyz"
@@ -60,8 +57,6 @@
 #define RUNTIME_DIR "./code/tmp"
 
 /* Socket */
-#define NODE_SOCKET           RUNTIME_DIR "/blockchain_node_"
-#define CLIENT_MANAGER_SOCKET RUNTIME_DIR "/client_manager.sock"
 #define MINERS_SOCKET         RUNTIME_DIR "/miners.sock"
 
 /* FIFO miner <-> nodo */

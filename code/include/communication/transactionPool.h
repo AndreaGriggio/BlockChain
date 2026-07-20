@@ -55,13 +55,6 @@ int poolPush(TransactionPool* pool, const char* tx);
  */
 int clearTransactionPool(TransactionPool* pool);
 
-/**
- * Numero di transazioni attualmente nel pool.
- * @param pool pool da interrogare
- * @return count, oppure 0 se pool == NULL
- */
-size_t poolCount(const TransactionPool* pool);
-
 
 /**
  * Libera tutte le transazioni, l'array interno e la struttura stessa.

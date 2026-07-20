@@ -46,36 +46,6 @@ int messageGetSize(const Message *message_ptr, uint32_t *payload_size_ptr) {
     return 0;
 }
 
-int messageGetSenderPid(const Message *message_ptr, int32_t *sender_pid_ptr) {
-    if (message_ptr == NULL || sender_pid_ptr == NULL) {
-        return INVALID_PARAMS;
-    }
-
-    *sender_pid_ptr = message_ptr->sender_pid;
-
-    return 0;
-}
-
-int messageGetSenderId(const Message *message_ptr, uint32_t *sender_id_ptr) {
-    if (message_ptr == NULL || sender_id_ptr == NULL) {
-        return INVALID_PARAMS;
-    }
-
-    *sender_id_ptr = message_ptr->sender_id;
-
-    return 0;
-}
-
-int messageGetSenderRole(const Message *message_ptr, int32_t *sender_role_ptr) {
-    if (message_ptr == NULL || sender_role_ptr == NULL) {
-        return INVALID_PARAMS;
-    }
-
-    *sender_role_ptr = message_ptr->sender_role;
-
-    return 0;
-}
-
 int messageGetPayload(
     const Message *message_ptr,
     char payload[MAX_BLOCK_TXS_BUF + 1],

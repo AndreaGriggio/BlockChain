@@ -357,14 +357,3 @@ int main(int argc, char ** argv) {
     nodeChannelsClose(&channels);
     return 0;
 }
-
-/**
- * Wrapper che inoltra l'esecuzione al main del processo miner (utile per avviare
- * il miner da un launcher esterno).
- * @param argc Numero di argomenti da riga di comando
- * @param argv Argomenti da riga di comando
- * @return Valore di ritorno di main()
- */
-int miner_communication_main(int argc,char * argv[]) {
-    return main(argc,argv);
-}

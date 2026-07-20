@@ -91,24 +91,6 @@ int msGetBlockState(MinerStatus* s, MinerBlockState* out);
 int mSGetAttempts(MinerStatus *status, size_t *out);
 
 
-
-/**
- * Serve per settare il ChildProcess all'interno della struttura MinerStatus
- * @param minerStatus Puntatore Miner status all'interno del quale settare il nuovo cp
- * @param cp cp da settare
- * @return 0 se tutto va bene
- */
-int mSSetCP(MinerStatus* minerStatus, const ChildProcess* cp);
-
-/**
- * Serve per settare lo stato del miner
- * @param status Puntatore dove settare il nuovo stato miner
- * @param state Nuovo stato del miner
- * @return 0 se tutto è andato bene
- */
-int mSSetState(MinerStatus *status, MinerState state);
-
-
 int mSSetBlockState(MinerStatus *s, MinerBlockState state);
 
 /**

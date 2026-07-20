@@ -227,13 +227,7 @@ int blockGetHash(const Block *block_ptr, char out_hash[HASH_HEX_SIZE + 1]) {
 
 
 }
-int blockGetTransaction(const Block * block_ptr, char out[MAX_BLOCK_TXS_BUF+1]) {
-    if (block_ptr == NULL || out == NULL)return INVALID_PARAMS;
 
-    memcpy(out,block_ptr->transactions,sizeof(block_ptr->transactions));
-
-    return 0;
-}
 int blockValidate(const Block *block_ptr, const Block *prev) {
     if (block_ptr == NULL || prev == NULL ) return INVALID_BLOCK;
 
@@ -323,35 +317,6 @@ int blockFromCsv(Block *block_ptr, const char *line) {
 int blockDestroy(Block* block_ptr) {
     if (block_ptr == NULL)return INVALID_PARAMS;
     free(block_ptr);
-    return 0;
-}
-
-int blockAddTransaction(Block *block_ptr, const char transaction[MAX_TX_SIZE + 1]) {
-    if (block_ptr == NULL || transaction == NULL) return INVALID_PARAMS;
-
-    const char* separator = "::";
-
-    const size_t sepLen = strlen(separator);
-    const size_t currentSize = strlen(block_ptr->transactions);
-    const size_t neededSpace = strlen(transaction);
-
-
-
-    if ( neededSpace + sepLen + currentSize> MAX_BLOCK_TXS_BUF)return BUFFER_TOO_SMALL;
-    const int written = snprintf(
-                                 block_ptr->transactions+currentSize,
-                                 MAX_BLOCK_TXS_BUF-currentSize,
-                                 "%s%s",
-                                 separator,
-                                 transaction);
-    if (written < 0 || (size_t)written >= MAX_BLOCK_TXS_BUF-currentSize) return BUFFER_TOO_SMALL;
-    return 0;
-}
-
-int blockKillTransactions(Block *block_ptr) {
-    if (block_ptr == NULL ) return INVALID_PARAMS;
-    block_ptr->transactions[0] = '\0';
-    block_ptr->merkle_root[0] = '\0';
     return 0;
 }
 

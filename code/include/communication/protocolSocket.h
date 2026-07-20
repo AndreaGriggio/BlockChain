@@ -10,8 +10,7 @@
 
 typedef enum {
     MSG_NEW_TX,         //dal client al miner
-    MSG_BLOCK_MINED,    //dal miner al node
-    MSG_PROPAGATE       //da node a node
+    MSG_BLOCK_MINED    //dal miner al node
 }MessageType;
 
 /**

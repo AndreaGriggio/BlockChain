@@ -76,12 +76,6 @@ int clearTransactionPool(TransactionPool* pool) {
     return 0;
 }
 
-size_t poolCount(const TransactionPool* pool) {
-    if (pool == NULL) return 0;
-    return pool->count;
-}
-
-
 
 char* poolRemoveLast(TransactionPool* pool) {
     if (pool == NULL) return NULL;

@@ -55,18 +55,6 @@ int childProcessInit(ChildProcess *child_ptr, pid_t pid, int id, Ruolo role);
 void childProcessDestroy(ChildProcess *child_ptr);
 
 /*
-    Crea una stringa descrittiva del processo.
-
-    Attenzione:
-    chi chiama questa funzione deve fare free() della stringa ritornata.
-
-    Ritorna:
-    - stringa allocata dinamicamente se tutto va bene
-    - NULL in caso di errore
-*/
-char *getCpToString(const ChildProcess *child_ptr);
-
-/*
     Getter dell'id logico del processo.
 */
 int getCpId(const ChildProcess *child_ptr, int *id_ptr);

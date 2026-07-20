@@ -58,7 +58,6 @@ int calcMerkle(char hashes[][MERKLE_ROOT_HEX_SIZE+1],size_t count,char output_me
  */
 int blockGetHash(const Block *block_ptr, char out_hash[HASH_HEX_SIZE + 1]);
 
-int blockGetTransaction(const Block * block_ptr, char out[MAX_BLOCK_TXS_BUF+1]);
 /**
  *
  * @param block_ptr Blocco da validare
@@ -83,20 +82,6 @@ int blockToCsv(const Block *block_ptr, char *buffer, size_t size);
 int blockFromCsv(Block *block_ptr, const char *line);
 int blockDestroy(Block* block_ptr);
 
-/**
- *
- * @param block_ptr Blocco a cui aggiungere transazioni
- * @param transaction transazione da aggiungere
- * @return 0 se tutto è andato a buon fine
- */
-int blockAddTransaction(Block *block_ptr,const char transaction[MAX_TX_SIZE + 1]);
-
-/**
- * Uccide le transazioni che un bloco contiene
- * @param block_ptr Blocco al quale azzerare le transazioni
- * @return 0 se tutto è andato a buon fine
- */
-int blockKillTransactions(Block *block_ptr);
 
 int blockGetMerkleRoot(const Block *block_ptr, char output[MERKLE_ROOT_HEX_SIZE + 1]);
 int blockGetIndex(const Block *block_ptr, uint64_t *index);

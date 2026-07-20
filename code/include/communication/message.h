@@ -49,28 +49,6 @@ int messageGetType(const Message *message_ptr, MessageType* type_ptr);
  * @return 0 se tutto è andato a buon fine
  */
 int messageGetSize(const Message *message_ptr, uint32_t *payload_size_ptr);
-/**
- * Prende il pid del sender di messaggio e lo inserisce all'interno del puntatore di pid
- * @param message_ptr puntatore al messaggio da cui prendere il pid
- * @param sender_pid_ptr puntatore al pid dove viene inserito il pid letto
- * @return 0 se tutto è andato a buon fine
- */
-int messageGetSenderPid(const Message *message_ptr, int32_t *sender_pid_ptr);
-/**
- * Prende l'id del sender di messaggio e lo inserisce all'interno del puntatore id
- * @param message_ptr puntatore al messaggio da cui prendere l' id
- * @param sender_id_ptr puntatore all' id dove viene inserito l' id letto
- * @return 0 se tutto è andato a buon fine
- */
-int messageGetSenderId(const Message *message_ptr, uint32_t *sender_id_ptr);
-
-/**
- * Prende il role del sender di messaggio e lo inserisce all'interno del puntatore role
- * @param message_ptr Puntatore al messaggio da cui prendere il role
- * @param sender_role_ptr puntatore al role dove viene inserito il role del messaggio
- * @return 0 se tutto è andato a buon fine
- */
-int messageGetSenderRole(const Message *message_ptr, int32_t *sender_role_ptr);
 
 /**
  * Prende il payload di messaggio e lo inserisce all'interno del puntatore del payload
