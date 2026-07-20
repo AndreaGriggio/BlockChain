@@ -11,7 +11,6 @@ NodeContext *nodeContextCreate(void) {
 
     ctx->fd_to_broker   = -1;
     ctx->fd_from_broker = -1;
-    ctx->pending_broker = 0;
 
     ctx->last_block   = NULL;
     ctx->chain_length = 0;

@@ -67,8 +67,7 @@ static void blog(const char *fmt, ...) {
 }
 
 //cleanup finale
-static void broker_cleanup(int *fd_from_node, int *fd_to_node,
-                            pid_t *node_pids, int num_nodes) {
+static void broker_cleanup(int *fd_from_node, int *fd_to_node, int num_nodes) {
     if (fd_from_node != NULL) {
         for (int i = 0; i < num_nodes; i++) {
             if (fd_from_node[i] >= 0) {
@@ -87,10 +86,6 @@ static void broker_cleanup(int *fd_from_node, int *fd_to_node,
             }
         }
         free(fd_to_node);
-    }
-
-    if (node_pids != NULL) {
-        free(node_pids);
     }
 
     blog("BROKER: terminato");
@@ -131,20 +126,17 @@ int main(int argc, char *argv[]) {
 
     int   *fd_from_node = malloc(sizeof(int)   * num_nodes);
     int   *fd_to_node   = malloc(sizeof(int)   * num_nodes);
-    pid_t *node_pids    = malloc(sizeof(pid_t) * num_nodes);
 
-    if (fd_from_node == NULL || fd_to_node == NULL || node_pids == NULL) {
+    if (fd_from_node == NULL || fd_to_node == NULL) {
         fprintf(stderr, "BROKER: malloc fallita\n");
         free(fd_from_node);
         free(fd_to_node);
-        free(node_pids);
         return 1;
     }
 
     for (int i = 0; i < num_nodes; i++) {
         fd_from_node[i] = -1;
         fd_to_node[i]   = -1;
-        node_pids[i]    = -1;
     }
 
     for (int i = 0; i < num_nodes; i++) {
@@ -156,7 +148,7 @@ int main(int argc, char *argv[]) {
             if (fd_to_node[i] < 0 && errno != ENXIO && errno != ENOENT) {
                 fprintf(stderr, "BROKER: open %s fallita: %s\n",
                         path, strerror(errno));
-                broker_cleanup(fd_from_node, fd_to_node, node_pids, num_nodes);
+                broker_cleanup(fd_from_node, fd_to_node, num_nodes);
                 return 1;
             }
             if (fd_to_node[i] < 0) usleep(10000);
@@ -174,7 +166,7 @@ int main(int argc, char *argv[]) {
             if (fd_from_node[i] < 0 && errno != ENXIO && errno != ENOENT) {
                 fprintf(stderr, "BROKER: open %s fallita: %s\n",
                         path, strerror(errno));
-                broker_cleanup(fd_from_node, fd_to_node, node_pids, num_nodes);
+                broker_cleanup(fd_from_node, fd_to_node, num_nodes);
                 return 1;
             }
             if (fd_from_node[i] < 0) usleep(10000);
@@ -263,17 +255,6 @@ int main(int argc, char *argv[]) {
                 continue;
             }
 
-            if (node_pids[msg.node_id] == -1 && msg.sender_pid > 0) {
-                node_pids[msg.node_id] = msg.sender_pid;
-                blog("BROKER: registrato PID node_%d = %d",
-                     msg.node_id, (int)msg.sender_pid);
-            }
-
-            if (msg.csv_line[0] == '\0') {
-                blog("BROKER: registrazione da node_%d, nessun broadcast", msg.node_id);
-                continue;
-            }
-
             char block_hash[HASH_HEX_SIZE + 1];
             if (block_hash_from_csv(msg.csv_line, block_hash) != 0) {
                 blog("BROKER ERROR: blocco malformato da node_%d, scartato", msg.node_id);
@@ -321,17 +302,10 @@ int main(int argc, char *argv[]) {
                     }
                     wr += n;
                 }
-
-                if (node_pids[j] > 0) {
-                    if (kill(node_pids[j], SIGUSR1) < 0) {
-                        blog("BROKER: kill(node_%d, SIGUSR1) fallita: %s",
-                             j, strerror(errno));
-                    }
-                }
             }
         }
     }
 
-    broker_cleanup(fd_from_node, fd_to_node, node_pids, num_nodes);
+    broker_cleanup(fd_from_node, fd_to_node, num_nodes);
     return 0;
 }

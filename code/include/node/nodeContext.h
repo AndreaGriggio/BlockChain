@@ -26,7 +26,6 @@ typedef struct NodeContext {
     /* canali broker-node */
     int   fd_to_broker;
     int   fd_from_broker;
-    volatile sig_atomic_t pending_broker;
 
     FILE *log_file;                 /* file di log del processo                    */
 

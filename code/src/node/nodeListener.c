@@ -19,13 +19,6 @@
 void *listener_thread(void *arg) {
     NodeContext *ctx = (NodeContext *)arg;
 
-    /* maschera SIGUSR1 in questo thread: il segnale deve essere
-    * consegnato solo al main thread che è in pause() */
-    sigset_t mask;
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGUSR1);
-    pthread_sigmask(SIG_BLOCK, &mask, NULL);
-
     log_msg(ctx, "Listener thread avviato, ascolto su %d miner", ctx->num_miners);
 
     while (ctx->running) {
@@ -153,7 +146,6 @@ void *listener_thread(void *arg) {
             bmsg.msg_type   = BROKER_MSG_BLOCK;
             bmsg.node_id    = ctx->node_id;
             bmsg.miner_id   = i; 
-            bmsg.sender_pid = getpid();
             strncpy(bmsg.csv_line, csv_line, BLOCK_CSV_LINE_SIZE - 1);
             bmsg.csv_line[BLOCK_CSV_LINE_SIZE - 1] = '\0';
 

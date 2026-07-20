@@ -30,10 +30,6 @@ static void handle_signal(int sig) {
     }
 }
 
-static void handle_sigusr1(int sig) {
-    (void)sig;
-    if (g_ctx != NULL) g_ctx->pending_broker = 1;
-}
 
 static int read_broker_response(NodeContext *ctx, BrokerResponse *resp) {
     if (ctx == NULL || resp == NULL) return -1;
@@ -161,7 +157,6 @@ int main (int argc, char* argv[]){
     ctx->log_file   = log_file;
     ctx->fd_to_broker   = -1;
     ctx->fd_from_broker = -1;
-    ctx->pending_broker = 0;
  
     g_ctx = ctx;
 
@@ -179,17 +174,6 @@ int main (int argc, char* argv[]){
         fprintf(stderr, "NODE %d: sigaction fallita: %s\n",
             node_id,
             strerror(errno));
-        fclose(log_file);
-        return -1;
-    }
-    
-    struct sigaction sa_usr1;
-    sa_usr1.sa_handler = handle_sigusr1;
-    sigemptyset(&sa_usr1.sa_mask);
-    sa_usr1.sa_flags = 0;
-    if (sigaction(SIGUSR1, &sa_usr1, NULL) == -1) {
-        fprintf(stderr, "NODE %d: sigaction SIGUSR1 fallita: %s\n",
-                node_id, strerror(errno));
         fclose(log_file);
         return -1;
     }
@@ -213,7 +197,7 @@ int main (int argc, char* argv[]){
     }
 
     /*
-    Creazione del canale di comunicazione node -> Miners    
+    Creo il canale di comunicazione node -> Miners    
     */
 
     if(createNodeFifos(ctx,num_miners) != 0){
@@ -237,27 +221,9 @@ int main (int argc, char* argv[]){
         return FIFO_ERROR;
     }
 
-    /* registrazione PID al broker: il broker deve conoscere il PID
-    * di tutti i nodi prima di ricevere il primo blocco, altrimenti
-    * non può mandare SIGUSR1 ai nodi che non hanno ancora scritto */
-    BrokerMessage reg;
-    memset(&reg, 0, sizeof(reg));
-    reg.msg_type   = BROKER_MSG_BLOCK;
-    reg.node_id    = ctx->node_id;
-    reg.sender_pid = getpid();
-    reg.csv_line[0] = '\0';   /* stringa vuota: solo registrazione, nessun blocco */
-
-    ssize_t wr = write(ctx->fd_to_broker, &reg, sizeof(BrokerMessage));
-    if (wr != (ssize_t)sizeof(BrokerMessage)) {
-        log_msg(ctx, "ERROR: registrazione PID al broker fallita");
-    } else {
-        log_msg(ctx, "PID registrato al broker");
-    }
-
     /*
     Il thread di comunicazione resta in ascolto sul canale dei miner
     */
-
     pthread_t listener;
     if(pthread_create(&listener, NULL, listener_thread, ctx) != 0){
         log_msg(ctx, "ERROR: pthread_create listener fallita");
