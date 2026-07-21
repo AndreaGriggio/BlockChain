@@ -11,7 +11,8 @@
     Rappresenta il ruolo logico di un processo figlio
     all'interno del sistema blockchain.
 */
-typedef enum Ruolo {
+typedef enum Ruolo
+{
     ROLE_INVALID = -1,
     CLIENT = 0,
     MINER = 1,

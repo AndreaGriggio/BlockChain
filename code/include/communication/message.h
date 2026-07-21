@@ -10,7 +10,8 @@
 /*
  *Struct opaca : impedisce l'accesso ai campi da fuori
  */
-typedef struct message {
+typedef struct message
+{
     MessageType type;
 
     int32_t sender_pid;
@@ -25,7 +26,7 @@ typedef struct message {
  *Alloca memoria per la struct messaggio
  * @return puntatore al messaggio
  */
-Message* messageCreate();
+Message *messageCreate();
 
 /**
  * Inizializza i campi del messaggio
@@ -40,7 +41,7 @@ int messageInit(Message *message_ptr);
  * @param type_ptr puntatore al type dove viene inserito il tipo letto
  * @return 0 se tutto è andato a buon fine
  */
-int messageGetType(const Message *message_ptr, MessageType* type_ptr);
+int messageGetType(const Message *message_ptr, MessageType *type_ptr);
 
 /**
  * Prende il payload di messaggio e lo inserisce all'interno del puntatore del payload
@@ -60,13 +61,13 @@ int messageGetSize(const Message *message_ptr, uint32_t *payload_size_ptr);
 int messageGetPayload(
     const Message *message_ptr,
     char payload[MAX_BLOCK_TXS_BUF + 1],
-    size_t payload_capacity
-);
+    size_t payload_capacity);
 
 int messageSetType(Message *message_ptr, MessageType type);
 int messageSetSender(Message *message_ptr, const ChildProcess *cp_ptr);
 int messageSetPayload(Message *message_ptr, const char *payload_ptr, uint32_t payload_size);
-typedef struct MessageHeader {
+typedef struct MessageHeader
+{
     uint32_t type;
 
     int32_t sender_pid;
@@ -75,7 +76,7 @@ typedef struct MessageHeader {
 
     uint32_t payload_size;
 
-}MessageHeader;
+} MessageHeader;
 
 /**
  * Converte messaggio in byte e li manda sulla socket
@@ -83,7 +84,7 @@ typedef struct MessageHeader {
  * @param message_ptr Messaggio da mandare
  * @return 0 se tutto è andato a buon fine
  */
-int sendMessage(int fd, const Message* message_ptr);
+int sendMessage(int fd, const Message *message_ptr);
 
 /**
  * Riconverte il messaggio e legge dalla socket
@@ -91,5 +92,5 @@ int sendMessage(int fd, const Message* message_ptr);
  * @param message_ptr Messaggio su cui ricevere
  * @return 0 se tutto è andato a buon fine
  */
-int receiveMessage(int fd,Message* message_ptr);
+int receiveMessage(int fd, Message *message_ptr);
 #endif

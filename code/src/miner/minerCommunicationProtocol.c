@@ -1,8 +1,6 @@
 //
 // Created by andrea on 19/06/26.
 //
-
-
 #include "block.h"
 #include "minerCommunicationProtocol.h"
 
@@ -10,7 +8,7 @@
 #include "message.h"
 #include "minerStatus.h"
 #include "protocolSocket.h"
-#include "../utils.h"
+#include "utils.h"
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -28,22 +26,31 @@
  * @return 0 se tutto è andato a buon fine, INVALID_PARAMS per parametri non validi,
  *         FIFO_ERROR in caso di fd non valido o errore di invio
  */
-int sendBlockToNode(Block* block_ptr,MinerStatus* status, int fd) {
-    //Trasformare il blocco in un messaggio da mandare
-    if (block_ptr == NULL || status == NULL )return INVALID_PARAMS;
-    if (fd < 0)return FIFO_ERROR;
+int sendBlockToNode(Block *block_ptr, MinerStatus *status, int fd)
+{
+    // Trasformare il blocco in un messaggio da mandare
+    if (block_ptr == NULL || status == NULL)
+        return INVALID_PARAMS;
+    if (fd < 0)
+        return FIFO_ERROR;
 
-    char payload[BLOCK_CSV_LINE_SIZE+1];
+    char payload[BLOCK_CSV_LINE_SIZE + 1];
 
-    if (blockToCsv(block_ptr,payload,BLOCK_CSV_LINE_SIZE) != 0 )return INVALID_PARAMS;
+    if (blockToCsv(block_ptr, payload, BLOCK_CSV_LINE_SIZE) != 0)
+        return INVALID_PARAMS;
 
-    Message* m = messageCreate();
-    if (m == NULL) return MEMORY_ERROR;
+    Message *m = messageCreate();
+    if (m == NULL)
+        return MEMORY_ERROR;
 
-    ChildProcess* cp = childProcessCreate();
-    if (cp == NULL) { free(m); return MEMORY_ERROR; }
+    ChildProcess *cp = childProcessCreate();
+    if (cp == NULL)
+    {
+        free(m);
+        return MEMORY_ERROR;
+    }
 
-    mSGetCPChildProcess(status,cp);
+    mSGetCPChildProcess(status, cp);
 
     messageInit(m);
     messageSetSender(m, cp);
@@ -54,15 +61,18 @@ int sendBlockToNode(Block* block_ptr,MinerStatus* status, int fd) {
     messageSetPayload(m, payload, (uint32_t)payload_size);
 
     int sm = sendMessage(fd, m);
-    if (sm != 0) {childProcessDestroy(cp);free(m);return FIFO_ERROR;}
-
+    if (sm != 0)
+    {
+        childProcessDestroy(cp);
+        free(m);
+        return FIFO_ERROR;
+    }
 
     childProcessDestroy(cp);
     free(m);
 
     return 0;
 }
-
 
 /**
  * Prende Hash Code id miner_id di un blocco e li utilizza per aggiornare la pendingpool
@@ -71,18 +81,25 @@ int sendBlockToNode(Block* block_ptr,MinerStatus* status, int fd) {
  * @return 0 se tutto è andato a buon fine
  * @note Implementazione ancora da completare.
  */
-int receiveBlockFromNode(Miner* miner, MinerStatus* status, int fd) {
-    if ( miner == NULL || status == NULL || fd < 0 ) return INVALID_PARAMS;
+int receiveBlockFromNode(Miner *miner, MinerStatus *status, int fd)
+{
+    if (miner == NULL || status == NULL || fd < 0)
+        return INVALID_PARAMS;
 
     BlockResponse resp;
     ssize_t red = read(fd, &resp, sizeof(BlockResponse));
 
-    if (red == 0 ){return FIFO_CLOSED;}
-    if (red < 0 ) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK) return FIFO_EMPTY;
+    if (red == 0)
+    {
+        return FIFO_CLOSED;
     }
-    if (red != (ssize_t)sizeof(BlockResponse)) return FIFO_ERROR;
-
+    if (red < 0)
+    {
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+            return FIFO_EMPTY;
+    }
+    if (red != (ssize_t)sizeof(BlockResponse))
+        return FIFO_ERROR;
 
     /* result e' un enum: BLOCK_VALID == 0, quindi normalizzo a un booleano */
     int valid = (resp.result == BLOCK_VALID);
@@ -101,23 +118,28 @@ int receiveBlockFromNode(Miner* miner, MinerStatus* status, int fd) {
  *         INVALID_PARAMS se il messaggio non è valido o non è di tipo MSG_NEW_TX,
  *         INVALID_TRANSACTION se la transazione non supera la validazione
  */
-int receiveTransactionFromClient(int fd,Miner* miner){
-    if (fd < 0) return SOCKET_ERROR;
-    char * tr = NULL;
+int receiveTransactionFromClient(int fd, Miner *miner)
+{
+    if (fd < 0)
+        return SOCKET_ERROR;
+    char *tr = NULL;
 
-    Message* m = messageCreate();
-    if (m == NULL) return INVALID_PARAMS;
+    Message *m = messageCreate();
+    if (m == NULL)
+        return INVALID_PARAMS;
 
     messageInit(m);
 
     int result = receiveMessage(fd, m);
-    if (result != 0) {
+    if (result != 0)
+    {
         free(m);
         return result;
     }
 
     MessageType type;
-    if (messageGetType(m, &type) != 0 || type != MSG_NEW_TX) {
+    if (messageGetType(m, &type) != 0 || type != MSG_NEW_TX)
+    {
         free(m);
         return INVALID_PARAMS;
     }
@@ -125,35 +147,53 @@ int receiveTransactionFromClient(int fd,Miner* miner){
     uint32_t payload_size = 0;
     messageGetSize(m, &payload_size);
 
-    tr = malloc(sizeof(char)*(payload_size+1));
-    if (tr == NULL) { free(m); return MEMORY_ERROR; }
+    tr = malloc(sizeof(char) * (payload_size + 1));
+    if (tr == NULL)
+    {
+        free(m);
+        return MEMORY_ERROR;
+    }
 
     result = messageGetPayload(m, tr, (size_t)(payload_size + 1));
-    if ( result != 0 ) { free(tr); free(m);return SOCKET_ERROR;}
+    if (result != 0)
+    {
+        free(tr);
+        free(m);
+        return SOCKET_ERROR;
+    }
 
-    if (validateTransaction(tr)!= 0) { free(tr); free(m);return INVALID_TRANSACTION;}
+    if (validateTransaction(tr) != 0)
+    {
+        free(tr);
+        free(m);
+        return INVALID_TRANSACTION;
+    }
 
-    result = minerPushTransaction(miner,tr);
+    result = minerPushTransaction(miner, tr);
     free(tr);
     free(m);
     return result;
 }
-int pollClientTransaction(int listen_fd, Miner* miner, int timeout_ms) {
+int pollClientTransaction(int listen_fd, Miner *miner, int timeout_ms)
+{
     fd_set rfds;
     FD_ZERO(&rfds);
     FD_SET(listen_fd, &rfds);
-    struct timeval tv = { .tv_sec = timeout_ms / 1000,
-                          .tv_usec = (timeout_ms % 1000)*1000};
+    struct timeval tv = {.tv_sec = timeout_ms / 1000,
+                         .tv_usec = (timeout_ms % 1000) * 1000};
 
     int s = select(listen_fd + 1, &rfds, NULL, NULL, &tv);
-    if (s <= 0 || !FD_ISSET(listen_fd, &rfds)) return 0;   // timeout o EINTR
+    if (s <= 0 || !FD_ISSET(listen_fd, &rfds))
+        return 0; // timeout o EINTR
 
     int conn_fd = accept(listen_fd, NULL, NULL);
 
-    if (conn_fd < 0) {
+    if (conn_fd < 0)
+    {
         if (errno == EAGAIN ||
             errno == EWOULDBLOCK ||
-            errno == EINTR) {
+            errno == EINTR)
+        {
             return 0;
         }
         return SOCKET_ERROR;

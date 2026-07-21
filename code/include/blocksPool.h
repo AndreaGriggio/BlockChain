@@ -5,45 +5,48 @@
 #ifndef BLOCKSPOOL_H
 #define BLOCKSPOOL_H
 #include "block.h"
-typedef enum BlockState {
+typedef enum BlockState
+{
     BLOCK_CONFIRMED = 1,
     BLOCK_WAITING = 2,
     BLOCK_DISCARDED = 3,
     UNUSED_POOL = 4,
     BLOCKS_FOUND_NOT_FILLED = 5,
-}BlockState;
+} BlockState;
 
-typedef struct BlockHandlingHelper {
-    BlockState* state;
-    Block * block;
-}BlockHandlingHelper;
+typedef struct BlockHandlingHelper
+{
+    BlockState *state;
+    Block *block;
+} BlockHandlingHelper;
 
-typedef struct BlocksPool {
-    Block ** items;
+typedef struct BlocksPool
+{
+    Block **items;
 
     BlockState poolState;
     size_t count;
     size_t capacity;
-}BlocksPool;
+} BlocksPool;
 
-BlocksPool* createBlocksPool(void);
+BlocksPool *createBlocksPool(void);
 
-int initBlocksPool(BlocksPool* pool);
+int initBlocksPool(BlocksPool *pool);
 
-int poolPushBlock(BlocksPool* pool, Block* block);
+int poolPushBlock(BlocksPool *pool, Block *block);
 
-int poolBlockGet(BlocksPool* pool,Block* block,size_t index);
+int poolBlockGet(BlocksPool *pool, Block *block, size_t index);
 
-int clearBlocksPool(BlocksPool* pool);
+int clearBlocksPool(BlocksPool *pool);
 
-int destroyBlocksPool(BlocksPool* pool);
+int destroyBlocksPool(BlocksPool *pool);
 
-int poolBlockRemoveLast(BlocksPool* pool,Block* block,BlockState* b_State);
+int poolBlockRemoveLast(BlocksPool *pool, Block *block, BlockState *b_State);
 
-int poolBlocksSetState(BlocksPool* pool,BlockState state);
+int poolBlocksSetState(BlocksPool *pool, BlockState state);
 
-int poolBlocksGetState(BlocksPool* pool,BlockState* state);
+int poolBlocksGetState(BlocksPool *pool, BlockState *state);
 
-int poolBlockRemoveAt(BlocksPool* pool,size_t index);
+int poolBlockRemoveAt(BlocksPool *pool, size_t index);
 
-#endif //BLOCKSPOOL_H
+#endif // BLOCKSPOOL_H

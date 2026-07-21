@@ -5,22 +5,22 @@
 #ifndef MINERSTATUS_H
 #define MINERSTATUS_H
 
-
 #include <stdint.h>
 
-
 #include "../childProcess.h"
-typedef enum MinerState {
-    MINER_IDLE        = 0,//Non fa mining funziona solo la comunicazione
-    MINER_MINING      = 1,//Fa mining
-    MINER_STOPPED     = 3,//Il thread viene terminato
-    MINER_RESTART     = 4,//fa ripartire il ciclo di mining
-}MinerState;
+typedef enum MinerState
+{
+    MINER_IDLE = 0,    // Non fa mining funziona solo la comunicazione
+    MINER_MINING = 1,  // Fa mining
+    MINER_STOPPED = 3, // Il thread viene terminato
+    MINER_RESTART = 4, // fa ripartire il ciclo di mining
+} MinerState;
 
-typedef enum MinerBlockState {
-    MINER_BLOCK_FOUND     = 1,
+typedef enum MinerBlockState
+{
+    MINER_BLOCK_FOUND = 1,
     MINER_BLOCK_NOT_FOUND = 0,
-}MinerBlockState;
+} MinerBlockState;
 
 typedef struct MinerStatus MinerStatus;
 
@@ -28,13 +28,7 @@ typedef struct MinerStatus MinerStatus;
  *
  * @return Puntatore alla memoria allocata per la struct status
  */
-MinerStatus* minerCreateStatus();
-
-/**
- *
- * @param minerStatus MinerStatus da deallocare
- */
-void minerDestroyStatus(MinerStatus* minerStatus);
+MinerStatus *minerCreateStatus();
 
 /**
  * Serve per scrivere dei valori in maniera corretta all'interno della struct MinerStatus
@@ -45,8 +39,8 @@ void minerDestroyStatus(MinerStatus* minerStatus);
  * @param transaction_count Numero di transazioni contenute all'interno del miner
  * @return
  */
-int minerInitStatus(MinerStatus* minerStatus,
-                    const ChildProcess* cp,
+int minerInitStatus(MinerStatus *minerStatus,
+                    const ChildProcess *cp,
                     MinerState minerstate,
                     size_t nonce_attempts,
                     uint64_t transaction_count);
@@ -80,7 +74,7 @@ int mSGetCPChildProcess(MinerStatus *status, ChildProcess *out);
  * @return 0 se tutto va bene
  */
 int mSGetState(MinerStatus *status, MinerState *out);
-int msGetBlockState(MinerStatus* s, MinerBlockState* out);
+int msGetBlockState(MinerStatus *s, MinerBlockState *out);
 
 /**
  *
@@ -89,7 +83,6 @@ int msGetBlockState(MinerStatus* s, MinerBlockState* out);
  * @return 0 se tutto va bene
  */
 int mSGetAttempts(MinerStatus *status, size_t *out);
-
 
 int mSSetBlockState(MinerStatus *s, MinerBlockState state);
 
@@ -110,4 +103,4 @@ int msSetBlockFoundAndIdle(MinerStatus *s);
  */
 int mSSetAttempts(MinerStatus *status, size_t attempts);
 
-#endif //MINERSTATUS_H
+#endif // MINERSTATUS_H

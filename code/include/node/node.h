@@ -8,4 +8,3 @@
 #include "nodeStatus.h"
 
 #endif // NODE_H
-

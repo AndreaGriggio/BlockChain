@@ -20,14 +20,9 @@
  * @param nonce nonce del blocco
  * @param out stringa in esadecimale del valore big endian dei campi del blocco
  */
-#define BLOCK_TO_HEX_BE(index,timestamp,prev_hash,merkle_root,nonce, out,out_size) \
-snprintf((out),(out_size),\
-        "%016" PRIx64 "%016" PRIx64 "%s%s%016" PRIx64\
-        ,(uint64_t)(index)\
-        ,(uint64_t)(timestamp)\
-        ,(prev_hash)\
-        ,(merkle_root)\
-        ,(uint64_t)(nonce))
+#define BLOCK_TO_HEX_BE(index, timestamp, prev_hash, merkle_root, nonce, out, out_size) \
+        snprintf((out), (out_size),                                                     \
+                 "%016" PRIx64 "%016" PRIx64 "%s%s%016" PRIx64, (uint64_t)(index), (uint64_t)(timestamp), (prev_hash), (merkle_root), (uint64_t)(nonce))
 /**
  * Utilizza l'algoritmo per trovare un Hash Code a 256 bit
  * Poi lo converte in testo utilizzando sprintf
@@ -35,7 +30,7 @@ snprintf((out),(out_size),\
  * @param input_size quanti byte leggere da input
  * @param output buffer dove scrivere l'hash finale come testo
  */
-void sha256_of_string(const unsigned char* input, size_t input_size, char* output);
+void sha256_of_string(const unsigned char *input, size_t input_size, char *output);
 
 /**
  *si occupa di convertire una stringa hesadecimale in un intero a 64 bit
@@ -54,8 +49,7 @@ int parse_uint64_hex(const char *str, uint64_t *out);
  * @param transaction transazione da validare
  * @return 0 se tutto va bene
  */
-int validateTransaction(const char transaction[MAX_TX_SIZE+1]);
-
+int validateTransaction(const char transaction[MAX_TX_SIZE + 1]);
 
 /**
  * Restituisce il timestamp corrente (secondi dall'epoch Unix) come intero a 64 bit.
@@ -72,4 +66,4 @@ uint64_t nowUnix(void);
  * @param max Numero max da generare
  */
 #define NUM_MIN_MAX(min, max) ((rand() % ((max) - (min) + 1)) + (min))
-#endif //PROG_UTILS_H
+#endif // PROG_UTILS_H

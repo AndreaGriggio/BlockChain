@@ -1,17 +1,16 @@
 /* Definizione dei protocolli di comunicazione fra processi tramite l'uso dei socket
-*/
+ */
 
-
-#ifndef  PROTOCOL_SOCKET_
-#define  PROTOCOL_SOCKET_
+#ifndef PROTOCOL_SOCKET_
+#define PROTOCOL_SOCKET_
 #include <sys/socket.h>
 #include <stddef.h>
 
-
-typedef enum {
-    MSG_NEW_TX,         //dal client al miner
-    MSG_BLOCK_MINED    //dal miner al node
-}MessageType;
+typedef enum
+{
+    MSG_NEW_TX,     // dal client al miner
+    MSG_BLOCK_MINED // dal miner al node
+} MessageType;
 
 /**
  *
@@ -30,5 +29,5 @@ int sendAll(int fd, const void *buffer, size_t size);
  * @param size Dimensione del buffer ricevitore dalla socket
  * @return 0 se tutto è andato a buon fine
  */
-int recvAll(int fd, void* buffer, size_t size);
+int recvAll(int fd, void *buffer, size_t size);
 #endif

@@ -8,17 +8,21 @@
 #include <stdlib.h>
 #include <string.h>
 
-BlocksPool* createBlocksPool(void) {
+BlocksPool *createBlocksPool(void)
+{
 
-    BlocksPool* pool = malloc (sizeof(BlocksPool));
-    if ( pool == NULL ) return NULL;
+    BlocksPool *pool = malloc(sizeof(BlocksPool));
+    if (pool == NULL)
+        return NULL;
 
     initBlocksPool(pool);
     return pool;
 }
 
-int initBlocksPool(BlocksPool* pool) {
-    if ( pool == NULL ) return INVALID_PARAMS;
+int initBlocksPool(BlocksPool *pool)
+{
+    if (pool == NULL)
+        return INVALID_PARAMS;
 
     pool->poolState = UNUSED_POOL;
     pool->items = NULL;
@@ -27,92 +31,105 @@ int initBlocksPool(BlocksPool* pool) {
     return 0;
 }
 
-int poolPushBlock(BlocksPool* pool, Block* block) {
-    if (pool == NULL || block == NULL) return INVALID_PARAMS;
+int poolPushBlock(BlocksPool *pool, Block *block)
+{
+    if (pool == NULL || block == NULL)
+        return INVALID_PARAMS;
 
-    if ( pool->count == pool->capacity ) {
+    if (pool->count == pool->capacity)
+    {
         const size_t newCapacity = pool->capacity == 0
-                                    ? POOL_INITIAL_CAPACITY
-                                    : pool->capacity * POOL_GROWTH_FACTOR;
-        Block ** tmp = realloc( pool->items,sizeof(Block *) * newCapacity );
+                                       ? POOL_INITIAL_CAPACITY
+                                       : pool->capacity * POOL_GROWTH_FACTOR;
+        Block **tmp = realloc(pool->items, sizeof(Block *) * newCapacity);
 
-        if ( tmp == NULL ) return MEMORY_ERROR;
+        if (tmp == NULL)
+            return MEMORY_ERROR;
 
-        pool->items = tmp;//<- è una pratica corretta i comportamenti di realloc differiscono in base alla posizione in memoria degli items
+        pool->items = tmp; //<- è una pratica corretta i comportamenti di realloc differiscono in base alla posizione in memoria degli items
         pool->capacity = newCapacity;
-
-
     }
 
-    Block * copy = blockCreate();
+    Block *copy = blockCreate();
 
-    if ( copy == NULL ) return MEMORY_ERROR;
+    if (copy == NULL)
+        return MEMORY_ERROR;
 
-    blockCopy(copy,block);
+    blockCopy(copy, block);
 
     pool->items[pool->count] = copy;
     pool->count++;
 
     return 0;
 }
-int poolBlockGet(BlocksPool* pool,Block* block,size_t index){
-    if ( pool == NULL || block == NULL) return INVALID_PARAMS;
-    if ( index >= pool->count ) return INVALID_PARAMS;
+int poolBlockGet(BlocksPool *pool, Block *block, size_t index)
+{
+    if (pool == NULL || block == NULL)
+        return INVALID_PARAMS;
+    if (index >= pool->count)
+        return INVALID_PARAMS;
 
-    blockCopy(block,pool->items[index]);
+    blockCopy(block, pool->items[index]);
 
     return 0;
 }
 
-int poolBlockRemoveAt(BlocksPool* pool,size_t index) {
-    if (pool == NULL )         return INVALID_PARAMS;
-    if ( index >= pool->count )return INVALID_PARAMS;
+int poolBlockRemoveAt(BlocksPool *pool, size_t index)
+{
+    if (pool == NULL)
+        return INVALID_PARAMS;
+    if (index >= pool->count)
+        return INVALID_PARAMS;
 
     blockDestroy(pool->items[index]);
 
-    pool->count--;                                  //count ora indica l'ultimo elemento valido
-    pool->items[index] = pool->items[pool->count];  //l'ultimo elemento sostituisce quello rimosso (self-assign innocuo se rimuovo l'ultimo)
+    pool->count--;                                 // count ora indica l'ultimo elemento valido
+    pool->items[index] = pool->items[pool->count]; // l'ultimo elemento sostituisce quello rimosso (self-assign innocuo se rimuovo l'ultimo)
     pool->items[pool->count] = NULL;
 
     return 0;
-
 }
 
+int clearBlocksPool(BlocksPool *pool)
+{
+    if (pool == NULL)
+        return INVALID_PARAMS;
 
-
-int clearBlocksPool(BlocksPool* pool) {
-    if (pool == NULL ) return INVALID_PARAMS;
-
-    for (size_t i = 0; i < pool->count; i++ ) {
+    for (size_t i = 0; i < pool->count; i++)
+    {
 
         blockDestroy(pool->items[i]);
         pool->items[i] = NULL;
-
     }
     pool->poolState = UNUSED_POOL;
     pool->count = 0;
     return 0;
 }
 
-int destroyBlocksPool(BlocksPool* pool) {
+int destroyBlocksPool(BlocksPool *pool)
+{
 
-    if (pool == NULL ) return INVALID_PARAMS;
+    if (pool == NULL)
+        return INVALID_PARAMS;
 
     clearBlocksPool(pool);
     free(pool->items);
     free(pool);
     return 0;
-
 }
 
-int poolBlocksSetState(BlocksPool* pool,BlockState state) {
-    if (pool == NULL ) return INVALID_PARAMS;
+int poolBlocksSetState(BlocksPool *pool, BlockState state)
+{
+    if (pool == NULL)
+        return INVALID_PARAMS;
     pool->poolState = state;
     return 0;
 }
 
-int poolBlocksGetState(BlocksPool* pool,BlockState* state) {
-    if (pool == NULL || state == NULL) return INVALID_PARAMS;
+int poolBlocksGetState(BlocksPool *pool, BlockState *state)
+{
+    if (pool == NULL || state == NULL)
+        return INVALID_PARAMS;
     *state = pool->poolState;
     return 0;
 }

@@ -16,4 +16,4 @@
  */
 void log_msg(NodeContext *ctx, const char *fmt, ...);
 
-#endif 
+#endif

@@ -14,5 +14,4 @@
  */
 int validate_merkle(NodeContext *ctx, const Block *block_ptr);
 
-
-#endif 
+#endif

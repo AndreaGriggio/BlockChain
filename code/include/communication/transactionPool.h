@@ -16,17 +16,18 @@
  *  - count    : numero di transazioni attualmente nel pool
  *  - capacity : numero di slot allocati nell'array items
  */
-typedef struct {
-    char ** items;
+typedef struct
+{
+    char **items;
     size_t count;
     size_t capacity;
-}TransactionPool;
+} TransactionPool;
 
 /**
  * Alloca e inizializza un nuovo pool vuoto (count = capacity = 0).
  * @return puntatore al pool, oppure NULL se la malloc fallisce
  */
-TransactionPool* createTransactionPool(void);
+TransactionPool *createTransactionPool(void);
 
 /**
  * Inizializza un pool gia' allocato portandolo allo stato vuoto.
@@ -34,7 +35,7 @@ TransactionPool* createTransactionPool(void);
  * @param pool pool da inizializzare
  * @return 0 se tutto e' andato bene, INVALID_PARAMS se pool == NULL
  */
-int initTransactionPool(TransactionPool* pool);
+int initTransactionPool(TransactionPool *pool);
 
 /**
  * Aggiunge una transazione al pool facendone una COPIA interna.
@@ -44,8 +45,7 @@ int initTransactionPool(TransactionPool* pool);
  * @param tx   stringa della transazione (terminata da '\0')
  * @return 0 se ok, INVALID_PARAMS se argomenti nulli, MEMORY_ERROR se alloc fallisce
  */
-int poolPush(TransactionPool* pool, const char* tx);
-
+int poolPush(TransactionPool *pool, const char *tx);
 
 /**
  * Libera tutte le transazioni e riporta count a 0, mantenendo pero' la
@@ -53,8 +53,7 @@ int poolPush(TransactionPool* pool, const char* tx);
  * @param pool pool da svuotare
  * @return 0 se ok, INVALID_PARAMS se pool == NULL
  */
-int clearTransactionPool(TransactionPool* pool);
-
+int clearTransactionPool(TransactionPool *pool);
 
 /**
  * Libera tutte le transazioni, l'array interno e la struttura stessa.
@@ -62,7 +61,7 @@ int clearTransactionPool(TransactionPool* pool);
  * @param pool pool da distruggere
  * @return 0 se ok, INVALID_PARAMS se pool == NULL
  */
-int destroyTransactionPool(TransactionPool* pool);
-char* poolRemoveLast(TransactionPool* pool);
-TxList* poolTrxCreateList(TransactionPool* pool);
-#endif //TRANSACTIONPOOL_H
+int destroyTransactionPool(TransactionPool *pool);
+char *poolRemoveLast(TransactionPool *pool);
+TxList *poolTrxCreateList(TransactionPool *pool);
+#endif // TRANSACTIONPOOL_H

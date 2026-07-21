@@ -67,4 +67,4 @@ int notify_miner(NodeContext *ctx, int miner_idx,
 void notify_all_miners(NodeContext *ctx,
                        uint64_t block_index, const char *block_hash, BlockValidationResult result);
 
-#endif 
+#endif

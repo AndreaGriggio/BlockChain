@@ -11,31 +11,35 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include "constants.h"   
+#include "constants.h"
 #include "error.h"
 #include "block.h"
-#include "message.h"       // Message, MSG_NEW_TX, sendMessage
+#include "message.h" // Message, MSG_NEW_TX, sendMessage
 #include "childProcess.h"
-#include "utils.h"         // validateTransaction
-
+#include "utils.h" // validateTransaction
 
 /* Con la nuova architettura broker ogni nodo ha il proprio CSV locale.
  * La REPL legge per convenzione quello del nodo 0. */
 #define REPL_CSV_PATH "node_0_blockchain.csv"
 
-// Invia una transazione ai miner su MINERS_SOCKET (come fa il client) 
-static int submit_transaction(const char *tx) {
-    if (tx == NULL || strlen(tx) > MAX_TX_SIZE) return INVALID_TRANSACTION;
+// Invia una transazione ai miner su MINERS_SOCKET (come fa il client)
+static int submit_transaction(const char *tx)
+{
+    if (tx == NULL || strlen(tx) > MAX_TX_SIZE)
+        return INVALID_TRANSACTION;
 
     char buf[MAX_TX_SIZE + 1];
     strncpy(buf, tx, sizeof buf - 1);
     buf[sizeof buf - 1] = '\0';
 
-    if (validateTransaction(buf) != 0) return INVALID_TRANSACTION;
+    if (validateTransaction(buf) != 0)
+        return INVALID_TRANSACTION;
 
     ChildProcess *self = childProcessCreate();
-    if (self == NULL) return MEMORY_ERROR;
-    if (childProcessInit(self, getpid(), 0, CLIENT) != 0) {
+    if (self == NULL)
+        return MEMORY_ERROR;
+    if (childProcessInit(self, getpid(), 0, CLIENT) != 0)
+    {
         childProcessDestroy(self);
         return INVALID_PARAMS;
     }
@@ -52,9 +56,16 @@ static int submit_transaction(const char *tx) {
     addr.sun_path[sizeof addr.sun_path - 1] = '\0';
 
     int fd = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (fd < 0) { childProcessDestroy(self); return SOCKET_ERROR; }
-    if (connect(fd, (struct sockaddr *)&addr, sizeof addr) < 0) {
-        close(fd); childProcessDestroy(self); return SOCKET_ERROR;
+    if (fd < 0)
+    {
+        childProcessDestroy(self);
+        return SOCKET_ERROR;
+    }
+    if (connect(fd, (struct sockaddr *)&addr, sizeof addr) < 0)
+    {
+        close(fd);
+        childProcessDestroy(self);
+        return SOCKET_ERROR;
     }
 
     int rc = sendMessage(fd, &message);
@@ -63,30 +74,45 @@ static int submit_transaction(const char *tx) {
     return rc;
 }
 
-// Legge il CSV del nodo 0 e stampa i blocchi richiesti 
-static int request_blocks(const char *what, const char *flag, const char *val) {
-    int single   = (strcmp(what, "block") == 0);
+// Legge il CSV del nodo 0 e stampa i blocchi richiesti
+static int request_blocks(const char *what, const char *flag, const char *val)
+{
+    int single = (strcmp(what, "block") == 0);
     int by_index = (flag != NULL && strcmp(flag, "--index") == 0);
-    int by_hash  = (flag != NULL && strcmp(flag, "--hash")  == 0);
+    int by_hash = (flag != NULL && strcmp(flag, "--hash") == 0);
 
-    if (single && flag == NULL)                return INVALID_PARAMS;
-    if (flag != NULL && !by_index && !by_hash) return INVALID_PARAMS;
-    if ((by_index || by_hash) && val == NULL)  return INVALID_PARAMS;
+    if (single && flag == NULL)
+        return INVALID_PARAMS;
+    if (flag != NULL && !by_index && !by_hash)
+        return INVALID_PARAMS;
+    if ((by_index || by_hash) && val == NULL)
+        return INVALID_PARAMS;
 
     uint64_t want_index = by_index ? strtoull(val, NULL, 10) : 0;
 
     FILE *f = fopen(REPL_CSV_PATH, "r");
-    if (f == NULL) return CSV_ERROR;
+    if (f == NULL)
+        return CSV_ERROR;
 
     char line[BLOCK_CSV_LINE_SIZE];
     int header = 1, started = 0, found = 0;
 
-    while (fgets(line, sizeof line, f) != NULL) {
-        if (header) { header = 0; continue; }
+    while (fgets(line, sizeof line, f) != NULL)
+    {
+        if (header)
+        {
+            header = 0;
+            continue;
+        }
 
         Block *b = blockCreate();
-        if (b == NULL) break;
-        if (blockFromCsv(b, line) != 0) { blockDestroy(b); continue; }
+        if (b == NULL)
+            break;
+        if (blockFromCsv(b, line) != 0)
+        {
+            blockDestroy(b);
+            continue;
+        }
 
         uint64_t idx = 0;
         char hash[HASH_HEX_SIZE + 1];
@@ -95,16 +121,33 @@ static int request_blocks(const char *what, const char *flag, const char *val) {
         blockDestroy(b);
 
         int match = 0;
-        if (flag == NULL) {
+        if (flag == NULL)
+        {
             match = 1;
-        } else if (by_index) {
+        }
+        else if (by_index)
+        {
             match = single ? (idx == want_index) : (idx >= want_index);
-        } else {
-            if (single) match = (strcmp(hash, val) == 0);
-            else { if (!started && strcmp(hash, val) == 0) started = 1; match = started; }
+        }
+        else
+        {
+            if (single)
+                match = (strcmp(hash, val) == 0);
+            else
+            {
+                if (!started && strcmp(hash, val) == 0)
+                    started = 1;
+                match = started;
+            }
         }
 
-        if (match) { fputs(line, stdout); found = 1; if (single) break; }
+        if (match)
+        {
+            fputs(line, stdout);
+            found = 1;
+            if (single)
+                break;
+        }
     }
 
     fclose(f);
@@ -112,12 +155,18 @@ static int request_blocks(const char *what, const char *flag, const char *val) {
 }
 
 // Copia il CSV del nodo 0 nel file richiesto
-static int save_blockchain(const char *dst) {
+static int save_blockchain(const char *dst)
+{
     FILE *src = fopen(REPL_CSV_PATH, "r");
-    if (src == NULL) return CSV_ERROR;
+    if (src == NULL)
+        return CSV_ERROR;
 
     FILE *out = fopen(dst, "w");
-    if (out == NULL) { fclose(src); return CSV_ERROR; }
+    if (out == NULL)
+    {
+        fclose(src);
+        return CSV_ERROR;
+    }
 
     /* copia header */
     fprintf(out, "index,timestamp,prev_hash,merkle_root,nonce,transactions\n");
@@ -129,70 +178,99 @@ static int save_blockchain(const char *dst) {
     /* salta l'header del sorgente */
     fgets(buffer, sizeof buffer, src);
 
-    while ((n = fread(buffer, 1, sizeof buffer, src)) > 0) {
-        if (fwrite(buffer, 1, n, out) != n) { rc = CSV_ERROR; break; }
+    while ((n = fread(buffer, 1, sizeof buffer, src)) > 0)
+    {
+        if (fwrite(buffer, 1, n, out) != n)
+        {
+            rc = CSV_ERROR;
+            break;
+        }
     }
-    if (ferror(src)) rc = CSV_ERROR;
+    if (ferror(src))
+        rc = CSV_ERROR;
 
     fclose(src);
     fclose(out);
     return rc;
 }
 
-void repl_run(pid_t child_pgid, volatile sig_atomic_t *running) {
+void repl_run(pid_t child_pgid, volatile sig_atomic_t *running)
+{
     char line[512];
     printf("> ");
     fflush(stdout);
 
-    while (*running && fgets(line, sizeof line, stdin) != NULL) {
+    while (*running && fgets(line, sizeof line, stdin) != NULL)
+    {
 
         line[strcspn(line, "\n")] = '\0';
 
         char *cmd = strtok(line, " ");
-        if (cmd == NULL) { printf("> "); fflush(stdout); continue; }
+        if (cmd == NULL)
+        {
+            printf("> ");
+            fflush(stdout);
+            continue;
+        }
 
-        if (strcmp(cmd, "pause") == 0) {
+        if (strcmp(cmd, "pause") == 0)
+        {
             killpg(child_pgid, SIGSTOP);
             printf("Sistema in pausa\n");
-
-        } else if (strcmp(cmd, "resume") == 0) {
+        }
+        else if (strcmp(cmd, "resume") == 0)
+        {
             killpg(child_pgid, SIGCONT);
             printf("Sistema ripreso\n");
-
-        } else if (strcmp(cmd, "submit") == 0) {
+        }
+        else if (strcmp(cmd, "submit") == 0)
+        {
             char *arg = strtok(NULL, "");
-            if (arg == NULL) {
+            if (arg == NULL)
+            {
                 printf("Uso: submit \"Mittente pays Destinatario N coins\"\n");
-            } else {
-                if (*arg == '"') arg++;
+            }
+            else
+            {
+                if (*arg == '"')
+                    arg++;
                 size_t alen = strlen(arg);
-                if (alen > 0 && arg[alen - 1] == '"') arg[alen - 1] = '\0';
+                if (alen > 0 && arg[alen - 1] == '"')
+                    arg[alen - 1] = '\0';
                 if (submit_transaction(arg) == 0)
                     printf("Transazione inviata: %s\n", arg);
                 else
                     printf("Transazione rifiutata (malformata o invio fallito)\n");
             }
-
-        } else if (strcmp(cmd, "save") == 0) {
-            char *what  = strtok(NULL, " ");
+        }
+        else if (strcmp(cmd, "save") == 0)
+        {
+            char *what = strtok(NULL, " ");
             char *fname = strtok(NULL, " ");
-            if (what == NULL || strcmp(what, "blockchain") != 0 || fname == NULL) {
+            if (what == NULL || strcmp(what, "blockchain") != 0 || fname == NULL)
+            {
                 printf("Uso: save blockchain <filename>\n");
-            } else {
+            }
+            else
+            {
                 if (save_blockchain(fname) == 0)
                     printf("Blockchain salvata in %s\n", fname);
                 else
                     printf("Salvataggio fallito\n");
             }
-
-        } else if (strcmp(cmd, "request") == 0) {
+        }
+        else if (strcmp(cmd, "request") == 0)
+        {
             char *what = strtok(NULL, " ");
             char *flag = strtok(NULL, " ");
-            char *val  = strtok(NULL, " ");
+            char *val = strtok(NULL, " ");
             if (what == NULL ||
-                (strcmp(what, "blockchain") != 0 && strcmp(what, "block") != 0)) {
+                (strcmp(what, "blockchain") != 0 && strcmp(what, "block") != 0))
+            {
                 printf("Uso: request blockchain [--index <i> | --hash <h>]  |  request block --index <i> | --hash <h>\n");
-            } else {
+            }
+            else
+            {
                 int r = request_blocks(what, flag, val);
                 if (r == INVALID_PARAMS)
                     printf("Uso: request blockchain [--index <i> | --hash <h>]  |  request block --index <i> | --hash <h>\n");
@@ -201,12 +279,14 @@ void repl_run(pid_t child_pgid, volatile sig_atomic_t *running) {
                 else if (r != 0)
                     printf("Errore nella request (codice %d)\n", r);
             }
-
-        } else if (strcmp(cmd, "stop") == 0) {
+        }
+        else if (strcmp(cmd, "stop") == 0)
+        {
             *running = 0;
             break;
-
-        } else {
+        }
+        else
+        {
             printf("Comando sconosciuto: %s\n", cmd);
         }
 

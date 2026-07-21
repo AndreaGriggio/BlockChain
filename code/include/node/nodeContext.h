@@ -11,25 +11,26 @@
 
 #include "../block.h"
 
-typedef struct NodeContext {
-    int node_id;                    /* id logico del node (0-based)              */
-    int num_nodes;                  /* numero totale di node nel sistema         */
-    int num_miners;                 /* numero totale di miner nel sistema        */
+typedef struct NodeContext
+{
+    int node_id;    /* id logico del node (0-based)              */
+    int num_nodes;  /* numero totale di node nel sistema         */
+    int num_miners; /* numero totale di miner nel sistema        */
 
-    Block          *last_block;     /* puntatore all'ultimo blocco accettato   */
-    uint64_t        chain_length;   /* numero di blocchi nella chain locale    */
-    pthread_mutex_t chain_mutex;    /* protegge last_block e chain_length      */
+    Block *last_block;           /* puntatore all'ultimo blocco accettato   */
+    uint64_t chain_length;       /* numero di blocchi nella chain locale    */
+    pthread_mutex_t chain_mutex; /* protegge last_block e chain_length      */
 
-    int *to_miner;                  /* fd di scrittura node→miner (uno per miner) */
-    int *from_miner;                /* fd di lettura  miner→node  (uno per miner) */
+    int *to_miner;   /* fd di scrittura node→miner (uno per miner) */
+    int *from_miner; /* fd di lettura  miner→node  (uno per miner) */
 
     /* canali broker-node */
-    int   fd_to_broker;
-    int   fd_from_broker;
+    int fd_to_broker;
+    int fd_from_broker;
 
-    FILE *log_file;                 /* file di log del processo                    */
+    FILE *log_file; /* file di log del processo                    */
 
-    volatile sig_atomic_t running;  /* messo a 0 da SIGTERM/SIGINT             */
+    volatile sig_atomic_t running; /* messo a 0 da SIGTERM/SIGINT             */
 
 } NodeContext;
 
@@ -37,5 +38,4 @@ NodeContext *nodeContextCreate(void);
 
 void nodeContextDestroy(NodeContext *ctx);
 
-#endif 
-
+#endif

@@ -10,11 +10,12 @@
  * Possiede gli array dei descrittori: vanno aperti con nodeChannelsOpen() e
  * rilasciati con nodeChannelsClose().
  */
-typedef struct {
-    int *to_node;    /* descrittori di scrittura miner->nodo (uno per nodo) */
-    int *from_node;  /* descrittori di lettura  nodo->miner (uno per nodo)  */
-    int  num_nodes;  /* numero di nodi gestiti                              */
-    int  miner_id;   /* id del miner, usato per comporre i path delle FIFO  */
+typedef struct
+{
+    int *to_node;   /* descrittori di scrittura miner->nodo (uno per nodo) */
+    int *from_node; /* descrittori di lettura  nodo->miner (uno per nodo)  */
+    int num_nodes;  /* numero di nodi gestiti                              */
+    int miner_id;   /* id del miner, usato per comporre i path delle FIFO  */
 } NodeChannels;
 
 /**
@@ -37,4 +38,4 @@ int nodeChannelsOpen(NodeChannels *ch, int num_nodes, int miner_id);
  */
 void nodeChannelsClose(NodeChannels *ch);
 
-#endif //MINERFIFO_H
+#endif // MINERFIFO_H

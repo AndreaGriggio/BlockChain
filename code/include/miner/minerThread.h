@@ -14,9 +14,10 @@
  * Argomenti passati al thread di mining. La struttura deve restare viva per tutta
  * la durata del thread (il thread la usa dopo l'avvio).
  */
-typedef struct MiningThreadArgs {
-    Miner*       miner;
-    MinerStatus* status;
+typedef struct MiningThreadArgs
+{
+    Miner *miner;
+    MinerStatus *status;
 } MiningThreadArgs;
 
 /**
@@ -43,6 +44,6 @@ int minerThreadStop(MinerStatus *status, const pthread_t *thread);
  */
 int minerThreadRestart(MinerStatus *status);
 
-int minerThreadMine(MinerStatus * status);
+int minerThreadMine(MinerStatus *status);
 
-#endif //MINERTHREAD_H
+#endif // MINERTHREAD_H

@@ -9,27 +9,30 @@
 
 #include "utils.h"
 
-
-
 #include "error.h"
 #include "constants.h"
-void sha256_of_string(const unsigned char* input,const size_t input_size, char* output){
+void sha256_of_string(const unsigned char *input, const size_t input_size, char *output)
+{
     unsigned char raw_hash[SHA256_DIGEST_LENGHT];
 
-    SHA256(input,input_size,raw_hash);
+    SHA256(input, input_size, raw_hash);
 
-    for (int i = 0; i < SHA256_DIGEST_LENGHT; i++) {
-        snprintf(output+i*2,3,"%02x",raw_hash[i]);//conversione binario -> esadecimale
+    for (int i = 0; i < SHA256_DIGEST_LENGHT; i++)
+    {
+        snprintf(output + i * 2, 3, "%02x", raw_hash[i]); // conversione binario -> esadecimale
     }
-    output[HASH_HEX_SIZE]='\0';
+    output[HASH_HEX_SIZE] = '\0';
 }
-uint64_t nowUnix(void){
+uint64_t nowUnix(void)
+{
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
     return (uint64_t)ts.tv_sec;
 }
-int parse_uint64_hex(const char *str, uint64_t *out){
-    if (str == NULL || out == NULL) {
+int parse_uint64_hex(const char *str, uint64_t *out)
+{
+    if (str == NULL || out == NULL)
+    {
         return INVALID_PARAMS;
     }
 
@@ -38,21 +41,25 @@ int parse_uint64_hex(const char *str, uint64_t *out){
     char *endptr = NULL;
     const unsigned long long value = strtoull(str, &endptr, 16);
 
-    if (errno == ERANGE) {
+    if (errno == ERANGE)
+    {
         return INVALID_PARAMS;
     }
 
-    if (endptr == str || *endptr != '\0') {
+    if (endptr == str || *endptr != '\0')
+    {
         return INVALID_PARAMS;
     }
 
     *out = (uint64_t)value;
     return 0;
 }
-int validateTransaction(const char transaction[MAX_TX_SIZE+1]) {
+int validateTransaction(const char transaction[MAX_TX_SIZE + 1])
+{
     regex_t re;
-    int ret = regcomp(&re, "^[A-Za-z0-9]+ pays [A-Za-z0-9]+ [1-9][0-9]* coins$",REG_EXTENDED);
-    if (ret != 0) return INVALID_TRANSACTION;
+    int ret = regcomp(&re, "^[A-Za-z0-9]+ pays [A-Za-z0-9]+ [1-9][0-9]* coins$", REG_EXTENDED);
+    if (ret != 0)
+        return INVALID_TRANSACTION;
 
     ret = regexec(&re, transaction, 0, NULL, 0);
     regfree(&re);

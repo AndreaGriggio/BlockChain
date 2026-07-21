@@ -3,10 +3,12 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <time.h>
-#include <unistd.h>   // getpid()
+#include <unistd.h> // getpid()
 
-void log_msg(NodeContext *ctx, const char *fmt, ...) {
-    if (ctx == NULL || ctx->log_file == NULL) return;
+void log_msg(NodeContext *ctx, const char *fmt, ...)
+{
+    if (ctx == NULL || ctx->log_file == NULL)
+        return;
 
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);

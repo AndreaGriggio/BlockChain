@@ -1,8 +1,8 @@
 #ifndef REPL_H
 #define REPL_H
 
-#include <signal.h>      // sig_atomic_t
-#include <sys/types.h>   // pid_t
+#include <signal.h>    // sig_atomic_t
+#include <sys/types.h> // pid_t
 
 /*
  REPL del bootstrap: legge i comandi dell'utente da stdin

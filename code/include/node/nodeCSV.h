@@ -39,4 +39,4 @@ int commit_block_to_local_csv(NodeContext *ctx, Block *new_block);
  */
 int load_initial_state(NodeContext *ctx, const char *csv_path);
 
-#endif 
+#endif

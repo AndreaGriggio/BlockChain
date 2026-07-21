@@ -16,15 +16,18 @@
  * @param arg Puntatore a MiningThreadArgs con miner e status
  * @return Sempre NULL
  */
-static void* minerMining_Thread_Entry_point(void* arg) {
-    MiningThreadArgs* args = (MiningThreadArgs*)arg;
+static void *minerMining_Thread_Entry_point(void *arg)
+{
+    MiningThreadArgs *args = (MiningThreadArgs *)arg;
     minerMiningLoop(args->miner,
                     args->status);
     return NULL;
 }
 
-int minerThreadStart(pthread_t *thread, MiningThreadArgs *args) {
-    if (thread == NULL || args == NULL) return INVALID_PARAMS;
+int minerThreadStart(pthread_t *thread, MiningThreadArgs *args)
+{
+    if (thread == NULL || args == NULL)
+        return INVALID_PARAMS;
 
     return pthread_create(thread,
                           NULL,
@@ -32,24 +35,29 @@ int minerThreadStart(pthread_t *thread, MiningThreadArgs *args) {
                           args);
 }
 
-int minerThreadStop(MinerStatus *status, const pthread_t *thread) {
-    if (status == NULL || thread == NULL) return INVALID_PARAMS;
+int minerThreadStop(MinerStatus *status, const pthread_t *thread)
+{
+    if (status == NULL || thread == NULL)
+        return INVALID_PARAMS;
 
     msSignal(status, MINER_STOPPED);
     pthread_join(*thread, NULL);
     return 0;
 }
 
-
-int minerThreadRestart(MinerStatus *status) {
-    if (status == NULL) return INVALID_PARAMS;
+int minerThreadRestart(MinerStatus *status)
+{
+    if (status == NULL)
+        return INVALID_PARAMS;
 
     msSignal(status, MINER_RESTART);
     return 0;
 }
-int minerThreadMine(MinerStatus *status) {
-    if (status == NULL) return INVALID_PARAMS;
+int minerThreadMine(MinerStatus *status)
+{
+    if (status == NULL)
+        return INVALID_PARAMS;
 
-    msSignal(status,MINER_MINING);
+    msSignal(status, MINER_MINING);
     return 0;
 }

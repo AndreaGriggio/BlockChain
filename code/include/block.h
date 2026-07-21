@@ -4,7 +4,7 @@
 #include <stdint.h> // per uint64_t
 #include "constants.h"
 
-//definite per evitare problemi di dimensioni con le FIFO
+// definite per evitare problemi di dimensioni con le FIFO
 #define BLOCK_CSV_FIXED_CHARS \
     (UINT64_TO_CHAR_SIZE * 3 + HASH_HEX_SIZE * 2 + 5)
 
@@ -12,7 +12,8 @@
     (MAX_BLOCK_TXS_BUF + BLOCK_CSV_FIXED_CHARS)
 typedef struct Block Block;
 
-typedef struct {
+typedef struct
+{
     size_t count;
     char strings[MAX_TX_PER_BLOCK][MAX_TX_SIZE];
 } TxList;
@@ -21,14 +22,14 @@ typedef struct {
  * Alloca memoria per un blocco
  * @return block_ptr
  */
-Block* blockCreate();
+Block *blockCreate();
 /**
  *
  * @param block_ptr puntatore al blocco
  * @param index indice del blocco
  * @param timestamp timestamp del blocco
  * @param prev_hash hashcode blocco precedente
- * @param nonce nonce del blocco 
+ * @param nonce nonce del blocco
  * @param txs lista di transazioni
  * @return stato dell'operazione
  */
@@ -36,11 +37,11 @@ int blockInit(
     Block *block_ptr,
     uint64_t index,
     uint64_t timestamp,
-    const char prev_hash[HASH_HEX_SIZE+1],
+    const char prev_hash[HASH_HEX_SIZE + 1],
     uint64_t nonce,
     const TxList *txs);
 
-int blockGetmerkle(const Block *block_ptr,char output_merkle[MERKLE_ROOT_HEX_SIZE + 1]);
+int blockGetmerkle(const Block *block_ptr, char output_merkle[MERKLE_ROOT_HEX_SIZE + 1]);
 /**
  *La funzione prende in input 0 < n < 30 Hashcodes e ritorna il merkle root degli hashcode
  * @param hashes Hashcodes delle transazioni in base 16 convertiti con sha256_of_string()
@@ -48,7 +49,7 @@ int blockGetmerkle(const Block *block_ptr,char output_merkle[MERKLE_ROOT_HEX_SIZ
  * @param output_merkle Puntatore all'output merkle dove verrà inserito il risulatato finale
  * @return 0 se tutto è andato a buon fine
  */
-int calcMerkle(char hashes[][MERKLE_ROOT_HEX_SIZE+1],size_t count,char output_merkle[MERKLE_ROOT_HEX_SIZE+1]);
+int calcMerkle(char hashes[][MERKLE_ROOT_HEX_SIZE + 1], size_t count, char output_merkle[MERKLE_ROOT_HEX_SIZE + 1]);
 
 /**
  *
@@ -80,16 +81,13 @@ int blockToCsv(const Block *block_ptr, char *buffer, size_t size);
  * @return 0 se tutto è andato a buon fine
  */
 int blockFromCsv(Block *block_ptr, const char *line);
-int blockDestroy(Block* block_ptr);
-
+int blockDestroy(Block *block_ptr);
 
 int blockGetMerkleRoot(const Block *block_ptr, char output[MERKLE_ROOT_HEX_SIZE + 1]);
 int blockGetIndex(const Block *block_ptr, uint64_t *index);
 
-int blockCopy(Block* dst, const Block* src);
+int blockCopy(Block *dst, const Block *src);
 int pack_transactions(Block *block_ptr, const TxList *list);
 int unpack_transactions(const Block *block_ptr, TxList *list);
 
-
-
-#endif //BLOCK_H
+#endif // BLOCK_H

@@ -8,22 +8,27 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-struct ChildProcess {
+struct ChildProcess
+{
     pid_t pid;
     Ruolo role;
     int id;
 };
 
-ChildProcess *childProcessCreate(void) {
+ChildProcess *childProcessCreate(void)
+{
     return malloc(sizeof(ChildProcess));
 }
 
-int childProcessInit(ChildProcess *child_ptr, pid_t pid, int id, Ruolo role) {
-    if (child_ptr == NULL) {
+int childProcessInit(ChildProcess *child_ptr, pid_t pid, int id, Ruolo role)
+{
+    if (child_ptr == NULL)
+    {
         return INVALID_PARAMS;
     }
 
-    if (pid < 0 || id < 0 || role == ROLE_INVALID) {
+    if (pid < 0 || id < 0 || role == ROLE_INVALID)
+    {
         return INVALID_PARAMS;
     }
 
@@ -34,16 +39,20 @@ int childProcessInit(ChildProcess *child_ptr, pid_t pid, int id, Ruolo role) {
     return 0;
 }
 
-void childProcessDestroy(ChildProcess *child_ptr) {
-    if (child_ptr == NULL) {
+void childProcessDestroy(ChildProcess *child_ptr)
+{
+    if (child_ptr == NULL)
+    {
         return;
     }
 
     free(child_ptr);
 }
 
-int getCpId(const ChildProcess *child_ptr, int *id_ptr) {
-    if (child_ptr == NULL || id_ptr == NULL) {
+int getCpId(const ChildProcess *child_ptr, int *id_ptr)
+{
+    if (child_ptr == NULL || id_ptr == NULL)
+    {
         return INVALID_PARAMS;
     }
 
@@ -52,8 +61,10 @@ int getCpId(const ChildProcess *child_ptr, int *id_ptr) {
     return 0;
 }
 
-int getCpPid(const ChildProcess *child_ptr, pid_t *pid_ptr) {
-    if (child_ptr == NULL || pid_ptr == NULL) {
+int getCpPid(const ChildProcess *child_ptr, pid_t *pid_ptr)
+{
+    if (child_ptr == NULL || pid_ptr == NULL)
+    {
         return INVALID_PARAMS;
     }
 
@@ -62,8 +73,10 @@ int getCpPid(const ChildProcess *child_ptr, pid_t *pid_ptr) {
     return 0;
 }
 
-int getCpRole(const ChildProcess *child_ptr, Ruolo *role_ptr) {
-    if (child_ptr == NULL || role_ptr == NULL) {
+int getCpRole(const ChildProcess *child_ptr, Ruolo *role_ptr)
+{
+    if (child_ptr == NULL || role_ptr == NULL)
+    {
         return INVALID_PARAMS;
     }
 
@@ -72,8 +85,10 @@ int getCpRole(const ChildProcess *child_ptr, Ruolo *role_ptr) {
     return 0;
 }
 
-int copyCp(const ChildProcess *src_ptr, ChildProcess *dest_ptr) {
-    if (src_ptr == NULL || dest_ptr == NULL) {
+int copyCp(const ChildProcess *src_ptr, ChildProcess *dest_ptr)
+{
+    if (src_ptr == NULL || dest_ptr == NULL)
+    {
         return INVALID_PARAMS;
     }
 
