@@ -9,6 +9,14 @@
 #include "minerStatus.h"
 typedef struct Miner Miner;
 
+// struct per migliorare i log
+typedef struct
+{
+    int own_block_won;
+    size_t losers_removed;
+    size_t tx_requeued;
+} MinerCleanupStats;
+
 /**
  * Alloca la struttura di miner
  * @return puntatore al malloc
@@ -45,7 +53,7 @@ int minerPopMinedBlock(Miner *miner, Block **block_ptr);
  */
 int minerMiningLoop(Miner *miner, MinerStatus *status);
 
-int minerCleanBlocksPool(Miner *miner, MinerStatus *status, const char *prev_hash, int valid, int miner_id, uint64_t block_index);
+int minerCleanBlocksPool(Miner *miner, MinerStatus *status, const char *prev_hash, int valid, int miner_id, uint64_t block_index, MinerCleanupStats *stats_out);
 
 int minerRecoverTransactions(Miner *miner, const char *block_hash, uint64_t block_index);
 

@@ -393,8 +393,14 @@ int minerMiningLoop(Miner *miner, MinerStatus *status)
     return 0;
 }
 
-int minerCleanBlocksPool(Miner *miner, MinerStatus *status, const char *accepted_hash, int valid, int miner_id, uint64_t block_index)
+int minerCleanBlocksPool(Miner *miner, MinerStatus *status, const char *accepted_hash, int valid, int miner_id, uint64_t block_index, MinerCleanupStats *stats_out)
 {
+    if (stats_out != NULL)
+    {
+        stats_out->own_block_won = 0;
+        stats_out->losers_removed = 0;
+        stats_out->tx_requeued = 0;
+    }
     if (miner == NULL || status == NULL || accepted_hash == NULL)
     {
         return INVALID_PARAMS;
@@ -462,20 +468,33 @@ int minerCleanBlocksPool(Miner *miner, MinerStatus *status, const char *accepted
                 pending_hash,
                 accepted_hash) == 0;
 
-        if (!is_accepted_block)
+        if (is_accepted_block)
         {
-            rc = requeue_block_transactions_locked(
-                miner,
-                tmp);
+            if (stats_out != NULL)
+                stats_out->own_block_won = 1;
+        }
+        else
+        {
+            // conta le transazioni PRIMA di richiamarle (serve solo per il numero da loggare)
+            TxList lost_txs;
+            size_t lost_tx_count = 0;
+            if (unpack_transactions(tmp, &lost_txs) == 0)
+                lost_tx_count = lost_txs.count;
 
+            rc = requeue_block_transactions_locked(miner, tmp); 
             if (rc != 0)
             {
                 pthread_mutex_unlock(&miner->lock);
                 blockDestroy(tmp);
                 return rc;
             }
-        }
 
+            if (stats_out != NULL)
+            {
+                stats_out->losers_removed++;
+                stats_out->tx_requeued += lost_tx_count;
+            }
+        }
         // Caso vincitore: rimuove il pending senza recupero.
         // Caso perdente: il recupero è riuscito, quindi rimuove il pending.
 

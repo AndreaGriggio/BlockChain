@@ -81,7 +81,7 @@ int sendBlockToNode(Block *block_ptr, MinerStatus *status, int fd)
  * @return 0 se tutto è andato a buon fine
  * @note Implementazione ancora da completare.
  */
-int receiveBlockFromNode(Miner *miner, MinerStatus *status, int fd)
+int receiveBlockFromNode(Miner *miner, MinerStatus *status, int fd, MinerCleanupStats *stats_out)
 {
     if (miner == NULL || status == NULL || fd < 0)
         return INVALID_PARAMS;
@@ -107,7 +107,7 @@ int receiveBlockFromNode(Miner *miner, MinerStatus *status, int fd)
     /* block_hash e' un buffer fisso dentro la struct: lo passo direttamente,
      * niente malloc. Aggiorna pending pool + testa della catena. */
     return minerCleanBlocksPool(miner, status, resp.block_hash, valid,
-                                resp.miner_id, resp.block_index);
+                                resp.miner_id, resp.block_index, stats_out);
 }
 /**
  * Riceve un messaggio MSG_NEW_TX dal client, ne estrae e valida la transazione e

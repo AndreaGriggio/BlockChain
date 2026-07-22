@@ -176,7 +176,8 @@ static int receiveBlockFromNodes(Miner *miner, MinerStatus *status)
     for (int i = 0; i < num_nodes; i++)
     {
 
-        res[i] = receiveBlockFromNode(miner, status, channels.from_node[i]);
+        MinerCleanupStats stats; 
+        res[i] = receiveBlockFromNode(miner, status, channels.from_node[i], &stats);
         if (res[i] == INVALID_PARAMS)
         {
             return INVALID_PARAMS;
@@ -184,6 +185,10 @@ static int receiveBlockFromNodes(Miner *miner, MinerStatus *status)
         if (res[i] == 0)
         {
             mlog("Conferma ricevuta dal nodo %d", i);
+            if (stats.own_block_won)
+                mlog("Il mio blocco pendente e' stato accettato dalla rete");
+            if (stats.losers_removed > 0)
+                mlog("Blocco perdente scartato: %zu transazione/i recuperata/e in coda (blocchi pendenti persi=%zu)", stats.tx_requeued, stats.losers_removed);
             one_block_returned = 1;
         }
         if (res[i] == FIFO_EMPTY || res[i] == FIFO_ERROR || res[i] == FIFO_CLOSED)
