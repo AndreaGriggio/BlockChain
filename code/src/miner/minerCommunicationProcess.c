@@ -182,7 +182,10 @@ static int receiveBlockFromNodes(Miner *miner, MinerStatus *status)
             return INVALID_PARAMS;
         } // viene terminato il processo di invio se uno è sbagliato lo sono tutti
         if (res[i] == 0)
+        {
+            mlog("Conferma ricevuta dal nodo %d", i);
             one_block_returned = 1;
+        }
         if (res[i] == FIFO_EMPTY || res[i] == FIFO_ERROR || res[i] == FIFO_CLOSED)
         {
             continue;
@@ -333,6 +336,7 @@ int main(int argc, char **argv)
         {
             if (minerPopMinedBlock(miner, &block) == 0 && block != NULL)
             {
+                mlog("Blocco minato, avvio invio ai nodi");
                 char new_hash[HASH_HEX_SIZE + 1];
                 uint64_t new_index = 0;
 
@@ -392,7 +396,10 @@ int main(int argc, char **argv)
         }
 
         if (receiveBlockFromNodes(miner, status) == 1)
+        {
+            mlog("Riavvio mining dopo conferma da un nodo");
             minerThreadRestart(status);
+        }
     }
 
     close(fd_socket);
