@@ -253,6 +253,7 @@ int blockValidate(const Block *block_ptr, const Block *prev)
         return INVALID_BLOCK;
 
     char prev_hash[HASH_HEX_SIZE + 1];
+
     if (blockGetHash(prev, prev_hash) != 0)
         return INVALID_BLOCK;
 
@@ -260,7 +261,11 @@ int blockValidate(const Block *block_ptr, const Block *prev)
     {
         return 0;
     }
-    return INVALID_BLOCK;
+    if(blockptr->index > prev->index + 1)
+    {
+        return BLOCK_TOO_FAR;
+    }
+    return CHAIN_MISMATCH;
 }
 
 int blockToCsv(const Block *block_ptr, char *buffer, const size_t size)

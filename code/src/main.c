@@ -330,12 +330,40 @@ static int verify_csv_chain(const char *path)
             // Blocco successivo: collegato al precedente (indice +1 e prev_hash)
             if (blockValidate(b, prev) != 0)
             {
-                fprintf(stderr, "CSV iniziale: blocco %llu non collegato al precedente\n",
-                        (unsigned long long)idx);
+                fprintf(stderr, "CSV iniziale: blocco %llu non collegato al precedente\n",(unsigned long long)idx);
                 blockDestroy(b);
                 blockDestroy(prev);
                 fclose(f);
                 return CHAIN_MISMATCH;
+            }
+
+                // Ogni transazione dei blocchi non-genesis deve rispettare il formato
+
+                TxList txs;
+            if (unpack_transactions(b, &txs) != 0)
+            {
+                fprintf(stderr, "CSV iniziale: blocco %llu con transazioni malformate\n",(unsigned long long)idx);
+                blockDestroy(b);
+                blockDestroy(prev);
+                fclose(f);
+                return INVALID_TRANSACTION;
+            }
+
+            for (size_t i = 0; i < txs.count; i++)            
+            {
+                char tx_buf[MAX_TX_SIZE + 1];
+                strncpy(tx_buf, txs.strings[i], MAX_TX_SIZE);
+                tx_buf[MAX_TX_SIZE] = '\0';
+
+                if (validateTransaction(tx_buf) != 0)
+                {
+                    fprintf(stderr,
+                    "CSV iniziale: blocco %llu contiene una transazione fuori formato ('%s')\n",(unsigned long long)idx, tx_buf);
+                    blockDestroy(b);
+                    blockDestroy(prev);
+                    fclose(f);
+                    return INVALID_TRANSACTION;
+                }
             }
         }
 
@@ -604,8 +632,14 @@ static void handle_signal(int sig)
 static void handle_sigchld(int sig)
 {
     (void)sig;
-    while (waitpid(-1, NULL, WNOHANG) > 0)
+    int status;
+    pid_t pid;
+    while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
     {
+        if (pid == child_pgid && running)
+        {
+            fprintf(stderr,"\n Il Broker (pid=%d) è entrato in errore",(int)pid);
+        }
     }
 }
 
