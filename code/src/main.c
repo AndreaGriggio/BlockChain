@@ -97,6 +97,24 @@ static int parseArgs(int argc, char *argv[], BootstrapConfig *cfg)
         return INVALID_PARAMS;
     }
 
+    if (cfg->num_nodes > MAX_NODE_COUNT)
+    {
+        fprintf(stderr, "Errore: num_nodes non può superare %d.\n", MAX_NODE_COUNT);
+        return INVALID_PARAMS;
+    }
+    
+    if (cfg->num_miners > MAX_MINER_COUNT)
+    {
+        fprintf(stderr, "Errore: num_miners non può superare %d.\n", MAX_MINER_COUNT);
+        return INVALID_PARAMS;
+    }
+
+    if (cfg->num_clients > MAX_CLIENT_COUNT)
+    {
+        fprintf(stderr, "Errore: num_clients non può superare %d.\n", MAX_CLIENT_COUNT);
+        return INVALID_PARAMS;
+    }
+
     if (cfg->transactions_frequency <= 0)
     {
         fprintf(stderr, "Errore: transactions_frequency non è valida\n");

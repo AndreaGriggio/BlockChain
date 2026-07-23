@@ -66,4 +66,6 @@
 
 // argoments constants
 #define MAX_NODE_COUNT 100
+#define MAX_MINER_COUNT 100
+#define MAX_CLIENT_COUNT 100
 #endif
