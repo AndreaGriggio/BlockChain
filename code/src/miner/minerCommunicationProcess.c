@@ -13,7 +13,7 @@
 
 #include <sys/un.h>
 #include <sys/socket.h>
-#include <sys/select.h>
+#include <sys/select.h>        
 #include <time.h>
 
 #include "childProcess.h"
@@ -324,12 +324,8 @@ int main(int argc, char **argv)
     while (running)
     {
 
-        /* La pausa/ripresa del sistema avviene via SIGSTOP/SIGCONT mandati al
-         * process group dalla REPL: sono gestiti dal kernel (non intercettabili),
-         * quindi qui non serve alcuna logica applicativa di sospensione. */
-
         /* ---- lavoro normale ----
-         * Una connessione = una transazione (il client fa connect->send->close).
+         * Una connessione = una transazione.
          * select con timeout per restare responsivi verso mining e nodi. */
         int rtx = pollClientTransaction(fd_socket, miner, FIFO_WAIT_MS);
         if (rtx != 0)

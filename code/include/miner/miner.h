@@ -45,6 +45,12 @@ int minerAddBlockToPending(Miner *miner, Block *block);
 int minerRequeueBlockTransactions(Miner *miner, const Block *block);
 
 int minerPopMinedBlock(Miner *miner, Block **block_ptr);
+
+/*
+ * Scarta il blocco minato non ancora consumato recuperandone le transazioni
+ * nella pool. No-op se non c'e' un blocco in sospeso.
+ */
+int minerDiscardMinedBlock(Miner *miner);
 /**
  * Loop che continua finchè non trova un nuovo blocco o viene esternamente interrotto
  * @param miner Puntatore al miner che inizierà a provare valori di nonce finchè non ne trova uno appropriato per il nuovo blocco

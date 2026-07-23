@@ -265,6 +265,32 @@ int minerPopMinedBlock(Miner *miner, Block **block_ptr)
 
     return 0;
 }
+
+/**
+ * Scarta il blocco minato non ancora consumato recuperandone le transazioni nella
+ * pool prima di distruggerlo. Usata quando il miner riparte (o comunque abbandona
+ * un blocco pronto) per non perdere transazioni valide. No-op se non c'e' un
+ * blocco minato in sospeso.
+ * @param miner Miner da cui scartare il blocco minato
+ * @return 0 se tutto e' andato a buon fine (anche se non c'era nulla da scartare),
+ *         INVALID_PARAMS se miner e' NULL
+ */
+int minerDiscardMinedBlock(Miner *miner)
+{
+    if (miner == NULL)
+        return INVALID_PARAMS;
+
+    pthread_mutex_lock(&miner->lock);
+    if (miner->mined_block != NULL)
+    {
+        requeue_block_transactions_locked(miner, miner->mined_block);
+        blockDestroy(miner->mined_block);
+        miner->mined_block = NULL;
+    }
+    pthread_mutex_unlock(&miner->lock);
+
+    return 0;
+}
 /**
  * Simula un singolo tentativo di mining: la probabilità di successo dipende
  * dalla difficoltà richiesta.
@@ -298,10 +324,14 @@ static int minerCreateBlock(Miner *miner, Block **new, u_int64_t nonce)
         return MEMORY_ERROR;
 
     pthread_mutex_lock(&miner->lock);
-    // Libero un eventuale blocco precedente non ancora consumato per evitare leak
+    // Libero un eventuale blocco precedente non ancora consumato: prima di
+    // distruggerlo recupero le sue transazioni nella pool, altrimenti andrebbero
+    // perse (poolTrxCreateList le aveva gia' rimosse dalla pool per costruirlo).
     if (miner->mined_block != NULL)
     {
+        requeue_block_transactions_locked(miner, miner->mined_block);
         blockDestroy(miner->mined_block);
+        miner->mined_block = NULL;
     }
     // Collego il blocco ma non lo riempio non ho le informazioni
     miner->mined_block = b;
@@ -347,8 +377,11 @@ int minerMiningLoop(Miner *miner, MinerStatus *status)
         MinerState s;
         mSGetState(status, &s);
         mSSetBlockState(status, MINER_BLOCK_NOT_FOUND);
-        if (s == MINER_STOPPED)
-            break;
+
+        minerDiscardMinedBlock(miner);
+
+        if (s == MINER_STOPPED)break;
+        
         if (s == MINER_RESTART)
         {
             msSignal(status, MINER_MINING);
