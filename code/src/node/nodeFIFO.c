@@ -84,10 +84,7 @@ int createNodeFifos(NodeContext *ctx, int num_miners)
             return -1;
         }
 
-        /* La scrittura verso il miner deve essere non bloccante: se il miner
-           crasha o smette di leggere, la FIFO si riempie e una write bloccante
-           bloccherebbe il thread del nodo. Con O_NONBLOCK la write ritorna
-           EAGAIN e notify_miner conteggia il fallimento. */
+
         int fl = fcntl(ctx->to_miner[i], F_GETFL, 0);
         if (fl < 0 || fcntl(ctx->to_miner[i], F_SETFL, fl | O_NONBLOCK) < 0)
         {
@@ -168,8 +165,7 @@ int notify_miner(NodeContext *ctx, int miner_idx,
     if (ctx->to_miner[miner_idx] < 0)
         return -1;
 
-    /* Miner già dichiarato irraggiungibile: non tentiamo più la write, così
-       il nodo non spreca tempo né rischia di bloccarsi sulla sua FIFO. */
+    /* Miner già dichiarato irraggiungibile non viene ricontattato*/
     if (ctx->miner_reachable != NULL && ctx->miner_reachable[miner_idx] == 0)
         return -1;
 
@@ -186,9 +182,7 @@ int notify_miner(NodeContext *ctx, int miner_idx,
         resp.block_hash[HASH_HEX_SIZE] = '\0';
     }
 
-    /* Write non bloccante: sizeof(BlockResponse) <= PIPE_BUF, quindi su una
-       FIFO la scrittura è atomica (tutto o niente). Se il buffer è pieno
-       perché il miner non legge, otteniamo EAGAIN invece di bloccarci. */
+    /* Write non bloccante */
     ssize_t written = write(ctx->to_miner[miner_idx],
                             &resp, sizeof(BlockResponse));
 
@@ -213,7 +207,7 @@ int notify_miner(NodeContext *ctx, int miner_idx,
         return -1;
     }
 
-    /* Write riuscita: il miner sta leggendo, azzeriamo il contatore. */
+    /* azzeriamo il contatore. */
     ctx->miner_write_fails[miner_idx] = 0;
 
     log_msg(ctx, "Notificato miner %d: block_index=%llu hash=%s result=%s",
