@@ -19,14 +19,21 @@ int createNodeFifos(NodeContext *ctx, int num_miners)
 {
     ctx->to_miner = (int *)malloc(sizeof(int) * num_miners);
     ctx->from_miner = (int *)malloc(sizeof(int) * num_miners);
+    ctx->miner_reachable = (int *)malloc(sizeof(int) * num_miners);
+    ctx->miner_write_fails = (int *)malloc(sizeof(int) * num_miners);
 
-    if (ctx->to_miner == NULL || ctx->from_miner == NULL)
+    if (ctx->to_miner == NULL || ctx->from_miner == NULL ||
+        ctx->miner_reachable == NULL || ctx->miner_write_fails == NULL)
     {
         fprintf(stderr, "NODE: malloc fd arrays fallita\n");
         free(ctx->to_miner);
         free(ctx->from_miner);
+        free(ctx->miner_reachable);
+        free(ctx->miner_write_fails);
         ctx->to_miner = NULL;
         ctx->from_miner = NULL;
+        ctx->miner_reachable = NULL;
+        ctx->miner_write_fails = NULL;
         return -1;
     }
 
@@ -34,6 +41,8 @@ int createNodeFifos(NodeContext *ctx, int num_miners)
     {
         ctx->to_miner[i] = -1;
         ctx->from_miner[i] = -1;
+        ctx->miner_reachable[i] = 1;
+        ctx->miner_write_fails[i] = 0;
     }
 
     int id = ctx->node_id;
@@ -71,6 +80,18 @@ int createNodeFifos(NodeContext *ctx, int num_miners)
         if (fcntl(ctx->to_miner[i], F_SETPIPE_SZ, PIPE_BUF) < 0)
         {
             fprintf(stderr, "NODE %d: fcntl to_miner[%d] fallita: %s\n",
+                    id, i, strerror(errno));
+            return -1;
+        }
+
+        /* La scrittura verso il miner deve essere non bloccante: se il miner
+           crasha o smette di leggere, la FIFO si riempie e una write bloccante
+           bloccherebbe il thread del nodo. Con O_NONBLOCK la write ritorna
+           EAGAIN e notify_miner conteggia il fallimento. */
+        int fl = fcntl(ctx->to_miner[i], F_GETFL, 0);
+        if (fl < 0 || fcntl(ctx->to_miner[i], F_SETFL, fl | O_NONBLOCK) < 0)
+        {
+            fprintf(stderr, "NODE %d: fcntl O_NONBLOCK to_miner[%d] fallita: %s\n",
                     id, i, strerror(errno));
             return -1;
         }
@@ -128,6 +149,11 @@ void destroyNodeFifos(NodeContext *ctx, int num_miners)
         free(ctx->from_miner);
         ctx->from_miner = NULL;
     }
+
+    free(ctx->miner_reachable);
+    ctx->miner_reachable = NULL;
+    free(ctx->miner_write_fails);
+    ctx->miner_write_fails = NULL;
 }
 
 int notify_miner(NodeContext *ctx, int miner_idx,
@@ -140,6 +166,11 @@ int notify_miner(NodeContext *ctx, int miner_idx,
     if (miner_idx < 0 || miner_idx >= ctx->num_miners)
         return -1;
     if (ctx->to_miner[miner_idx] < 0)
+        return -1;
+
+    /* Miner già dichiarato irraggiungibile: non tentiamo più la write, così
+       il nodo non spreca tempo né rischia di bloccarsi sulla sua FIFO. */
+    if (ctx->miner_reachable != NULL && ctx->miner_reachable[miner_idx] == 0)
         return -1;
 
     BlockResponse resp;
@@ -155,14 +186,35 @@ int notify_miner(NodeContext *ctx, int miner_idx,
         resp.block_hash[HASH_HEX_SIZE] = '\0';
     }
 
+    /* Write non bloccante: sizeof(BlockResponse) <= PIPE_BUF, quindi su una
+       FIFO la scrittura è atomica (tutto o niente). Se il buffer è pieno
+       perché il miner non legge, otteniamo EAGAIN invece di bloccarci. */
     ssize_t written = write(ctx->to_miner[miner_idx],
                             &resp, sizeof(BlockResponse));
 
     if (written != sizeof(BlockResponse))
     {
-        log_msg(ctx, "ERROR: notify_miner %d fallita", miner_idx);
+        ctx->miner_write_fails[miner_idx]++;
+        log_msg(ctx,
+                "WARN: notify_miner %d fallita (%d/%d) errno=%s",
+                miner_idx,
+                ctx->miner_write_fails[miner_idx],
+                MINER_MAX_WRITE_FAILS,
+                strerror(errno));
+
+        if (ctx->miner_write_fails[miner_idx] >= MINER_MAX_WRITE_FAILS)
+        {
+            ctx->miner_reachable[miner_idx] = 0;
+            log_msg(ctx,
+                    "ERROR: miner %d dichiarato IRRAGGIUNGIBILE dopo %d write fallite, "
+                    "smetto di scrivere sulla sua FIFO",
+                    miner_idx, MINER_MAX_WRITE_FAILS);
+        }
         return -1;
     }
+
+    /* Write riuscita: il miner sta leggendo, azzeriamo il contatore. */
+    ctx->miner_write_fails[miner_idx] = 0;
 
     log_msg(ctx, "Notificato miner %d: block_index=%llu hash=%s result=%s",
             miner_idx,

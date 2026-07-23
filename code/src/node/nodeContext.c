@@ -20,6 +20,8 @@ NodeContext *nodeContextCreate(void)
 
     ctx->to_miner = NULL;
     ctx->from_miner = NULL;
+    ctx->miner_reachable = NULL;
+    ctx->miner_write_fails = NULL;
 
     ctx->log_file = NULL;
     ctx->running = 1;

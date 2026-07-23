@@ -40,6 +40,10 @@
 #define MAX_SLEEPING_TIME 5
 #define MIN_SLEEPING_TIME 1
 
+// Numero di write consecutive fallite (FIFO piena / miner che non legge)
+// dopo cui il nodo dichiara il miner irraggiungibile e smette di scrivergli.
+#define MINER_MAX_WRITE_FAILS 5
+
 // transaction pool constants
 #define POOL_INITIAL_CAPACITY 16 // slot allocati alla prima push
 #define POOL_GROWTH_FACTOR 2     // fattore di crescita quando il pool è pieno

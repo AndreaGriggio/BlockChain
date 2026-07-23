@@ -24,6 +24,14 @@ typedef struct NodeContext
     int *to_miner;   /* fd di scrittura node→miner (uno per miner) */
     int *from_miner; /* fd di lettura  miner→node  (uno per miner) */
 
+    /* Stato di raggiungibilità per-miner: se un miner crasha o smette di
+       leggere la sua FIFO, il buffer si riempie e la write fallirebbe con
+       EAGAIN (fd in O_NONBLOCK). Dopo MINER_MAX_WRITE_FAILS fallimenti
+       consecutivi il miner viene marcato irraggiungibile e il nodo smette
+       di scrivergli, evitando il blocco del thread. */
+    int *miner_reachable;   /* 1 = raggiungibile, 0 = dichiarato morto     */
+    int *miner_write_fails; /* write consecutive fallite verso quel miner  */
+
     /* canali broker-node */
     int fd_to_broker;
     int fd_from_broker;

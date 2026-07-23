@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Codici di errore 
+# Codici di errore — allineati a code/include/error.h (0 = successo)
 readonly E_CHAIN_MISMATCH=1
 readonly E_INVALID_TRANSACTION=2
 readonly E_INVALID_BLOCK=4
 readonly E_INVALID_HASH=5
+readonly E_INVALID_PARAMS=6
 readonly E_INVALID_MERKLE=10
 readonly E_BLOCK_TOO_FAR=11
 readonly E_CSV_ERROR=12
@@ -236,11 +237,13 @@ cmd_verify() {
     done
 
     if (( errors > 0 )); then
-        echo "Verifica fallita: $errors errore/i su $block_num blocchi"
+        echo "Verifica fallita: $errors errore/i su $block_num blocchi" >&2
+        echo "[ESITO] verify FALLITO (exit=$E_INVALID_BLOCK): la blockchain NON e' valida" >&2
         return "$E_INVALID_BLOCK"
     fi
 
     echo "Catena valida: $block_num blocchi"
+    echo "[ESITO] verify OK (exit=0): la blockchain e' valida"
     return 0
 }
 
@@ -251,33 +254,33 @@ usage() {
 
 if [[ $# -lt 1 ]]; then
     usage
-    exit 1
+    exit "$E_INVALID_PARAMS"
 fi
 
 case "$1" in
     --merkle)
         if [[ $# -ne 2 ]]; then
             usage
-            exit 1
+            exit "$E_INVALID_PARAMS"
         fi
         cmd_merkle "$2"
         ;;
     --hash)
         if [[ $# -ne 2 ]]; then
             usage
-            exit 1
+            exit "$E_INVALID_PARAMS"
         fi
         cmd_hash "$2"
         ;;
     --verify)
         if [[ $# -ne 2 ]]; then
             usage
-            exit 1
+            exit "$E_INVALID_PARAMS"
         fi
         cmd_verify "$2"
         ;;
     *)
         usage
-        exit 1
+        exit "$E_INVALID_PARAMS"
         ;;
 esac
