@@ -261,7 +261,7 @@ int blockValidate(const Block *block_ptr, const Block *prev)
     {
         return 0;
     }
-    if(blockptr->index > prev->index + 1)
+    if(block_ptr->index > prev->index + 1)
     {
         return BLOCK_TOO_FAR;
     }
