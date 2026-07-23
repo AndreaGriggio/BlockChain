@@ -86,7 +86,7 @@ int minerInitStatus(MinerStatus *s,
 
     if (copyCp(cp, s->cp) != 0)
         return INVALID_PARAMS;
-
+    
     pthread_mutex_lock(&s->mutex);
     s->state = state;
     s->nonce_attempts = nonce_attempts;
@@ -251,3 +251,14 @@ int mSSetAttempts(MinerStatus *s, size_t attempts)
 
     return 0;
 }
+
+int mSDestroy(MinerStatus *status){
+    if (status == NULL) return INVALID_PARAMS;
+
+    pthread_mutex_destroy(&status->mutex);
+    pthread_cond_destroy(&status->cond);
+    childProcessDestroy(status->cp);
+    free(status);
+    return 0;
+}
+

@@ -128,6 +128,8 @@ static int init(Miner **miner, char prev_hash[HASH_HEX_SIZE + 1], uint64_t prev_
 
     minerInitStatus(status, childProcess, MINER_IDLE, 0, 0);
 
+    childProcessDestroy(childProcess);
+
     /* L'id del miner serve a comporre i path delle FIFO verso i nodi. */
     int miner_id = id;
 
@@ -406,7 +408,8 @@ int main(int argc, char **argv)
             minerThreadRestart(status);
         }
     }
-
+    minerDestroy(miner);
+    mSDestroy(status);
     close(fd_socket);
     minerThreadStop(status, &mining_thread);
     nodeChannelsClose(&channels);

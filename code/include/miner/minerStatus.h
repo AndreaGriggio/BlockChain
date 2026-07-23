@@ -103,4 +103,10 @@ int msSetBlockFoundAndIdle(MinerStatus *s);
  */
 int mSSetAttempts(MinerStatus *status, size_t attempts);
 
+/**
+ * Serve per  distruggere lo status del miner
+ * @param status Puntatore allo status del miner da distruggere
+ * @return 0 se tutto va bene
+ */
+int mSDestroy(MinerStatus *status);
 #endif // MINERSTATUS_H

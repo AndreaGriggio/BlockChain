@@ -57,4 +57,5 @@ int minerCleanBlocksPool(Miner *miner, MinerStatus *status, const char *prev_has
 
 int minerRecoverTransactions(Miner *miner, const char *block_hash, uint64_t block_index);
 
+int minerDestroy(Miner* miner);
 #endif // PROGETTO_MINER_H

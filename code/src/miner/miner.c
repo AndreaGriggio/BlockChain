@@ -571,3 +571,18 @@ int minerRecoverTransactions(Miner *miner, const char *block_hash, uint64_t bloc
         return BLOCK_NOT_FOUND;
     return 0;
 }
+
+int minerDestroy(Miner* miner){
+    if ( miner == NULL ) return INVALID_PARAMS;
+
+    pthread_mutex_lock(&miner->lock);
+
+    destroyBlocksPool(miner->pending_pool);
+    destroyTransactionPool(miner->transaction_pool);
+   
+    if (miner->mined_block != NULL) blockDestroy(miner->mined_block);
+    pthread_mutex_unlock(&miner->lock);
+    pthread_mutex_destroy(&miner->lock);
+    free(miner);
+    return 0;
+}
